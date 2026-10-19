@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+temp/
+*.log
+.vscode/
+*.xlsx
+*.csv
+app/static/covers/*.jpg
+app/static/covers/*.png
+!app/static/covers/cdn_cache.json
+sample_brochure_1200.jpg
+sample_images_all/
+sample_images_z053/
+sample_images_z053_0075/
+demo_covers/
+batch_output/
