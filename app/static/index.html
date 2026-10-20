@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KTW to Shopee Automation Center</title>
+    <title>KTW to Shopee Automation Center - MEGATOOL</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Alpine.js -->
@@ -17,391 +17,552 @@
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased" x-data="app()">
 
-    <!-- Top Navigation -->
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-orange-500/20">
-                    <i data-lucide="wrench" class="w-5 h-5"></i>
+    <!-- Login Modal / Screen (Show if not logged in) -->
+    <div x-show="!currentUser && !checkingAuth" 
+         class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4"
+         x-cloak>
+        <div class="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-8 relative overflow-hidden">
+            <!-- Decorative gradient banner -->
+            <div class="absolute -top-16 -right-16 w-36 h-36 bg-gradient-to-br from-orange-400 to-amber-500 rounded-full blur-2xl opacity-40 pointer-events-none"></div>
+            <div class="absolute -bottom-16 -left-16 w-36 h-36 bg-gradient-to-tr from-blue-400 to-indigo-500 rounded-full blur-2xl opacity-30 pointer-events-none"></div>
+
+            <div class="relative text-center mb-6">
+                <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-orange-500/30">
+                    <i data-lucide="shield-check" class="w-8 h-8"></i>
                 </div>
-                <div>
-                    <h1 class="text-lg font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-                        KTW to Shopee Automation
-                    </h1>
-                    <p class="text-xs text-slate-500 flex items-center space-x-1">
-                        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <span>แคตตาล็อก 96,280 SKUs (พร้อมส่ง 52,792 รายการ)</span>
-                    </p>
-                </div>
+                <h2 class="text-2xl font-bold text-slate-900">MEGATOOL Hub</h2>
+                <p class="text-xs text-slate-500 mt-1">ระบบบริหารจัดการสินค้า Shopee ประจำร้าน</p>
             </div>
 
-            <!-- Queue Counter Button -->
-            <div class="flex items-center space-x-3">
-                <button @click="showQueueModal = true" 
-                        class="relative px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-medium shadow-sm transition-all flex items-center space-x-2">
-                    <i data-lucide="shopping-bag" class="w-4 h-4"></i>
-                    <span>ตะกร้าเตรียมลงขาย</span>
-                    <span class="bg-white text-orange-600 px-2 py-0.5 rounded-full text-xs font-bold" x-text="selectedItems.length"></span>
+            <!-- Error Alert -->
+            <div x-show="loginError" class="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center space-x-2">
+                <i data-lucide="alert-circle" class="w-4 h-4 text-rose-500 shrink-0"></i>
+                <span x-text="loginError"></span>
+            </div>
+
+            <form @submit.prevent="login()" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">ชื่อผู้ใช้ (Username)</label>
+                    <div class="relative">
+                        <i data-lucide="user" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+                        <input type="text" x-model="loginForm.username" required autofocus
+                               placeholder="เช่น admin หรือ staff" 
+                               class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-sm outline-none transition-all">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">รหัสผ่าน (Password)</label>
+                    <div class="relative">
+                        <i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+                        <input :type="showPassword ? 'text' : 'password'" x-model="loginForm.password" required
+                               placeholder="กรอกรหัสผ่านของคุณ" 
+                               class="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-sm outline-none transition-all">
+                        <button type="button" @click="showPassword = !showPassword" 
+                                class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
+                            <i data-lucide="eye" class="w-4 h-4" x-show="!showPassword"></i>
+                            <i data-lucide="eye-off" class="w-4 h-4" x-show="showPassword"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Remember Me Checkbox -->
+                <div class="flex items-center justify-between pt-1">
+                    <label class="flex items-center space-x-2 cursor-pointer select-none text-xs text-slate-600">
+                        <input type="checkbox" x-model="loginForm.remember_me" 
+                               class="rounded border-slate-300 text-orange-600 focus:ring-orange-500 w-4 h-4">
+                        <span class="font-medium">จดจำฉันไว้ในระบบ (30 วัน)</span>
+                    </label>
+                </div>
+
+                <button type="submit" :disabled="loggingIn"
+                        class="w-full py-3 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-bold rounded-xl shadow-md shadow-orange-500/25 transition-all text-sm flex items-center justify-center space-x-2 disabled:opacity-50">
+                    <span x-show="!loggingIn">เข้าสู่ระบบ</span>
+                    <span x-show="loggingIn" class="animate-spin">⏳ กำลังตรวจสอบ...</span>
                 </button>
-            </div>
-        </div>
-    </header>
+            </form>
 
-    <!-- Main Content Area -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        
-        <!-- Search & Filters Card -->
-        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm mb-6">
-            <div class="flex flex-col md:flex-row gap-4 items-stretch md:items-center">
-                <!-- Search Input -->
-                <div class="relative flex-1">
-                    <i data-lucide="search" class="w-5 h-5 text-slate-400 absolute left-3.5 top-3"></i>
-                    <input type="text" x-model="searchQuery" @keyup.enter="search()"
-                           placeholder="ค้นหารหัส SKU, ชื่อสินค้า, สว่าน, เทป, หินเจียร (กด Enter)..."
-                           class="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-sm outline-none transition-all">
+            <!-- Quick Account Guide -->
+            <div class="mt-6 pt-5 border-t border-slate-100 text-[11px] text-slate-400 space-y-1">
+                <div class="flex items-center justify-between">
+                    <span>👑 ผู้ดูแลร้าน (Admin):</span>
+                    <code class="font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">admin / megatool2026</code>
                 </div>
-
-                <!-- In-stock toggle -->
-                <label class="flex items-center space-x-2 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer select-none text-xs text-slate-700 hover:bg-slate-100 transition-all">
-                    <input type="checkbox" x-model="inStockOnly" @change="search()" class="rounded text-orange-600 focus:ring-orange-500 w-4 h-4">
-                    <span class="font-medium">เฉพาะมีสต็อก</span>
-                </label>
-
-                <!-- Exclude Spares toggle -->
-                <label class="flex items-center space-x-2 px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 cursor-pointer select-none text-xs text-emerald-800 hover:bg-emerald-100 transition-all">
-                    <input type="checkbox" x-model="excludeSpares" @change="search()" class="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4">
-                    <span class="font-bold">ซ่อนอะไหล่ (ลงเฉพาะตัวเครื่อง)</span>
-                </label>
-
-                <!-- Search Button -->
-                <button @click="search()" 
-                        class="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-xl transition-all flex items-center justify-center space-x-2">
-                    <span x-show="!loading">ค้นหาสินค้า</span>
-                    <span x-show="loading" class="animate-spin">⏳</span>
-                </button>
-            </div>
-
-            <!-- Price Formula & Shop Branding Toolbar -->
-            <div class="flex flex-wrap items-center justify-between gap-3 mt-3 pt-3 border-t border-slate-100 text-xs text-slate-600">
-                <div class="flex flex-wrap items-center gap-3">
-                    <div class="flex items-center space-x-2">
-                        <span class="font-semibold text-slate-800 flex items-center space-x-1">
-                            <i data-lucide="calculator" class="w-3.5 h-3.5 text-orange-600"></i>
-                            <span>สูตรราคา Shopee:</span>
-                        </span>
-                        <span>ทุน KTW +</span>
-                        <div class="inline-flex items-center border border-slate-200 rounded-lg px-2 py-1 bg-white shadow-inner">
-                            <input type="number" x-model="markupPercent" class="w-12 text-center font-bold text-orange-600 outline-none">
-                            <span class="text-slate-400 ml-1 font-bold">%</span>
-                        </div>
-                        <span>(กำไรขั้นต่ำ</span>
-                        <div class="inline-flex items-center border border-slate-200 rounded-lg px-2 py-1 bg-white shadow-inner">
-                            <input type="number" x-model="minProfit" class="w-12 text-center font-bold text-orange-600 outline-none">
-                            <span class="text-slate-400 ml-1 font-bold">บ.</span>
-                        </div>
-                        <span>)</span>
-                    </div>
-
-                    <div class="flex items-center space-x-2 border-l border-slate-200 pl-3">
-                        <span class="font-semibold text-slate-800 flex items-center space-x-1">
-                            <i data-lucide="store" class="w-3.5 h-3.5 text-blue-600"></i>
-                            <span>ชื่อร้านของคุณบนรูป:</span>
-                        </span>
-                        <input type="text" x-model="shopName" 
-                               placeholder="เช่น MEGATOOL" 
-                               class="px-2.5 py-1 rounded-lg border border-slate-200 bg-white font-bold text-slate-800 text-xs outline-none focus:border-blue-500 shadow-inner w-44">
-                    </div>
+                <div class="flex items-center justify-between">
+                    <span>👥 ทีมงาน 5 คน (Staff):</span>
+                    <code class="font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">staff / staff1234</code>
                 </div>
-
-                <div class="text-[11px] text-slate-400">
-                    *ระบบใช้ <strong>โลโก้แบรนด์ของแท้ 100%</strong> ตามมาตรฐาน Zupertools/Tool City
-                </div>
-            </div>
-
-            <!-- Brand Filter Pills -->
-            <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-100 items-center">
-                <span class="text-xs font-medium text-slate-400 mr-1">แบรนด์ยอดนิยม:</span>
-                <template x-for="b in brands" :key="b.name">
-                    <button @click="selectBrand(b.name)" 
-                            :class="activeBrand === b.name ? 'bg-orange-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
-                            class="px-3 py-1 rounded-lg text-xs font-medium transition-all flex items-center space-x-1">
-                        <span x-text="b.name"></span>
-                        <span class="text-[10px] opacity-75" x-text="'(' + b.count.toLocaleString() + ')'"></span>
-                    </button>
-                </template>
-                <button x-show="activeBrand" @click="selectBrand(null)" class="text-xs text-rose-500 hover:underline ml-2">ล้างตัวกรอง</button>
-            </div>
-        </div>
-
-        <!-- Results Info & Loading State -->
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-sm font-semibold text-slate-600 flex items-center space-x-2">
-                <span>รายการสินค้าในระบบ</span>
-                <span class="text-xs font-normal text-slate-400" x-text="'(พบ ' + totalResults.toLocaleString() + ' รายการ)'"></span>
-            </h2>
-            <div class="text-xs text-slate-400">
-                คลิกที่ปุ่ม <span class="text-orange-600 font-semibold">"ดูรูปที่แต่งแล้ว"</span> เพื่อพรีวิวปกตามแบรนด์จริง
-            </div>
-        </div>
-
-        <!-- Products Grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-            <template x-for="p in products" :key="p.sku">
-                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-md transition-all flex flex-col justify-between group">
-                    <div>
-                        <!-- Product Thumbnail Box -->
-                        <div class="relative bg-white aspect-square flex items-center justify-center p-4 border-b border-slate-100">
-                            <img :src="p.image || 'https://via.placeholder.com/300?text=No+Image'" 
-                                 :alt="p.name" 
-                                 class="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300">
-                            
-                            <!-- Brand Badge Top Left -->
-                            <div class="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold shadow-sm uppercase tracking-wide"
-                                 :class="{
-                                     'bg-red-600 text-white': p.brand === '3M',
-                                     'bg-red-700 text-white': p.brand === 'POLO',
-                                     'bg-orange-500 text-white': p.brand === 'INGCO',
-                                     'bg-teal-600 text-white': p.brand === 'MAKITA',
-                                     'bg-blue-600 text-white': p.brand === 'DONGCHENG',
-                                     'bg-amber-400 text-slate-900 font-extrabold': p.brand === 'KARCHER',
-                                     'bg-blue-800 text-white': p.brand === 'FORCE',
-                                     'bg-rose-800 text-white': p.brand === 'NACHI',
-                                     'bg-slate-800 text-white': !['3M','POLO','INGCO','MAKITA','DONGCHENG','KARCHER','FORCE','NACHI'].includes(p.brand)
-                                 }" 
-                                 x-text="p.brand">
-                            </div>
-
-                            <!-- SKU Badge Top Right -->
-                            <span class="absolute top-2.5 right-2.5 text-[10px] font-mono text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200" x-text="p.sku"></span>
-
-                            <!-- Stock Badge Bottom Left -->
-                            <div class="absolute bottom-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-bold flex items-center space-x-1 shadow-sm"
-                                 :class="(p.stock > 10) ? 'bg-emerald-600/95 text-white' : ((p.stock > 0) ? 'bg-amber-600/95 text-white' : 'bg-rose-600/95 text-white')">
-                                <span class="w-1.5 h-1.5 rounded-full bg-white inline-block"></span>
-                                <span x-text="(p.stock > 0) ? ('สต็อก ' + p.stock.toLocaleString() + ' ชิ้น') : 'สินค้าหมด'"></span>
-                            </div>
-                        </div>
-
-                        <!-- Card Body -->
-                        <div class="p-4">
-                            <h3 class="text-xs font-medium text-slate-800 line-clamp-2 leading-relaxed h-9 mb-2" x-text="p.name"></h3>
-                            
-                            <!-- Pricing Grid -->
-                            <div class="bg-slate-50 rounded-xl p-2.5 mb-3 border border-slate-100">
-                                <div class="flex items-center justify-between text-xs mb-1.5 pb-1.5 border-b border-slate-200/60">
-                                    <span class="text-slate-500 font-medium flex items-center space-x-1">
-                                        <i data-lucide="package" class="w-3.5 h-3.5 text-slate-400"></i>
-                                        <span>สต็อกคงเหลือ:</span>
-                                    </span>
-                                    <span class="font-bold text-xs" 
-                                          :class="(p.stock > 10) ? 'text-emerald-600' : ((p.stock > 0) ? 'text-amber-600' : 'text-rose-600')"
-                                          x-text="(p.stock > 0) ? (p.stock.toLocaleString() + ' ชิ้น (' + (p.store_name || 'คลัง') + ')') : 'หมดสต็อก'">
-                                    </span>
-                                </div>
-                                <div class="flex items-center justify-between text-xs mb-1">
-                                    <span class="text-slate-400">ราคาทุน KTW:</span>
-                                    <span class="font-bold text-slate-800 font-mono" x-text="'฿' + p.cost_price.toLocaleString()"></span>
-                                </div>
-                                <div class="flex items-center justify-between text-xs">
-                                    <span class="text-orange-600 font-medium">ราคาขาย Shopee:</span>
-                                    <input type="number" 
-                                           :value="getSuggestedPrice(p)" 
-                                           @input="updateItemPrice(p.sku, $event.target.value)"
-                                           class="w-20 px-1.5 py-0.5 text-right font-bold text-orange-600 bg-white border border-orange-200 rounded text-xs focus:ring-1 focus:ring-orange-500 outline-none">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Card Actions -->
-                    <div class="p-4 pt-0 grid grid-cols-2 gap-2">
-                        <button @click="openCoverPreview(p)" 
-                                class="px-2.5 py-2 rounded-xl text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all flex items-center justify-center space-x-1">
-                            <i data-lucide="image" class="w-3.5 h-3.5"></i>
-                            <span>ดูรูปที่แต่ง</span>
-                        </button>
-
-                        <button @click="toggleQueue(p)" 
-                                :class="isInQueue(p.sku) ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-orange-600 hover:bg-orange-700 text-white'"
-                                class="px-2.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-center space-x-1 shadow-sm">
-                            <i data-lucide="check" class="w-3.5 h-3.5" x-show="isInQueue(p.sku)"></i>
-                            <i data-lucide="plus" class="w-3.5 h-3.5" x-show="!isInQueue(p.sku)"></i>
-                            <span x-text="isInQueue(p.sku) ? 'เลือกแล้ว' : 'ใส่ตะกร้า'"></span>
-                        </button>
-                    </div>
-                </div>
-            </template>
-        </div>
-
-        <!-- Pagination -->
-        <div class="flex items-center justify-center space-x-2 my-8" x-show="totalResults > 0">
-            <button @click="prevPage()" :disabled="currentPage === 0" 
-                    class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-medium disabled:opacity-50 hover:bg-slate-50">
-                หน้าก่อนหน้า
-            </button>
-            <span class="text-xs text-slate-500" x-text="'หน้า ' + (currentPage + 1)"></span>
-            <button @click="nextPage()" 
-                    class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-medium hover:bg-slate-50">
-                หน้าถัดไป
-            </button>
-        </div>
-    </main>
-
-    <!-- Modal 1: Live Cover Preview -->
-    <div x-show="showPreviewModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" x-cloak>
-        <div class="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl relative border border-slate-100" @click.away="showPreviewModal = false">
-            <button @click="showPreviewModal = false" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-2">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </button>
-
-            <h3 class="text-base font-bold text-slate-800 mb-1 flex items-center justify-between">
-                <div class="flex items-center space-x-2">
-                    <span>พรีวิวภาพสินค้า Shopee (1200×1200 px)</span>
-                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-600" x-text="activePreviewItem?.brand"></span>
-                </div>
-                <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full"
-                      :class="(activePreviewItem?.stock > 10) ? 'bg-emerald-100 text-emerald-700' : ((activePreviewItem?.stock > 0) ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700')"
-                      x-text="'สต็อกคงเหลือ: ' + (activePreviewItem?.stock ? activePreviewItem.stock.toLocaleString() + ' ชิ้น (' + (activePreviewItem?.store_name || 'คลัง') + ')' : 'หมดสต็อก')">
-                </span>
-            </h3>
-            <p class="text-xs text-slate-500 mb-4" x-text="activePreviewItem?.name"></p>
-
-            <!-- Rendered Preview Image -->
-            <div class="aspect-square bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 relative mb-3 flex items-center justify-center">
-                <img :src="renderedCoverUrl" x-show="renderedCoverUrl" class="w-full h-full object-cover">
-                <div x-show="generatingPreview" class="text-center py-8 text-slate-400 text-xs">
-                    <span class="animate-spin text-2xl block mb-2">⚙️</span>
-                    กำลังแต่งรูปและปั๊มกรอบแบรนด์อัตโนมัติ...
-                </div>
-                <div class="absolute bottom-2 left-2 bg-slate-900/80 text-white text-[10px] px-2 py-0.5 rounded-md font-medium"
-                     x-text="'ภาพที่ ' + (selectedImageIndex + 1) + ' (พรีวิว Template)'">
-                </div>
-            </div>
-
-            <!-- Controls: Shop Name & Badge customizer -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
-                <div>
-                    <label class="block text-[11px] font-semibold text-slate-600 mb-1">ชื่อร้านของคุณบนรูป:</label>
-                    <input type="text" x-model="shopName" placeholder="เช่น MEGATOOL"
-                           class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 font-bold">
-                </div>
-                <div>
-                    <label class="block text-[11px] font-semibold text-slate-600 mb-1">ป้ายไฮไลท์มุมขวา:</label>
-                    <div class="flex items-center space-x-1.5">
-                        <input type="text" x-model="customBadgeText" placeholder="เช่น ของแท้ 100% / แถมของขวัญ"
-                               class="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-orange-500">
-                        <button @click="regenerateCover()" class="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-medium whitespace-nowrap">
-                            อัปเดตสด
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Additional Images Gallery (All Images under Template) -->
-            <div class="pt-3 border-t border-slate-100">
-                <div class="flex items-center justify-between text-xs font-semibold text-slate-700 mb-2">
-                    <span class="flex items-center space-x-1">
-                        <i data-lucide="images" class="w-3.5 h-3.5 text-orange-600"></i>
-                        <span>ทุกรูปของสินค้านี้ (คลิกดูพรีวิวแต่ละรูปได้):</span>
-                    </span>
-                    <span class="text-[10px] text-slate-400 font-normal" x-text="(activePreviewItem?.all_images?.length || 1) + ' ภาพ'"></span>
-                </div>
-                
-                <div class="flex items-center space-x-2 overflow-x-auto pb-1">
-                    <template x-for="(imgUrl, imgIdx) in (activePreviewItem?.all_images || [])" :key="imgIdx">
-                        <div @click="selectPreviewImage(imgIdx)"
-                             :class="selectedImageIndex === imgIdx ? 'ring-2 ring-orange-500 border-transparent shadow-md scale-105' : 'border-slate-200 opacity-70 hover:opacity-100'"
-                             class="relative w-16 h-16 rounded-xl border bg-white p-1 flex-shrink-0 group cursor-pointer transition-all">
-                            <img :src="imgUrl" class="w-full h-full object-contain rounded-lg">
-                            <span class="absolute bottom-1 right-1 bg-slate-900/70 text-white text-[8px] px-1 rounded font-mono" x-text="'#' + (imgIdx + 1)"></span>
-                        </div>
-                    </template>
-                </div>
-                <p class="text-[11px] text-slate-500 mt-2 leading-relaxed bg-orange-50 border border-orange-100 p-2.5 rounded-xl">
-                    🌟 <strong>ทุกรูปอยู่ภายใต้ Template ร้าน 100%:</strong> เมื่อกดส่งออก Shopee Mass Upload ระบบจะนำภาพมุมมองทั้งหมด (ภาพปก + ภาพมุมมอง 1 ถึง 8 รวมสูงสุด 9 รูป) มาใส่กรอบสีแดงพร้อมโลโก้ <strong>MEGATOOL</strong> และป้าย <strong>มีสต็อกพร้อมส่งทันที</strong> ครบทุกรูปตามมาตรฐานร้าน Mall อย่าง Zupertools / Tool City ครับ
-                </p>
             </div>
         </div>
     </div>
 
-    <!-- Modal 2: Export Queue Modal -->
-    <div x-show="showQueueModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" x-cloak>
-        <div class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl relative border border-slate-100" @click.away="showQueueModal = false">
-            <button @click="showQueueModal = false" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-2">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </button>
+    <!-- Main App Container -->
+    <div x-show="currentUser" x-cloak>
 
-            <h3 class="text-base font-bold text-slate-800 mb-1 flex items-center space-x-2">
-                <span>ตะกร้าเตรียมส่งออก Shopee</span>
-                <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-600" x-text="selectedItems.length + ' รายการ'"></span>
-            </h3>
-            <p class="text-xs text-slate-500 mb-4">ระบบจะสร้างไฟล์ Excel แบบหลายชีท พร้อมอัปโหลดรูปภาพขึ้น CDN อัตโนมัติ</p>
+        <!-- Top Navigation -->
+        <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-orange-500/20">
+                        <i data-lucide="wrench" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+                            KTW to Shopee Automation
+                        </h1>
+                        <p class="text-xs text-slate-500 flex items-center space-x-1">
+                            <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                            <span>แคตตาล็อก 96,280 SKUs (พร้อมส่ง 52,792 รายการ)</span>
+                        </p>
+                    </div>
+                </div>
 
-            <!-- Selected Items List -->
-            <div class="max-h-72 overflow-y-auto space-y-2 mb-5 pr-1">
-                <template x-for="(item, idx) in selectedItems" :key="item.sku">
-                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                        <div class="flex items-center space-x-3">
-                            <span class="text-xs text-slate-400 font-mono" x-text="idx + 1"></span>
-                            <div>
-                                <div class="flex items-center space-x-2">
-                                    <span class="font-bold text-xs text-slate-800" x-text="item.sku"></span>
-                                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded"
-                                          :class="(item.stock > 10) ? 'bg-emerald-100 text-emerald-700' : ((item.stock > 0) ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700')"
-                                          x-text="'สต็อก ' + (item.stock || 0) + ' ชิ้น'"></span>
+                <!-- Right Actions: User info & Queue button -->
+                <div class="flex items-center space-x-3">
+                    <!-- User Role Badge -->
+                    <template x-if="currentUser">
+                        <div class="flex items-center space-x-2">
+                            <div class="px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center space-x-1.5"
+                                 :class="currentUser.role === 'admin' ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-blue-50 text-blue-700 border-blue-200'">
+                                <i :data-lucide="currentUser.role === 'admin' ? 'shield-check' : 'user'" class="w-3.5 h-3.5"></i>
+                                <span x-text="currentUser.name"></span>
+                            </div>
+
+                            <!-- Logout Button -->
+                            <button @click="logout()" 
+                                    title="ออกจากระบบ"
+                                    class="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all border border-slate-200">
+                                <i data-lucide="log-out" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </template>
+
+                    <!-- Queue Counter Button -->
+                    <button @click="showQueueModal = true" 
+                            class="relative px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-medium shadow-sm transition-all flex items-center space-x-2">
+                        <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+                        <span>ตะกร้าเตรียมลงขาย</span>
+                        <span class="bg-white text-orange-600 px-2 py-0.5 rounded-full text-xs font-bold" x-text="selectedItems.length"></span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            
+            <!-- Search & Filters Card -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm mb-6">
+                <div class="flex flex-col md:flex-row gap-4 items-stretch md:items-center">
+                    <!-- Search Input -->
+                    <div class="relative flex-1">
+                        <i data-lucide="search" class="w-5 h-5 text-slate-400 absolute left-3.5 top-3"></i>
+                        <input type="text" x-model="searchQuery" @keyup.enter="search()"
+                               placeholder="ค้นหารหัส SKU, ชื่อสินค้า, สว่าน, เทป, หินเจียร (กด Enter)..."
+                               class="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-sm outline-none transition-all">
+                    </div>
+
+                    <!-- In-stock toggle -->
+                    <label class="flex items-center space-x-2 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer select-none text-xs text-slate-700 hover:bg-slate-100 transition-all">
+                        <input type="checkbox" x-model="inStockOnly" @change="search()" class="rounded text-orange-600 focus:ring-orange-500 w-4 h-4">
+                        <span class="font-medium">เฉพาะมีสต็อก</span>
+                    </label>
+
+                    <!-- Exclude Spares toggle -->
+                    <label class="flex items-center space-x-2 px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 cursor-pointer select-none text-xs text-emerald-800 hover:bg-emerald-100 transition-all">
+                        <input type="checkbox" x-model="excludeSpares" @change="search()" class="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4">
+                        <span class="font-bold">ซ่อนอะไหล่ (ลงเฉพาะตัวเครื่อง)</span>
+                    </label>
+
+                    <!-- Search Button -->
+                    <button @click="search()" 
+                            class="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-xl transition-all flex items-center justify-center space-x-2">
+                        <span x-show="!loading">ค้นหาสินค้า</span>
+                        <span x-show="loading" class="animate-spin">⏳</span>
+                    </button>
+                </div>
+
+                <!-- Price Formula & Shop Branding Toolbar -->
+                <div class="flex flex-wrap items-center justify-between gap-3 mt-3 pt-3 border-t border-slate-100 text-xs text-slate-600">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center space-x-2">
+                            <span class="font-semibold text-slate-800 flex items-center space-x-1">
+                                <i data-lucide="calculator" class="w-3.5 h-3.5 text-orange-600"></i>
+                                <span>สูตรราคา Shopee:</span>
+                            </span>
+                            
+                            <template x-if="currentUser && currentUser.role === 'admin'">
+                                <div class="flex items-center space-x-1.5">
+                                    <span>ทุน KTW +</span>
+                                    <div class="inline-flex items-center border border-slate-200 rounded-lg px-2 py-1 bg-white shadow-inner">
+                                        <input type="number" x-model="markupPercent" class="w-12 text-center font-bold text-orange-600 outline-none">
+                                        <span class="text-slate-400 ml-1 font-bold">%</span>
+                                    </div>
+                                    <span>(กำไรขั้นต่ำ</span>
+                                    <div class="inline-flex items-center border border-slate-200 rounded-lg px-2 py-1 bg-white shadow-inner">
+                                        <input type="number" x-model="minProfit" class="w-12 text-center font-bold text-orange-600 outline-none">
+                                        <span class="text-slate-400 ml-1 font-bold">บ.</span>
+                                    </div>
+                                    <span>)</span>
                                 </div>
-                                <span class="text-xs text-slate-600 line-clamp-1" x-text="item.name"></span>
+                            </template>
+
+                            <template x-if="currentUser && currentUser.role !== 'admin'">
+                                <span class="bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-mono text-[11px]">
+                                    บวกกำไรตามมาตรฐานร้าน (กำหนดโดยผู้ดูแล)
+                                </span>
+                            </template>
+                        </div>
+
+                        <div class="flex items-center space-x-2 border-l border-slate-200 pl-3">
+                            <span class="font-semibold text-slate-800 flex items-center space-x-1">
+                                <i data-lucide="store" class="w-3.5 h-3.5 text-blue-600"></i>
+                                <span>ชื่อร้านของคุณบนรูป:</span>
+                            </span>
+                            <input type="text" x-model="shopName" 
+                                   placeholder="เช่น MEGATOOL" 
+                                   class="px-2.5 py-1 rounded-lg border border-slate-200 bg-white font-bold text-slate-800 text-xs outline-none focus:border-blue-500 shadow-inner w-44">
+                        </div>
+                    </div>
+
+                    <div class="text-[11px] text-slate-400">
+                        *ระบบใช้ <strong>โลโก้แบรนด์ของแท้ 100%</strong> ตามมาตรฐาน Zupertools/Tool City
+                    </div>
+                </div>
+
+                <!-- Brand Filter Pills -->
+                <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-100 items-center">
+                    <span class="text-xs font-medium text-slate-400 mr-1">แบรนด์ยอดนิยม:</span>
+                    <template x-for="b in brands" :key="b.name">
+                        <button @click="selectBrand(b.name)" 
+                                :class="activeBrand === b.name ? 'bg-orange-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                                class="px-3 py-1 rounded-lg text-xs font-medium transition-all flex items-center space-x-1">
+                            <span x-text="b.name"></span>
+                            <span class="text-[10px] opacity-75" x-text="'(' + b.count.toLocaleString() + ')'"></span>
+                        </button>
+                    </template>
+                    <button x-show="activeBrand" @click="selectBrand(null)" class="text-xs text-rose-500 hover:underline ml-2">ล้างตัวกรอง</button>
+                </div>
+            </div>
+
+            <!-- Results Info & Loading State -->
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-semibold text-slate-600 flex items-center space-x-2">
+                    <span>รายการสินค้าในระบบ</span>
+                    <span class="text-xs font-normal text-slate-400" x-text="'(พบ ' + totalResults.toLocaleString() + ' รายการ)'"></span>
+                </h2>
+                <div class="text-xs text-slate-400">
+                    คลิกที่ปุ่ม <span class="text-orange-600 font-semibold">"ดูรูปที่แต่งแล้ว"</span> เพื่อพรีวิวปกตามแบรนด์จริง
+                </div>
+            </div>
+
+            <!-- Products Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                <template x-for="p in products" :key="p.sku">
+                    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-md transition-all flex flex-col justify-between group">
+                        <div>
+                            <!-- Product Thumbnail Box -->
+                            <div class="relative bg-white aspect-square flex items-center justify-center p-4 border-b border-slate-100">
+                                <img :src="p.image || 'https://via.placeholder.com/300?text=No+Image'" 
+                                     :alt="p.name" 
+                                     class="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300">
+                                
+                                <!-- Brand Badge Top Left -->
+                                <div class="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold shadow-sm uppercase tracking-wide"
+                                     :class="{
+                                         'bg-red-600 text-white': p.brand === '3M',
+                                         'bg-red-700 text-white': p.brand === 'POLO',
+                                         'bg-orange-500 text-white': p.brand === 'INGCO',
+                                         'bg-teal-600 text-white': p.brand === 'MAKITA',
+                                         'bg-blue-600 text-white': p.brand === 'DONGCHENG',
+                                         'bg-yellow-500 text-slate-900': p.brand === 'KARCHER',
+                                         'bg-slate-800 text-white': !['3M', 'POLO', 'INGCO', 'MAKITA', 'DONGCHENG', 'KARCHER'].includes(p.brand)
+                                     }" 
+                                     x-text="p.brand">
+                                </div>
+
+                                <!-- SKU Badge Top Right -->
+                                <span class="absolute top-2.5 right-2.5 text-[10px] font-mono text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200" x-text="p.sku"></span>
+
+                                <!-- Stock Badge Bottom Left -->
+                                <div class="absolute bottom-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-bold flex items-center space-x-1 shadow-sm"
+                                     :class="(p.stock > 10) ? 'bg-emerald-600/95 text-white' : ((p.stock > 0) ? 'bg-amber-600/95 text-white' : 'bg-rose-600/95 text-white')">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-white inline-block"></span>
+                                    <span x-text="(p.stock > 0) ? ('สต็อก ' + p.stock.toLocaleString() + ' ชิ้น') : 'สินค้าหมด'"></span>
+                                </div>
+                            </div>
+
+                            <!-- Card Body -->
+                            <div class="p-4">
+                                <h3 class="text-xs font-medium text-slate-800 line-clamp-2 leading-relaxed h-9 mb-2" x-text="p.name"></h3>
+                                
+                                <!-- Pricing Grid -->
+                                <div class="bg-slate-50 rounded-xl p-2.5 mb-3 border border-slate-100">
+                                    <div class="flex items-center justify-between text-xs mb-1.5 pb-1.5 border-b border-slate-200/60">
+                                        <span class="text-slate-500 font-medium flex items-center space-x-1">
+                                            <i data-lucide="package" class="w-3.5 h-3.5 text-slate-400"></i>
+                                            <span>สต็อกคงเหลือ:</span>
+                                        </span>
+                                        <span class="font-bold text-xs" 
+                                              :class="(p.stock > 10) ? 'text-emerald-600' : ((p.stock > 0) ? 'text-amber-600' : 'text-rose-600')"
+                                              x-text="(p.stock > 0) ? (p.stock.toLocaleString() + ' ชิ้น (' + (p.store_name || 'คลัง') + ')') : 'หมดสต็อก'">
+                                        </span>
+                                    </div>
+
+                                    <!-- Cost Price: Shown only to Admin -->
+                                    <div class="flex items-center justify-between text-xs mb-1">
+                                        <span class="text-slate-400">ราคาทุน KTW:</span>
+                                        <template x-if="currentUser && currentUser.role === 'admin' && !p.is_cost_hidden">
+                                            <span class="font-bold text-slate-800 font-mono" x-text="'฿' + p.cost_price.toLocaleString()"></span>
+                                        </template>
+                                        <template x-if="!currentUser || currentUser.role !== 'admin' || p.is_cost_hidden">
+                                            <span class="text-slate-400 italic text-[11px] flex items-center space-x-1">
+                                                <i data-lucide="lock" class="w-3 h-3 text-slate-400"></i>
+                                                <span>ลับเฉพาะผู้บริหาร</span>
+                                            </span>
+                                        </template>
+                                    </div>
+
+                                    <!-- Suggested Shopee Price -->
+                                    <div class="flex items-center justify-between text-xs">
+                                        <span class="text-orange-600 font-medium">ราคาขาย Shopee:</span>
+                                        <input type="number" 
+                                               :value="getSuggestedPrice(p)" 
+                                               @input="updateItemPrice(p.sku, $event.target.value)"
+                                               class="w-20 px-1.5 py-0.5 text-right font-bold text-orange-600 bg-white border border-orange-200 rounded text-xs focus:ring-1 focus:ring-orange-500 outline-none">
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="flex items-center space-x-3">
-                            <span class="text-xs font-mono font-bold text-orange-600" x-text="'฿' + (item.price || getSuggestedPrice(item))"></span>
-                            <button @click="removeFromQueue(item.sku)" class="text-slate-400 hover:text-rose-500 p-1">
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+
+                        <!-- Card Actions -->
+                        <div class="p-4 pt-0 grid grid-cols-2 gap-2">
+                            <button @click="openCoverPreview(p)" 
+                                    class="px-2.5 py-2 rounded-xl text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all flex items-center justify-center space-x-1">
+                                <i data-lucide="image" class="w-3.5 h-3.5"></i>
+                                <span>ดูรูปที่แต่ง</span>
+                            </button>
+
+                            <button @click="toggleQueue(p)" 
+                                    :class="isInQueue(p.sku) ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-orange-600 hover:bg-orange-700 text-white'"
+                                    class="px-2.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-center space-x-1 shadow-sm">
+                                <i data-lucide="check" class="w-3.5 h-3.5" x-show="isInQueue(p.sku)"></i>
+                                <i data-lucide="plus" class="w-3.5 h-3.5" x-show="!isInQueue(p.sku)"></i>
+                                <span x-text="isInQueue(p.sku) ? 'เลือกแล้ว' : 'ใส่ตะกร้า'"></span>
                             </button>
                         </div>
                     </div>
                 </template>
-                <div x-show="selectedItems.length === 0" class="text-center py-8 text-slate-400 text-xs">
-                    ยังไม่มีสินค้าในตะกร้า กด "ใส่ตะกร้า" จากหน้ารายการสินค้าได้เลยครับ
-                </div>
             </div>
 
-            <!-- Export Action Button -->
-            <div class="flex items-center justify-between pt-4 border-t border-slate-100">
-                <button @click="selectedItems = []" class="text-xs text-slate-400 hover:text-rose-500" x-show="selectedItems.length > 0">
-                    ล้างตะกร้าทั้งหมด
+            <!-- Pagination -->
+            <div class="flex items-center justify-center space-x-2 my-8" x-show="totalResults > 0">
+                <button @click="prevPage()" :disabled="currentPage === 0" 
+                        class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-medium disabled:opacity-50 hover:bg-slate-50">
+                    หน้าก่อนหน้า
                 </button>
-                <div class="flex items-center space-x-2 ml-auto">
-                    <button @click="exportToShopee()" 
-                            :disabled="selectedItems.length === 0 || exporting"
-                            class="px-6 py-3 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-700 hover:to-amber-600 text-white rounded-2xl text-xs font-bold shadow-lg shadow-orange-500/20 disabled:opacity-50 transition-all flex items-center space-x-2">
-                        <i data-lucide="download" class="w-4 h-4" x-show="!exporting"></i>
-                        <span x-show="!exporting">สร้างไฟล์ Shopee Mass Upload ทันที</span>
-                        <span x-show="exporting" class="animate-spin">⏳</span>
-                        <span x-show="exporting">กำลังประมวลผลรูปภาพและ Excel...</span>
+                <span class="text-xs text-slate-500" x-text="'หน้า ' + (currentPage + 1)"></span>
+                <button @click="nextPage()" 
+                        class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-medium hover:bg-slate-50">
+                    หน้าถัดไป
+                </button>
+            </div>
+        </main>
+
+        <!-- Modal 1: Live Cover Preview -->
+        <div x-show="showPreviewModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" x-cloak>
+            <div class="bg-white rounded-3xl max-w-4xl w-full p-6 shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[90vh]">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                    <div>
+                        <h3 class="font-bold text-base text-slate-900 flex items-center space-x-2">
+                            <span>พรีวิวภาพปก Shopee มาตรฐานสากล</span>
+                            <span class="text-xs font-mono text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md" x-text="activePreviewItem?.sku"></span>
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5" x-text="activePreviewItem?.name"></p>
+                    </div>
+                    <button @click="showPreviewModal = false" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 py-6 overflow-y-auto">
+                    <!-- Image Display Box -->
+                    <div class="flex flex-col items-center justify-center bg-slate-100/70 rounded-2xl p-4 border border-slate-200 relative aspect-square">
+                        <div x-show="generatingPreview" class="absolute inset-0 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center rounded-2xl z-10">
+                            <div class="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+                            <span class="text-xs font-semibold text-slate-600">กำลังตัดต่อและจัดวางปก...</span>
+                        </div>
+                        <img :src="renderedCoverUrl" class="max-h-full max-w-full object-contain rounded-xl shadow-md" alt="Cover Preview">
+                    </div>
+
+                    <!-- Customization Controls -->
+                    <div class="flex flex-col justify-between space-y-4">
+                        <div class="space-y-4">
+                            <!-- Image Selector -->
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-2">เลือกมุมภาพสินค้า:</label>
+                                <div class="flex flex-wrap gap-2">
+                                    <template x-for="(img, idx) in (activePreviewItem?.all_images || [activePreviewItem?.image])" :key="idx">
+                                        <button @click="selectPreviewImage(idx)" 
+                                                :class="selectedImageIndex === idx ? 'ring-2 ring-orange-500 border-transparent' : 'border-slate-200 opacity-60 hover:opacity-100'"
+                                                class="w-14 h-14 rounded-xl border bg-white p-1 transition-all overflow-hidden flex items-center justify-center">
+                                            <img :src="img" class="max-h-full max-w-full object-contain">
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <!-- Custom Badge Text -->
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">ข้อความป้ายสีส้ม (Badge):</label>
+                                <div class="flex space-x-2">
+                                    <input type="text" x-model="customBadgeText" 
+                                           class="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-200 outline-none focus:border-orange-500 font-medium">
+                                    <button @click="regenerateCover()" 
+                                            class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-medium">
+                                        อัปเดตรูป
+                                    </button>
+                                </div>
+                                <div class="flex gap-1.5 mt-2">
+                                    <button @click="customBadgeText = 'มีสต็อกพร้อมส่งทันที'; regenerateCover()" class="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 hover:bg-slate-200">มีสต็อกพร้อมส่งทันที</button>
+                                    <button @click="customBadgeText = 'ของแท้ศูนย์ 100%'; regenerateCover()" class="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 hover:bg-slate-200">ของแท้ศูนย์ 100%</button>
+                                    <button @click="customBadgeText = 'รับประกันศูนย์'; regenerateCover()" class="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 hover:bg-slate-200">รับประกันศูนย์</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Footer Details -->
+                        <div class="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/60 text-[11px] text-amber-800 space-y-1">
+                            <div class="font-bold flex items-center space-x-1">
+                                <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-amber-600"></i>
+                                <span>มาตรฐานภาพ Shopee:</span>
+                            </div>
+                            <p>• สัดส่วน 1:1 ความละเอียดคมชัดสูง 1080x1080px</p>
+                            <p>• โลโก้แบรนด์มาตรฐานของแท้ วางตำแหน่งซ้ายบนเด่นชัด</p>
+                            <p>• แถบด้านล่างระบุชื่อร้านค้า <strong x-text="shopName"></strong> เสริมความน่าเชื่อถือ</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4 border-t border-slate-100">
+                    <button @click="showPreviewModal = false" class="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">
+                        ปิดหน้าต่าง
+                    </button>
+                    <button @click="if(!isInQueue(activePreviewItem.sku)) toggleQueue(activePreviewItem); showPreviewModal = false" 
+                            class="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-md shadow-orange-500/20">
+                        ใส่ตะกร้าเตรียมลงขาย
                     </button>
                 </div>
             </div>
+        </div>
 
-            <!-- Success Download Box -->
-            <div x-show="downloadUrl" class="mt-4 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
-                <div class="flex items-center space-x-2 text-emerald-800 text-xs font-medium">
-                    <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>
-                    <span>สร้างไฟล์ Shopee สำเร็จเรียบร้อย!</span>
+        <!-- Modal 2: Queue & Shopee Export -->
+        <div x-show="showQueueModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" x-cloak>
+            <div class="bg-white rounded-3xl max-w-3xl w-full p-6 shadow-2xl border border-slate-100 flex flex-col max-h-[90vh]">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                    <div>
+                        <h3 class="font-bold text-base text-slate-900 flex items-center space-x-2">
+                            <span>รายการสินค้าเตรียมสร้างไฟล์ Shopee Mass Upload</span>
+                            <span class="text-xs bg-orange-100 text-orange-700 font-bold px-2.5 py-0.5 rounded-full" x-text="selectedItems.length + ' รายการ'"></span>
+                        </h3>
+                    </div>
+                    <button @click="showQueueModal = false" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
                 </div>
-                <a :href="downloadUrl" download 
-                   class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center space-x-1">
-                    <i data-lucide="download" class="w-3.5 h-3.5"></i>
-                    <span>ดาวน์โหลดไฟล์ Excel</span>
-                </a>
+
+                <div class="py-4 overflow-y-auto flex-1">
+                    <template x-if="selectedItems.length === 0">
+                        <div class="text-center py-12 text-slate-400 text-xs">
+                            <i data-lucide="shopping-bag" class="w-10 h-10 mx-auto mb-2 text-slate-300"></i>
+                            <span>ยังไม่มีสินค้าในตะกร้า คลิกปุ่ม "ใส่ตะกร้า" ที่หน้ารายการสินค้า</span>
+                        </div>
+                    </template>
+
+                    <div class="space-y-2">
+                        <template x-for="(item, idx) in selectedItems" :key="item.sku">
+                            <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-100 hover:border-slate-200">
+                                <div class="flex items-center space-x-3 flex-1 min-w-0 pr-4">
+                                    <span class="text-xs font-mono font-bold text-slate-400 w-6" x-text="idx + 1"></span>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex items-center space-x-2">
+                                            <span class="font-mono text-xs font-bold text-orange-600" x-text="item.sku"></span>
+                                            <span class="text-[10px] bg-slate-200 text-slate-700 px-1.5 rounded" x-text="item.brand"></span>
+                                        </div>
+                                        <div class="text-xs text-slate-700 truncate" x-text="item.name"></div>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center space-x-4">
+                                    <div class="text-right">
+                                        <span class="text-[10px] text-slate-400 block">ราคาขาย Shopee:</span>
+                                        <input type="number" x-model="item.price" 
+                                               class="w-20 px-1.5 py-0.5 text-right font-bold text-orange-600 bg-white border border-slate-200 rounded text-xs outline-none focus:border-orange-500">
+                                    </div>
+                                    <button @click="removeFromQueue(item.sku)" class="text-slate-400 hover:text-rose-500 p-1 rounded-lg">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Export Action Bar -->
+                <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
+                    <button @click="selectedItems = []" :disabled="selectedItems.length === 0" class="text-xs text-rose-500 hover:underline disabled:opacity-50">
+                        ล้างตะกร้าทั้งหมด
+                    </button>
+
+                    <div class="flex items-center space-x-3">
+                        <button @click="showQueueModal = false" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600">
+                            ปิด
+                        </button>
+
+                        <button @click="exportToShopee()" :disabled="selectedItems.length === 0 || exporting"
+                                class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white text-xs font-bold shadow-md shadow-orange-500/20 disabled:opacity-50 flex items-center space-x-2">
+                            <span x-show="!exporting">สร้างไฟล์ Excel ยิง Shopee</span>
+                            <span x-show="exporting" class="animate-spin">⏳</span>
+                            <span x-show="exporting">กำลังประมวลผลรูปภาพและ Excel...</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Success Download Box -->
+                <div x-show="downloadUrl" class="mt-4 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+                    <div class="flex items-center space-x-2 text-emerald-800 text-xs font-medium">
+                        <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>
+                        <span>สร้างไฟล์ Shopee สำเร็จเรียบร้อย!</span>
+                    </div>
+                    <a :href="downloadUrl" download 
+                       class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center space-x-1">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                        <span>ดาวน์โหลดไฟล์ Excel</span>
+                    </a>
+                </div>
             </div>
         </div>
+
     </div>
 
     <!-- Alpine App Logic -->
     <script>
         function app() {
             return {
+                // Auth State
+                currentUser: null,
+                checkingAuth: true,
+                loggingIn: false,
+                loginError: null,
+                showPassword: false,
+                loginForm: {
+                    username: '',
+                    password: '',
+                    remember_me: true
+                },
+                authToken: null,
+
+                // App State
                 searchQuery: '*',
                 activeBrand: null,
                 inStockOnly: true,
@@ -434,19 +595,100 @@
                 exporting: false,
                 downloadUrl: null,
 
-                init() {
-                    this.search();
+                async init() {
+                    // Check stored token
+                    this.authToken = localStorage.getItem('megatool_token') || sessionStorage.getItem('megatool_token');
+                    await this.checkAuth();
+                    if (this.currentUser) {
+                        this.search();
+                    }
                     this.$nextTick(() => lucide.createIcons());
                 },
 
+                async checkAuth() {
+                    this.checkingAuth = true;
+                    try {
+                        const headers = {};
+                        if (this.authToken) {
+                            headers['Authorization'] = `Bearer ${this.authToken}`;
+                        }
+                        const res = await fetch('/api/me', { headers });
+                        if (res.ok) {
+                            this.currentUser = await res.json();
+                        } else {
+                            this.currentUser = null;
+                        }
+                    } catch (e) {
+                        this.currentUser = null;
+                    }
+                    this.checkingAuth = false;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                async login() {
+                    this.loggingIn = true;
+                    this.loginError = null;
+                    try {
+                        const res = await fetch('/api/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.loginForm)
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.success) {
+                            this.currentUser = data.user;
+                            this.authToken = data.token;
+                            if (this.loginForm.remember_me) {
+                                localStorage.setItem('megatool_token', data.token);
+                                sessionStorage.removeItem('megatool_token');
+                            } else {
+                                sessionStorage.setItem('megatool_token', data.token);
+                                localStorage.removeItem('megatool_token');
+                            }
+                            this.search();
+                        } else {
+                            this.loginError = data.detail || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+                        }
+                    } catch (e) {
+                        this.loginError = 'เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + e;
+                    }
+                    this.loggingIn = false;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                async logout() {
+                    try {
+                        await fetch('/api/logout', { method: 'POST' });
+                    } catch (e) {}
+                    localStorage.removeItem('megatool_token');
+                    sessionStorage.removeItem('megatool_token');
+                    this.authToken = null;
+                    this.currentUser = null;
+                    this.products = [];
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                getHeaders() {
+                    const headers = {};
+                    if (this.authToken) {
+                        headers['Authorization'] = `Bearer ${this.authToken}`;
+                    }
+                    return headers;
+                },
+
                 async search() {
+                    if (!this.currentUser) return;
                     this.loading = true;
                     try {
                         let url = `/api/search?q=${encodeURIComponent(this.searchQuery)}&in_stock=${this.inStockOnly}&exclude_spares=${this.excludeSpares}&page=${this.currentPage}&page_size=20`;
                         if (this.activeBrand) {
                             url += `&brand=${encodeURIComponent(this.activeBrand)}`;
                         }
-                        const res = await fetch(url);
+                        const res = await fetch(url, { headers: this.getHeaders() });
+                        if (res.status === 401) {
+                            this.currentUser = null;
+                            return;
+                        }
                         const data = await res.json();
                         this.products = data.products || [];
                         this.totalResults = data.total || 0;
@@ -477,10 +719,13 @@
 
                 getSuggestedPrice(p) {
                     if (p.price) return p.price;
+                    // If cost is hidden (staff), fallback or base markup
+                    let cost = p.cost_price || 0;
                     let pct = parseFloat(this.markupPercent) || 25;
                     let minP = parseFloat(this.minProfit) || 30;
-                    let price = Math.round(p.cost_price * (1 + pct / 100));
-                    return price < p.cost_price + minP ? Math.round(p.cost_price + minP) : price;
+                    if (cost <= 0) return 0;
+                    let price = Math.round(cost * (1 + pct / 100));
+                    return price < cost + minP ? Math.round(cost + minP) : price;
                 },
 
                 updateItemPrice(sku, val) {
@@ -525,7 +770,7 @@
                     this.renderedCoverUrl = null;
                     
                     try {
-                        const resImgs = await fetch(`/api/product-images/${p.sku}`);
+                        const resImgs = await fetch(`/api/product-images/${p.sku}`, { headers: this.getHeaders() });
                         const dataImgs = await resImgs.json();
                         if (dataImgs && dataImgs.images && dataImgs.images.length > 0) {
                             this.activePreviewItem.all_images = dataImgs.images;
@@ -552,7 +797,10 @@
 
                         const res = await fetch('/api/preview-cover', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                ...this.getHeaders()
+                            },
                             body: JSON.stringify({
                                 sku: `${this.activePreviewItem.sku}_${this.selectedImageIndex}`,
                                 image_url: targetImg,
@@ -577,7 +825,10 @@
                     try {
                         const res = await fetch('/api/export', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                ...this.getHeaders()
+                            },
                             body: JSON.stringify({
                                 shop_name: this.shopName,
                                 items: this.selectedItems.map(i => ({
