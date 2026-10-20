@@ -14,7 +14,7 @@ except Exception:
 from app.ktw_service import search_products, get_product_detail, extract_product_images, detect_brand_from_sku
 from app.image_service import generate_cover
 from app.shopee_service import export_shopee_batch
-from app.auth_service import verify_user, register_user, create_token, verify_token
+from app.auth_service import verify_user, create_token, verify_token
 
 app = FastAPI(title="KTW to Shopee Automation Center")
 
@@ -43,35 +43,6 @@ def require_auth(request: Request, authorization: Optional[str] = Header(None)) 
 @app.get("/")
 def get_index():
     return FileResponse("app/static/index.html")
-
-class RegisterRequest(BaseModel):
-    email: str
-    name: str
-    password: str
-    invite_code: str
-
-@app.post("/api/register")
-def api_register(req: RegisterRequest, response: Response):
-    try:
-        user = register_user(req.email, req.name, req.password, req.invite_code)
-        token = create_token(user, remember_me=True)
-        response.set_cookie(
-            key="megatool_token",
-            value=token,
-            max_age=30 * 24 * 3600,
-            httponly=True,
-            samesite="lax",
-            secure=False
-        )
-        return {
-            "success": True,
-            "token": token,
-            "user": user
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="เกิดข้อผิดพลาดในการลงทะเบียน: " + str(e))
 
 class LoginRequest(BaseModel):
     email: str
@@ -122,6 +93,8 @@ def api_search(
     page_size: int = Query(20, description="Page size")
 ):
     user = get_current_user(request, authorization)
+    if not user:
+        raise HTTPException(status_code=401, detail="จำเป็นต้องเข้าสู่ระบบก่อนใช้งาน")
     # Perform search
     data = search_products(query=q, brand=brand, in_stock_only=in_stock, exclude_spare_parts=exclude_spares, page=page, page_size=page_size)
     
@@ -134,6 +107,8 @@ def api_search(
 @app.get("/api/product/{sku}")
 def api_product(sku: str, request: Request, authorization: Optional[str] = Header(None)):
     user = get_current_user(request, authorization)
+    if not user:
+        raise HTTPException(status_code=401, detail="จำเป็นต้องเข้าสู่ระบบก่อนใช้งาน")
     detail = get_product_detail(sku)
     if not detail:
         raise HTTPException(status_code=404, detail="Product not found")
