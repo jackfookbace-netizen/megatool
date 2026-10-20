@@ -5,6 +5,7 @@ temp/
 .vscode/
 *.xlsx
 *.csv
+app/users.json
 app/static/covers/*.jpg
 app/static/covers/*.png
 !app/static/covers/cdn_cache.json

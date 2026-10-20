@@ -45,15 +45,15 @@ def get_index():
     return FileResponse("app/static/index.html")
 
 class LoginRequest(BaseModel):
-    username: str
+    email: str
     password: str
     remember_me: Optional[bool] = True
 
 @app.post("/api/login")
 def api_login(req: LoginRequest, response: Response):
-    user = verify_user(req.username, req.password)
+    user = verify_user(req.email, req.password)
     if not user:
-        raise HTTPException(status_code=401, detail="ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง")
+        raise HTTPException(status_code=401, detail="อีเมลหรือรหัสผ่านไม่ถูกต้อง")
     
     token = create_token(user, remember_me=bool(req.remember_me))
     max_age = (30 * 24 * 3600) if req.remember_me else (24 * 3600)
@@ -64,7 +64,7 @@ def api_login(req: LoginRequest, response: Response):
         max_age=max_age,
         httponly=True,
         samesite="lax",
-        secure=False  # Set to True if pure HTTPS
+        secure=False
     )
     return {
         "success": True,
