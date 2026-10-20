@@ -96,15 +96,9 @@ def api_search(
     # Perform search
     data = search_products(query=q, brand=brand, in_stock_only=in_stock, exclude_spare_parts=exclude_spares, page=page, page_size=page_size)
     
-    # If not admin, hide or redact cost price
-    is_admin = user and (user.get("role") == "admin")
-    if not is_admin:
-        for p in data.get("products", []):
-            p["cost_price"] = 0
-            p["is_cost_hidden"] = True
-    else:
-        for p in data.get("products", []):
-            p["is_cost_hidden"] = False
+    # All authenticated team members have equal access to cost prices
+    for p in data.get("products", []):
+        p["is_cost_hidden"] = False
             
     return data
 
@@ -115,12 +109,7 @@ def api_product(sku: str, request: Request, authorization: Optional[str] = Heade
     if not detail:
         raise HTTPException(status_code=404, detail="Product not found")
         
-    is_admin = user and (user.get("role") == "admin")
-    if not is_admin:
-        detail["cost_price"] = 0
-        detail["is_cost_hidden"] = True
-    else:
-        detail["is_cost_hidden"] = False
+    detail["is_cost_hidden"] = False
         
     return detail
 

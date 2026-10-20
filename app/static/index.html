@@ -110,10 +110,9 @@
                     <!-- User Role Badge -->
                     <template x-if="currentUser">
                         <div class="flex items-center space-x-2">
-                            <div class="px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center space-x-1.5"
-                                 :class="currentUser.role === 'admin' ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-blue-50 text-blue-700 border-blue-200'">
-                                <i :data-lucide="currentUser.role === 'admin' ? 'shield-check' : 'user'" class="w-3.5 h-3.5"></i>
-                                <span x-text="currentUser.name"></span>
+                            <div class="px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center space-x-1.5 bg-orange-50 text-orange-700 border-orange-200">
+                                <i data-lucide="user-check" class="w-3.5 h-3.5"></i>
+                                <span x-text="currentUser.email || currentUser.name"></span>
                             </div>
 
                             <!-- Logout Button -->
@@ -179,27 +178,19 @@
                                 <span>สูตรราคา Shopee:</span>
                             </span>
                             
-                            <template x-if="currentUser && currentUser.role === 'admin'">
-                                <div class="flex items-center space-x-1.5">
-                                    <span>ทุน KTW +</span>
-                                    <div class="inline-flex items-center border border-slate-200 rounded-lg px-2 py-1 bg-white shadow-inner">
-                                        <input type="number" x-model="markupPercent" class="w-12 text-center font-bold text-orange-600 outline-none">
-                                        <span class="text-slate-400 ml-1 font-bold">%</span>
-                                    </div>
-                                    <span>(กำไรขั้นต่ำ</span>
-                                    <div class="inline-flex items-center border border-slate-200 rounded-lg px-2 py-1 bg-white shadow-inner">
-                                        <input type="number" x-model="minProfit" class="w-12 text-center font-bold text-orange-600 outline-none">
-                                        <span class="text-slate-400 ml-1 font-bold">บ.</span>
-                                    </div>
-                                    <span>)</span>
+                            <div class="flex items-center space-x-1.5">
+                                <span>ทุน KTW +</span>
+                                <div class="inline-flex items-center border border-slate-200 rounded-lg px-2 py-1 bg-white shadow-inner">
+                                    <input type="number" x-model="markupPercent" class="w-12 text-center font-bold text-orange-600 outline-none">
+                                    <span class="text-slate-400 ml-1 font-bold">%</span>
                                 </div>
-                            </template>
-
-                            <template x-if="currentUser && currentUser.role !== 'admin'">
-                                <span class="bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-mono text-[11px]">
-                                    บวกกำไรตามมาตรฐานร้าน (กำหนดโดยผู้ดูแล)
-                                </span>
-                            </template>
+                                <span>(กำไรขั้นต่ำ</span>
+                                <div class="inline-flex items-center border border-slate-200 rounded-lg px-2 py-1 bg-white shadow-inner">
+                                    <input type="number" x-model="minProfit" class="w-12 text-center font-bold text-orange-600 outline-none">
+                                    <span class="text-slate-400 ml-1 font-bold">บ.</span>
+                                </div>
+                                <span>)</span>
+                            </div>
                         </div>
 
                         <div class="flex items-center space-x-2 border-l border-slate-200 pl-3">
@@ -297,18 +288,10 @@
                                         </span>
                                     </div>
 
-                                    <!-- Cost Price: Shown only to Admin -->
+                                    <!-- Cost Price: Visible to all authenticated team members -->
                                     <div class="flex items-center justify-between text-xs mb-1">
                                         <span class="text-slate-400">ราคาทุน KTW:</span>
-                                        <template x-if="currentUser && currentUser.role === 'admin' && !p.is_cost_hidden">
-                                            <span class="font-bold text-slate-800 font-mono" x-text="'฿' + p.cost_price.toLocaleString()"></span>
-                                        </template>
-                                        <template x-if="!currentUser || currentUser.role !== 'admin' || p.is_cost_hidden">
-                                            <span class="text-slate-400 italic text-[11px] flex items-center space-x-1">
-                                                <i data-lucide="lock" class="w-3 h-3 text-slate-400"></i>
-                                                <span>ลับเฉพาะผู้บริหาร</span>
-                                            </span>
-                                        </template>
+                                        <span class="font-bold text-slate-800 font-mono" x-text="'฿' + (p.cost_price ? p.cost_price.toLocaleString() : '0')"></span>
                                     </div>
 
                                     <!-- Suggested Shopee Price -->
