@@ -15,14 +15,27 @@ AUTH_DATA = {
     "client_secret": "secret",
     "grant_type": "password",
     "username": "11253",
-    "password": "password"
+    "password": "12341234"
 }
 
 _cached_token = "f1472937-9cd0-4e09-98e7-e415a1f02f59"
 
+def refresh_token():
+    global _cached_token
+    try:
+        r = requests.post(AUTH_URL, data=AUTH_DATA, headers=HEADERS_AUTH, timeout=10)
+        if r.status_code == 200:
+            token_json = r.json()
+            _cached_token = token_json.get("access_token", _cached_token)
+            return _cached_token
+    except Exception as e:
+        print("KTW auth token refresh error:", e)
+    return _cached_token
+
 def get_token():
     global _cached_token
-    # Return existing or refresh if needed
+    if not _cached_token:
+        refresh_token()
     return _cached_token
 
 def get_headers():
@@ -72,7 +85,12 @@ def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_pa
     fetch_size = min(page_size * multiplier, 100)
     url = f"{API_BASE}/products/search?query={urllib.parse.quote(final_query)}&pageSize={fetch_size}&currentPage={page}"
     try:
-        r = requests.get(url, headers=headers, timeout=12)
+        r = requests.get(url, headers=headers, timeout=15)
+        if r.status_code == 401:
+            refresh_token()
+            headers = get_headers()
+            r = requests.get(url, headers=headers, timeout=15)
+
         if r.status_code == 200:
             data = r.json()
             products = []
@@ -190,6 +208,10 @@ def get_product_detail(sku):
     url = f"{API_BASE}/products/{sku}?fields=FULL"
     try:
         r = requests.get(url, headers=headers, timeout=15)
+        if r.status_code == 401:
+            refresh_token()
+            headers = get_headers()
+            r = requests.get(url, headers=headers, timeout=15)
         if r.status_code == 200:
             return r.json()
     except Exception as e:

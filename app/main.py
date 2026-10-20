@@ -93,27 +93,23 @@ def api_search(
     page_size: int = Query(20, description="Page size")
 ):
     user = get_current_user(request, authorization)
-    if not user:
-        raise HTTPException(status_code=401, detail="จำเป็นต้องเข้าสู่ระบบก่อนใช้งาน")
     # Perform search
     data = search_products(query=q, brand=brand, in_stock_only=in_stock, exclude_spare_parts=exclude_spares, page=page, page_size=page_size)
     
-    # All authenticated team members have equal access to cost prices
+    # Cost is visible when logged in, hidden otherwise
+    is_hidden = (user is None)
     for p in data.get("products", []):
-        p["is_cost_hidden"] = False
+        p["is_cost_hidden"] = is_hidden
             
     return data
 
 @app.get("/api/product/{sku}")
 def api_product(sku: str, request: Request, authorization: Optional[str] = Header(None)):
-    user = get_current_user(request, authorization)
-    if not user:
-        raise HTTPException(status_code=401, detail="จำเป็นต้องเข้าสู่ระบบก่อนใช้งาน")
     detail = get_product_detail(sku)
     if not detail:
         raise HTTPException(status_code=404, detail="Product not found")
-        
-    detail["is_cost_hidden"] = False
+    user = get_current_user(request, authorization)
+    detail["is_cost_hidden"] = (user is None)
         
     return detail
 
