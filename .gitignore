@@ -5,6 +5,7 @@ temp/
 .vscode/
 *.xlsx
 *.csv
+data/*.db
 app/users.json
 app/static/covers/*.jpg
 app/static/covers/*.png

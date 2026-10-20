@@ -1,13 +1,16 @@
 import os
-import json
 import time
 import hashlib
 import hmac
 import re
 from typing import Optional, Dict
 
+from app.database import get_user_by_email, create_user
+
 SECRET_KEY = os.environ.get("AUTH_SECRET_KEY", "megatool-secret-key-2026-auth-secure")
-STORE_PASSWORD = os.environ.get("STORE_PASSWORD", "megatool2026").strip()
+STORE_INVITE_CODE = os.environ.get("STORE_INVITE_CODE", "MEGATOOL-2026").strip()
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "jackfookbace@gmail.com").strip().lower()
+ADMIN_PASS = os.environ.get("ADMIN_PASSWORD", "megatool2026").strip()
 
 def hash_password(password: str, salt: str = "megatool_secure_salt_2026") -> str:
     return hashlib.sha256((salt + password).encode('utf-8')).hexdigest()
@@ -16,22 +19,71 @@ def is_valid_email(email: str) -> bool:
     pattern = r"^[\w\.-]+@[\w\.-]+\.\w+$"
     return bool(re.match(pattern, email.strip()))
 
-def verify_user(email: str, password: str) -> Optional[Dict]:
-    email_clean = email.strip().lower()
-    pass_clean = password.strip()
+def ensure_initial_admin():
+    # Ensure owner exists in database
+    existing = get_user_by_email(ADMIN_EMAIL)
+    if not existing:
+        create_user(
+            email=ADMIN_EMAIL,
+            name="เจ้าของร้าน (Jack)",
+            password_hash=hash_password(ADMIN_PASS),
+            role="member"
+        )
+
+# Ensure owner is registered
+try:
+    ensure_initial_admin()
+except Exception:
+    pass
+
+def register_user(email: str, name: str, password: str, invite_code: str) -> Dict:
+    clean_email = email.strip().lower()
+    clean_name = name.strip()
+    clean_pass = password.strip()
+    clean_code = invite_code.strip()
     
-    # Check if email is valid format
-    if not is_valid_email(email_clean):
+    # 1. Validate invite code
+    if clean_code != STORE_INVITE_CODE:
+        raise ValueError("รหัสเชิญชวนของร้าน (Invite Code) ไม่ถูกต้อง กรุณาติดต่อเจ้าของร้าน")
+        
+    # 2. Validate email format
+    if not is_valid_email(clean_email):
+        raise ValueError("รูปแบบอีเมลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง")
+        
+    # 3. Validate name
+    if len(clean_name) < 2:
+        raise ValueError("กรุณากรอกชื่ออย่างน้อย 2 ตัวอักษร")
+        
+    # 4. Validate password length
+    if len(clean_pass) < 6:
+        raise ValueError("รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร")
+        
+    # 5. Check duplicate email
+    if get_user_by_email(clean_email):
+        raise ValueError("อีเมลนี้ถูกลงทะเบียนไว้ในระบบแล้ว กรุณาเข้าสู่ระบบ")
+        
+    # Create user
+    pw_hash = hash_password(clean_pass)
+    user = create_user(clean_email, clean_name, pw_hash, role="member")
+    return {
+        "email": user["email"],
+        "name": user["name"],
+        "role": user["role"]
+    }
+
+def verify_user(email: str, password: str) -> Optional[Dict]:
+    clean_email = email.strip().lower()
+    clean_pass = password.strip()
+    
+    user = get_user_by_email(clean_email)
+    if not user:
         return None
         
-    # Check password matches store/team password
-    if pass_clean == STORE_PASSWORD:
-        # Extract display name from email (e.g. jack from jack@gmail.com)
-        name_part = email_clean.split("@")[0].capitalize()
+    if user["password_hash"] == hash_password(clean_pass):
         return {
-            "email": email_clean,
-            "name": f"ทีมงาน ({name_part})",
-            "role": "member"
+            "email": user["email"],
+            "name": user["name"],
+            "role": user["role"]
         }
     return None
 
@@ -60,11 +112,13 @@ def verify_token(token: str) -> Optional[Dict]:
         if not hmac.compare_digest(sig, expected_sig):
             return None
             
-        name_part = email.split("@")[0].capitalize()
+        user = get_user_by_email(email)
+        display_name = user["name"] if user else email.split("@")[0].capitalize()
+        
         return {
             "email": email,
             "role": role,
-            "name": f"ทีมงาน ({name_part})",
+            "name": display_name,
             "exp": exp
         }
     except Exception:
