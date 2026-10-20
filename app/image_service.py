@@ -5,7 +5,30 @@ import time
 import requests
 from PIL import Image, ImageDraw, ImageFont
 
-FONT_DIR = 'C:\\Windows\\Fonts'
+def load_font(name: str, size: int):
+    # 1. Project bundled fonts in app/fonts/
+    bundled = os.path.join(os.path.dirname(__file__), "fonts", name)
+    if os.path.exists(bundled):
+        try:
+            return ImageFont.truetype(bundled, size)
+        except Exception:
+            pass
+    # 2. Windows system fonts
+    win_p = os.path.join("C:\\Windows\\Fonts", name)
+    if os.path.exists(win_p):
+        try:
+            return ImageFont.truetype(win_p, size)
+        except Exception:
+            pass
+    # 3. Linux system fonts
+    for ldir in ["/usr/share/fonts/truetype/dejavu", "/usr/share/fonts/truetype", "/usr/share/fonts"]:
+        lp = os.path.join(ldir, name)
+        if os.path.exists(lp):
+            try:
+                return ImageFont.truetype(lp, size)
+            except Exception:
+                pass
+    return ImageFont.load_default()
 
 def generate_cover(
     raw_img_path_or_url,
@@ -73,8 +96,8 @@ def generate_cover(
     is_mega = not shop_name or 'mega' in shop_name.lower() or 'zonix' in shop_name.lower()
 
     if is_mega:
-        f_prefix = ImageFont.truetype(os.path.join(FONT_DIR, 'arialbd.ttf'), 84)
-        f_tool = ImageFont.truetype(os.path.join(FONT_DIR, 'ariblk.ttf'), 84)
+        f_prefix = load_font('arialbd.ttf', 84)
+        f_tool = load_font('ariblk.ttf', 84)
 
         # Support both all-caps MEGATOOL and mixed MegaTool
         is_all_caps = not shop_name or shop_name.isupper() or 'MEGATOOL' in (shop_name or '')
@@ -124,7 +147,7 @@ def generate_cover(
         draw.arc([arc_left, arc_top, arc_right, arc_bot], start=10, end=170, fill=RED, width=7)
     else:
         # Fallback for custom generic shop names
-        f_shop_main = ImageFont.truetype(os.path.join(FONT_DIR, 'arialbd.ttf'), 76)
+        f_shop_main = load_font('arialbd.ttf', 76)
         margin_right = 50
         margin_top = 38
         title_text = shop_name.strip().rstrip('.')
@@ -151,14 +174,14 @@ def generate_cover(
     # Text inside ribbon (default: 'มีสต็อกพร้อมส่งทันที')
     display_banner_text = badge_text if (badge_text and badge_text != 'ของแท้ 100%') else "มีสต็อกพร้อมส่งทันที"
     
-    f_banner = ImageFont.truetype(os.path.join(FONT_DIR, 'tahomabd.ttf'), 48)
+    f_banner = load_font('tahomabd.ttf', 48)
     text_center_x = (x_slant_top + canvas_size - border_w) // 2
     text_center_y = y_top + (banner_h // 2) - 4
     draw.text((text_center_x, text_center_y), display_banner_text, fill=WHITE, font=f_banner, anchor='mm')
 
     # 6. Above Banner: 'ของแท้  100%'
-    f_badge_thai = ImageFont.truetype(os.path.join(FONT_DIR, 'tahomabd.ttf'), 54)
-    f_badge_num = ImageFont.truetype(os.path.join(FONT_DIR, 'arialbd.ttf'), 62)
+    f_badge_thai = load_font('tahomabd.ttf', 54)
+    f_badge_num = load_font('arialbd.ttf', 62)
     
     badge_y = y_top - 58
     
