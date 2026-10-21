@@ -96,6 +96,9 @@ class AttachShopeeRequest(BaseModel):
 @app.get("/api/listed")
 def api_get_listed():
     items = get_all_listed()
+    for item in items.values():
+        if not item.get("ktw_url"):
+            item["ktw_url"] = f"https://shop.ktw.co.th/p/{item.get('sku')}"
     return {"items": list(items.values()), "total": len(items)}
 
 @app.post("/api/listed")
