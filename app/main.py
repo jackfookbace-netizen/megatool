@@ -15,6 +15,10 @@ from app.ktw_service import search_products, get_product_detail, extract_product
 from app.image_service import generate_cover
 from app.shopee_service import export_shopee_batch
 from app.auth_service import verify_user, create_token, verify_token
+from app.listed_service import (
+    get_all_listed, get_listed_product, save_listed_product,
+    delete_listed_product, get_dashboard_summary
+)
 
 app = FastAPI(title="KTW to Shopee Automation Center")
 
@@ -81,6 +85,44 @@ def api_logout(response: Response):
     response.delete_cookie("megatool_token")
     return {"success": True, "message": "ออกจากระบบเรียบร้อยแล้ว"}
 
+class AttachShopeeRequest(BaseModel):
+    sku: str
+    shopee_url: str
+    name: Optional[str] = ""
+    brand: Optional[str] = ""
+    price: Optional[float] = 0.0
+    image_url: Optional[str] = ""
+
+@app.get("/api/listed")
+def api_get_listed():
+    items = get_all_listed()
+    return {"items": list(items.values()), "total": len(items)}
+
+@app.post("/api/listed")
+def api_save_listed(req: AttachShopeeRequest, request: Request, authorization: Optional[str] = Header(None)):
+    user = require_auth(request, authorization)
+    if not req.sku or not req.shopee_url:
+        raise HTTPException(status_code=400, detail="กรุณาระบุรหัส SKU และลิงก์ Shopee")
+    item = save_listed_product(
+        sku=req.sku,
+        shopee_url=req.shopee_url,
+        name=req.name,
+        brand=req.brand,
+        price=req.price or 0.0,
+        image_url=req.image_url or ""
+    )
+    return {"success": True, "item": item}
+
+@app.delete("/api/listed/{sku}")
+def api_delete_listed(sku: str, request: Request, authorization: Optional[str] = Header(None)):
+    user = require_auth(request, authorization)
+    deleted = delete_listed_product(sku)
+    return {"success": deleted}
+
+@app.get("/api/dashboard/stats")
+def api_dashboard_stats():
+    return get_dashboard_summary()
+
 @app.get("/api/search")
 def api_search(
     request: Request,
@@ -89,6 +131,7 @@ def api_search(
     brand: Optional[str] = Query(None, description="Brand filter"),
     in_stock: bool = Query(True, description="In stock only"),
     exclude_spares: bool = Query(True, description="Filter out spare parts"),
+    exclude_listed: bool = Query(False, description="Filter out products already live on Shopee"),
     page: int = Query(0, description="Page index"),
     page_size: int = Query(20, description="Page size")
 ):
@@ -96,11 +139,26 @@ def api_search(
     # Perform search
     data = search_products(query=q, brand=brand, in_stock_only=in_stock, exclude_spare_parts=exclude_spares, page=page, page_size=page_size)
     
+    listed_map = get_all_listed()
+    
     # Cost is visible when logged in, hidden otherwise
     is_hidden = (user is None)
+    filtered_products = []
     for p in data.get("products", []):
         p["is_cost_hidden"] = is_hidden
+        sku = p.get("sku")
+        if sku in listed_map:
+            p["is_listed"] = True
+            p["shopee_url"] = listed_map[sku].get("shopee_url")
+        else:
+            p["is_listed"] = False
+            p["shopee_url"] = None
             
+        if exclude_listed and p["is_listed"]:
+            continue
+        filtered_products.append(p)
+            
+    data["products"] = filtered_products
     return data
 
 @app.get("/api/product/{sku}")
