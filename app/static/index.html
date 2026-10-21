@@ -201,19 +201,14 @@
                             </div>
                             <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight">ภาพรวมหน้าร้าน Shopee ของคุณ</h2>
                             <p class="text-sm text-slate-300 mt-1 max-w-xl">
-                                ระบบนับเฉพาะสินค้าที่คุณ <strong class="text-emerald-400 underline decoration-emerald-500 underline-offset-2">แนบลิงก์ร้าน Shopee จริงแล้วเท่านั้น</strong> จึงมั่นใจได้ว่าสินค้าทุกตัวที่แสดงที่นี่ ออนไลน์ขายอยู่จริง 100%
+                                ข้อมูลทั้งหมดเชื่อมโยงกับ <strong class="text-emerald-400">สินค้าจริงในคลัง KTW</strong> โดยตรง อัปเดตราคา สต็อก และรูปภาพของแท้ตามรหัสสินค้าอัตโนมัติ
                             </p>
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
-                            <button @click="openAttachModal()" 
-                                    class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-xs font-bold shadow-lg shadow-emerald-500/25 transition-all flex items-center space-x-1.5">
-                                <i data-lucide="link" class="w-4 h-4"></i>
-                                <span>+ แนบลิงก์ Shopee สินค้าใหม่</span>
-                            </button>
                             <button @click="switchTab('catalog')" 
-                                    class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold backdrop-blur-sm transition-all flex items-center space-x-1.5 border border-white/15">
-                                <i data-lucide="plus-circle" class="w-4 h-4"></i>
-                                <span>ไปเลือกสินค้าลงเพิ่ม</span>
+                                    class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white text-xs font-bold shadow-lg shadow-orange-500/25 transition-all flex items-center space-x-1.5">
+                                <i data-lucide="search" class="w-4 h-4"></i>
+                                <span>+ เลือกสินค้าในคลังลง Shopee</span>
                             </button>
                         </div>
                     </div>
@@ -316,7 +311,7 @@
                                 <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
                                 <span>รายการสินค้าที่ออนไลน์บน Shopee ล่าสุด</span>
                             </h3>
-                            <p class="text-xs text-slate-400 mt-0.5">สินค้าที่มีลิงก์หน้าร้าน Shopee ยืนยันแล้ว</p>
+                            <p class="text-xs text-slate-400 mt-0.5">คลิกที่สินค้าเพื่อดูรายละเอียด สต็อก รูปภาพ และสเปกจากคลัง</p>
                         </div>
                         <button @click="switchTab('listed')" class="text-xs text-orange-600 font-bold hover:underline flex items-center space-x-1">
                             <span>ดูสินค้าที่ขายอยู่ทั้งหมด</span>
@@ -332,12 +327,12 @@
                             </div>
                             <h4 class="text-sm font-bold text-slate-700">ยังไม่มีสินค้าที่แนบลิงก์ Shopee</h4>
                             <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                                เมื่อคุณลงขายสินค้าใน Shopee แล้ว ให้นำลิงก์สินค้าจาก Shopee มาแนบที่นี่ เพื่อให้ระบบนับเป็นสินค้าที่ขายอยู่จริงครับ
+                                ไปที่แคตตาล็อกสินค้า แล้วกดปุ่ม "แนบลิงก์ Shopee" บนสินค้าที่คุณนำไปลงขาย เพื่อยืนยันสถานะครับ
                             </p>
-                            <button @click="openAttachModal()" 
+                            <button @click="switchTab('catalog')" 
                                     class="mt-4 px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-sm transition-all inline-flex items-center space-x-1.5">
-                                <i data-lucide="link" class="w-3.5 h-3.5"></i>
-                                <span>+ แนบลิงก์สินค้าชิ้นแรก</span>
+                                <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                                <span>ไปเลือกสินค้าในคลัง</span>
                             </button>
                         </div>
                     </template>
@@ -347,41 +342,48 @@
                             <table class="w-full text-left border-collapse text-xs">
                                 <thead>
                                     <tr class="bg-slate-50 text-slate-500 border-b border-slate-100">
-                                        <th class="py-3 px-4 font-semibold">สินค้า</th>
+                                        <th class="py-3 px-4 font-semibold">สินค้าจริงในคลัง</th>
                                         <th class="py-3 px-4 font-semibold">รหัส SKU</th>
                                         <th class="py-3 px-4 font-semibold">แบรนด์</th>
-                                        <th class="py-3 px-4 font-semibold">ราคาที่ขาย</th>
-                                        <th class="py-3 px-4 font-semibold">ลิงก์หน้าร้าน Shopee</th>
+                                        <th class="py-3 px-4 font-semibold">ราคาขาย</th>
+                                        <th class="py-3 px-4 font-semibold">หน้าร้าน Shopee</th>
                                         <th class="py-3 px-4 font-semibold text-right">การจัดการ</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">
                                     <template x-for="item in listedProducts.slice(0, 10)" :key="item.sku">
-                                        <tr class="hover:bg-slate-50/80 transition-colors">
+                                        <tr class="hover:bg-slate-50/80 transition-colors cursor-pointer group"
+                                            @click="viewProductDetail(item.sku)">
                                             <td class="py-3 px-4">
                                                 <div class="flex items-center space-x-3">
-                                                    <img :src="item.image_url || 'https://via.placeholder.com/60?text=Shopee'" 
-                                                         class="w-10 h-10 rounded-lg object-contain bg-white border border-slate-200 p-0.5 shrink-0">
-                                                    <span class="font-medium text-slate-800 line-clamp-2 max-w-xs" x-text="item.name || item.sku"></span>
+                                                    <img :src="item.image_url || 'https://via.placeholder.com/60?text=KTW'" 
+                                                         class="w-11 h-11 rounded-xl object-contain bg-white border border-slate-200 p-1 shrink-0 group-hover:scale-105 transition-transform">
+                                                    <div>
+                                                        <span class="font-bold text-slate-800 line-clamp-1 group-hover:text-orange-600 transition-colors" x-text="item.name || item.sku"></span>
+                                                        <span class="text-[10px] text-emerald-600 font-medium flex items-center space-x-1 mt-0.5">
+                                                            <span>สต็อกคลัง:</span>
+                                                            <strong x-text="item.stock ? item.stock.toLocaleString() + ' ชิ้น' : 'มีพร้อมส่ง'"></strong>
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td class="py-3 px-4 font-mono font-bold text-slate-700" x-text="item.sku"></td>
                                             <td class="py-3 px-4">
-                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200" x-text="item.brand"></span>
+                                                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 uppercase" x-text="item.brand"></span>
                                             </td>
-                                            <td class="py-3 px-4 font-mono font-bold text-orange-600" x-text="'฿' + (item.price ? item.price.toLocaleString() : '-')"></td>
-                                            <td class="py-3 px-4">
+                                            <td class="py-3 px-4 font-mono font-extrabold text-orange-600 text-sm" x-text="'฿' + (item.price ? item.price.toLocaleString() : '-')"></td>
+                                            <td class="py-3 px-4" @click.stop>
                                                 <a :href="item.shopee_url" target="_blank" 
-                                                   class="inline-flex items-center space-x-1 px-3 py-1 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold border border-orange-200 transition-colors">
+                                                   class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold border border-orange-200 transition-colors">
                                                     <span>เปิดดูบน Shopee</span>
-                                                    <i data-lucide="external-link" class="w-3 h-3"></i>
+                                                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
                                                 </a>
                                             </td>
-                                            <td class="py-3 px-4 text-right space-x-1">
+                                            <td class="py-3 px-4 text-right space-x-1" @click.stop>
                                                 <button @click="openAttachModal(item)" title="แก้ไขลิงก์" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
                                                     <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
                                                 </button>
-                                                <button @click="deleteAttach(item.sku)" title="ลบออกจากระบบ" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors">
+                                                <button @click="deleteAttach(item.sku)" title="ลบสถานะขาย" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors">
                                                     <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                                                 </button>
                                             </td>
@@ -496,7 +498,7 @@
                         <span class="text-xs font-normal text-slate-400" x-text="'(พบ ' + totalResults.toLocaleString() + ' รายการ)'"></span>
                     </h2>
                     <div class="text-xs text-slate-400">
-                        คลิกที่ปุ่ม <span class="text-orange-600 font-semibold">"ดูรูปที่แต่งแล้ว"</span> เพื่อพรีวิวปกตามแบรนด์จริง
+                        คลิกที่สินค้าเพื่อดูรายละเอียด หรือกด <span class="text-orange-600 font-semibold">"ดูรูปที่แต่งแล้ว"</span> เพื่อพรีวิวปกตามแบรนด์จริง
                     </div>
                 </div>
 
@@ -506,7 +508,8 @@
                         <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-md transition-all flex flex-col justify-between group">
                             <div>
                                 <!-- Product Thumbnail Box -->
-                                <div class="relative bg-white aspect-square flex items-center justify-center p-4 border-b border-slate-100">
+                                <div class="relative bg-white aspect-square flex items-center justify-center p-4 border-b border-slate-100 cursor-pointer"
+                                     @click="viewProductDetail(p.sku)">
                                     <img :src="p.image || 'https://via.placeholder.com/300?text=No+Image'" 
                                          :alt="p.name" 
                                          class="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300">
@@ -538,7 +541,9 @@
 
                                 <!-- Card Body -->
                                 <div class="p-4">
-                                    <h3 class="text-xs font-medium text-slate-800 line-clamp-2 leading-relaxed h-9 mb-2" x-text="p.name"></h3>
+                                    <h3 class="text-xs font-bold text-slate-800 line-clamp-2 leading-relaxed h-9 mb-2 cursor-pointer hover:text-orange-600 transition-colors" 
+                                        @click="viewProductDetail(p.sku)"
+                                        x-text="p.name"></h3>
                                     
                                     <!-- Pricing Grid -->
                                     <div class="bg-slate-50 rounded-xl p-2.5 mb-3 border border-slate-100">
@@ -664,15 +669,15 @@
                             <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold" x-text="listedProducts.length + ' รายการ'"></span>
                         </h2>
                         <p class="text-xs text-slate-400 mt-0.5">
-                            เฉพาะสินค้าที่ผ่านการแนบลิงก์หน้าร้าน Shopee ยืนยันสถานะแล้วเท่านั้น
+                            คลิกที่สินค้าเพื่อดูรายละเอียด สต็อก รูปภาพ และสเปกจากคลัง
                         </p>
                     </div>
 
                     <div class="flex items-center space-x-2">
-                        <button @click="openAttachModal()" 
+                        <button @click="switchTab('catalog')" 
                                 class="px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5">
-                            <i data-lucide="link" class="w-4 h-4"></i>
-                            <span>+ แนบลิงก์ Shopee เพิ่ม</span>
+                            <i data-lucide="search" class="w-4 h-4"></i>
+                            <span>+ ไปเลือกสินค้าในคลังลง Shopee</span>
                         </button>
                     </div>
                 </div>
@@ -701,7 +706,7 @@
                             <table class="w-full text-left border-collapse text-xs">
                                 <thead>
                                     <tr class="bg-slate-50 text-slate-600 border-b border-slate-100">
-                                        <th class="py-3.5 px-4 font-bold">สินค้า</th>
+                                        <th class="py-3.5 px-4 font-bold">สินค้าจริงในคลัง</th>
                                         <th class="py-3.5 px-4 font-bold">รหัส SKU</th>
                                         <th class="py-3.5 px-4 font-bold">แบรนด์</th>
                                         <th class="py-3.5 px-4 font-bold">ราคาขาย Shopee</th>
@@ -712,23 +717,27 @@
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">
                                     <template x-for="item in listedProducts" :key="item.sku">
-                                        <tr class="hover:bg-slate-50/80 transition-colors">
+                                        <tr class="hover:bg-slate-50/80 transition-colors cursor-pointer group"
+                                            @click="viewProductDetail(item.sku)">
                                             <td class="py-3 px-4">
                                                 <div class="flex items-center space-x-3">
-                                                    <img :src="item.image_url || 'https://via.placeholder.com/60?text=Shopee'" 
-                                                         class="w-12 h-12 rounded-xl object-contain bg-white border border-slate-200 p-1 shrink-0">
+                                                    <img :src="item.image_url || 'https://via.placeholder.com/60?text=KTW'" 
+                                                         class="w-12 h-12 rounded-xl object-contain bg-white border border-slate-200 p-1 shrink-0 group-hover:scale-105 transition-transform">
                                                     <div>
-                                                        <span class="font-bold text-slate-800 line-clamp-2 max-w-sm" x-text="item.name || item.sku"></span>
-                                                        <span class="text-[10px] text-slate-400 font-mono mt-0.5 block" x-text="'SKU: ' + item.sku"></span>
+                                                        <span class="font-bold text-slate-800 line-clamp-1 max-w-sm group-hover:text-orange-600 transition-colors" x-text="item.name || item.sku"></span>
+                                                        <span class="text-[10px] text-emerald-600 font-medium flex items-center space-x-1 mt-0.5">
+                                                            <span>สต็อกคลัง:</span>
+                                                            <strong x-text="item.stock ? item.stock.toLocaleString() + ' ชิ้น' : 'มีพร้อมส่ง'"></strong>
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td class="py-3 px-4 font-mono font-bold text-slate-700" x-text="item.sku"></td>
                                             <td class="py-3 px-4">
-                                                <span class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200" x-text="item.brand"></span>
+                                                <span class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 uppercase" x-text="item.brand"></span>
                                             </td>
                                             <td class="py-3 px-4 font-mono font-extrabold text-orange-600 text-sm" x-text="'฿' + (item.price ? item.price.toLocaleString() : '-')"></td>
-                                            <td class="py-3 px-4">
+                                            <td class="py-3 px-4" @click.stop>
                                                 <a :href="item.shopee_url" target="_blank" 
                                                    class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold border border-emerald-200 transition-colors">
                                                     <span>เปิดหน้าร้าน Shopee</span>
@@ -736,7 +745,7 @@
                                                 </a>
                                             </td>
                                             <td class="py-3 px-4 text-slate-400 font-mono text-[11px]" x-text="item.updated_at || item.created_at"></td>
-                                            <td class="py-3 px-4 text-right space-x-1">
+                                            <td class="py-3 px-4 text-right space-x-1" @click.stop>
                                                 <button @click="openAttachModal(item)" title="แก้ไขลิงก์" 
                                                         class="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors border border-slate-200">
                                                     <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
@@ -757,21 +766,123 @@
 
         </main>
 
-        <!-- MODAL: ATTACH SHOPEE LINK -->
+        <!-- MODAL: FULL PRODUCT DETAIL (CLICK ANY ITEM TO VIEW ALL WAREHOUSE DETAILS) -->
+        <div x-show="showDetailModal" 
+             class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 overflow-y-auto"
+             x-cloak>
+            <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-4xl w-full p-6 sm:p-8 relative my-8"
+                 @click.away="showDetailModal = false">
+                
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                    <div class="flex items-center space-x-3">
+                        <span class="px-3 py-1 rounded-lg text-xs font-bold uppercase bg-orange-100 text-orange-700" x-text="activeDetailProduct?.manufacturer || activeDetailProduct?.brand"></span>
+                        <span class="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg" x-text="'SKU: ' + activeDetailProduct?.code"></span>
+                        <template x-if="activeDetailProduct?.shopee_url">
+                            <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800 flex items-center space-x-1">
+                                <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+                                <span>ขายอยู่บน Shopee</span>
+                            </span>
+                        </template>
+                    </div>
+                    <button @click="showDetailModal = false" class="text-slate-400 hover:text-slate-600 p-1">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <div x-show="loadingDetail" class="py-16 text-center">
+                    <div class="animate-spin text-3xl mb-2">⏳</div>
+                    <span class="text-xs font-bold text-slate-600">กำลังดึงข้อมูลสเปกจริงจากคลัง KTW...</span>
+                </div>
+
+                <div x-show="!loadingDetail && activeDetailProduct" class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    <!-- Images Gallery -->
+                    <div>
+                        <div class="aspect-square bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center justify-center">
+                            <img :src="activeDetailProduct?.images?.[selectedDetailImageIndex] || activeDetailProduct?.image" 
+                                 class="max-h-full max-w-full object-contain">
+                        </div>
+                        <div class="flex items-center space-x-2 mt-3 overflow-x-auto p-1">
+                            <template x-for="(img, idx) in activeDetailProduct?.images || []" :key="idx">
+                                <button @click="selectedDetailImageIndex = idx"
+                                        :class="selectedDetailImageIndex === idx ? 'border-orange-500 ring-2 ring-orange-200' : 'border-slate-200 opacity-60 hover:opacity-100'"
+                                        class="w-12 h-12 rounded-lg border bg-white p-1 flex items-center justify-center shrink-0 transition-all">
+                                    <img :src="img" class="max-h-full max-w-full object-contain">
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Details & Action Specs -->
+                    <div class="flex flex-col justify-between space-y-4">
+                        <div>
+                            <h2 class="text-base font-bold text-slate-900 leading-snug" x-text="activeDetailProduct?.name"></h2>
+                            
+                            <!-- Stock & Warehouse Box -->
+                            <div class="grid grid-cols-2 gap-3 mt-4">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                    <span class="text-[11px] text-slate-500 block">สต็อกในคลัง KTW:</span>
+                                    <div class="text-base font-bold text-emerald-600 mt-0.5" x-text="(activeDetailProduct?.stock?.stockLevel || 0).toLocaleString() + ' ชิ้น'"></div>
+                                    <span class="text-[10px] text-slate-400" x-text="'คลัง: ' + (activeDetailProduct?.stock?.storestock?.storeName || 'คลังหลัก')"></span>
+                                </div>
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                    <span class="text-[11px] text-slate-500 block">ราคาทุน KTW:</span>
+                                    <div class="text-base font-bold text-slate-800 mt-0.5 font-mono" x-text="'฿' + (activeDetailProduct?.price?.value || 0).toLocaleString()"></div>
+                                    <span class="text-[10px] text-orange-600 font-bold" x-text="'ราคาแนะนำ Shopee: ฿' + (Math.round((activeDetailProduct?.price?.value || 0) * 1.25)).toLocaleString()"></span>
+                                </div>
+                            </div>
+
+                            <!-- Description / Specs Box -->
+                            <div class="mt-4">
+                                <span class="text-xs font-bold text-slate-700 block mb-1">จุดเด่น & ข้อมูลจำเพาะจากคลัง:</span>
+                                <div class="text-xs text-slate-600 bg-slate-50 border border-slate-100 p-3 rounded-xl max-h-48 overflow-y-auto leading-relaxed"
+                                     x-html="activeDetailProduct?.description || 'ไม่มีรายละเอียดเพิ่มเติม'"></div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                            <template x-if="activeDetailProduct?.shopee_url">
+                                <a :href="activeDetailProduct.shopee_url" target="_blank"
+                                   class="px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5">
+                                    <span>เปิดดูบน Shopee</span>
+                                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                                </a>
+                            </template>
+                            
+                            <div class="flex items-center space-x-2">
+                                <button @click="showDetailModal = false; openCoverPreview(activeDetailProduct)"
+                                        class="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center space-x-1">
+                                    <i data-lucide="image" class="w-3.5 h-3.5"></i>
+                                    <span>ดูรูปแต่งปก</span>
+                                </button>
+                                
+                                <button @click="showDetailModal = false; openAttachModal(activeDetailProduct)"
+                                        class="px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-all flex items-center space-x-1">
+                                    <i data-lucide="link" class="w-3.5 h-3.5"></i>
+                                    <span x-text="activeDetailProduct?.shopee_url ? 'แก้ไขลิงก์ Shopee' : 'แนบลิงก์ Shopee'"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: STREAMLINED ATTACH SHOPEE LINK (JUST PASTE LINK!) -->
         <div x-show="showAttachModal" 
              class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto"
              x-cloak>
             <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 relative my-8"
                  @click.away="showAttachModal = false">
                 
-                <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                     <div class="flex items-center space-x-2">
                         <div class="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">
                             <i data-lucide="link" class="w-4 h-4"></i>
                         </div>
                         <div>
-                            <h3 class="text-sm font-bold text-slate-900">แนบลิงก์สินค้าที่ขายอยู่บน Shopee</h3>
-                            <p class="text-[11px] text-slate-400">ยืนยันว่าสินค้านี้ลงขายในหน้าร้าน Shopee เรียบร้อยแล้ว</p>
+                            <h3 class="text-sm font-bold text-slate-900">แนบลิงก์ Shopee ให้สินค้าจริงในคลัง</h3>
+                            <p class="text-[11px] text-slate-400">ระบบจะดึงข้อมูลจริงจากคลัง KTW ให้อัตโนมัติ เพียงแค่แปะลิงก์</p>
                         </div>
                     </div>
                     <button @click="showAttachModal = false" class="text-slate-400 hover:text-slate-600 p-1">
@@ -779,54 +890,42 @@
                     </button>
                 </div>
 
-                <form @submit.prevent="saveAttach()" class="mt-4 space-y-4">
+                <!-- Product Preview Card from Warehouse -->
+                <div class="my-4 p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center space-x-3">
+                    <img :src="attachForm.image_url || 'https://via.placeholder.com/80?text=KTW'" 
+                         class="w-14 h-14 object-contain rounded-xl bg-white border border-slate-200 p-1 shrink-0">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700 uppercase" x-text="attachForm.brand || 'KTW'"></span>
+                            <span class="font-mono text-xs font-bold text-slate-600" x-text="attachForm.sku"></span>
+                        </div>
+                        <h4 class="text-xs font-bold text-slate-800 line-clamp-1 mt-0.5" x-text="attachForm.name || attachForm.sku"></h4>
+                        <span class="text-[10px] text-emerald-600 font-bold mt-0.5 block">
+                            ✓ สินค้าจริงในคลัง KTW
+                        </span>
+                    </div>
+                </div>
+
+                <form @submit.prevent="saveAttach()" class="space-y-4">
                     <div x-show="attachError" class="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center space-x-2">
                         <i data-lucide="alert-circle" class="w-4 h-4 text-rose-500 shrink-0"></i>
                         <span x-text="attachError"></span>
                     </div>
 
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">รหัสสินค้า (SKU)</label>
-                        <input type="text" x-model="attachForm.sku" required
-                               placeholder="เช่น Z053-0073 หรือ M011-M0801B"
-                               class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-xs font-mono font-bold outline-none">
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">ชื่อสินค้า</label>
-                        <input type="text" x-model="attachForm.name"
-                               placeholder="ชื่อสินค้าบน Shopee"
-                               class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-xs outline-none">
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">แบรนด์</label>
-                            <input type="text" x-model="attachForm.brand"
-                                   placeholder="เช่น 3M, MAKITA"
-                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-xs outline-none">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">ราคาขาย (บาท)</label>
-                            <input type="number" x-model="attachForm.price"
-                                   placeholder="เช่น 150"
-                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-xs outline-none font-bold text-orange-600">
-                        </div>
-                    </div>
-
+                    <!-- Single main field: Shopee URL -->
                     <div>
                         <label class="block text-xs font-bold text-slate-800 mb-1 flex items-center justify-between">
-                            <span>ลิงก์หน้าร้าน Shopee (Live URL) *</span>
-                            <span class="text-[10px] text-emerald-600 font-normal">จำเป็นต้องระบุ</span>
+                            <span>ลิงก์หน้าร้าน Shopee (URL) *</span>
+                            <span class="text-[10px] text-emerald-600 font-bold">ช่องเดียวจบ!</span>
                         </label>
                         <div class="relative">
-                            <i data-lucide="globe" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
-                            <input type="url" x-model="attachForm.shopee_url" required
+                            <i data-lucide="globe" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+                            <input type="url" x-model="attachForm.shopee_url" required autofocus
                                    placeholder="https://shopee.co.th/product/..."
-                                   class="w-full pl-9 pr-3 py-2 rounded-xl border border-orange-300 bg-orange-50/20 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-xs font-mono outline-none">
+                                   class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-orange-300 bg-orange-50/20 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-xs font-mono outline-none">
                         </div>
                         <p class="text-[10px] text-slate-400 mt-1">
-                            ก๊อปปี้ลิงก์สินค้าจากหน้าเว็บ Shopee หรือแอป Shopee มาวางที่นี่
+                            ก๊อปปี้ลิงก์สินค้าจากหน้า Shopee Seller Centre หรือหน้าเว็บ Shopee มาวางที่นี่
                         </p>
                     </div>
 
@@ -836,8 +935,8 @@
                             ยกเลิก
                         </button>
                         <button type="submit" :disabled="savingAttach"
-                                class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5 disabled:opacity-50">
-                            <span x-show="!savingAttach">บันทึกสถานะขายแล้ว</span>
+                                class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-500/25 transition-all flex items-center space-x-1.5 disabled:opacity-50">
+                            <span x-show="!savingAttach">บันทึกยืนยันสถานะขายแล้ว</span>
                             <span x-show="savingAttach" class="animate-spin">⏳</span>
                         </button>
                     </div>
@@ -905,7 +1004,7 @@
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">ชื่อร้านบนรูปปก:</label>
                                 <input type="text" x-model="shopName" 
-                                       placeholder="เช่น MEGATOOL"
+                                       placeholder="เช่น MEGATOOL" 
                                        class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 text-xs font-bold outline-none">
                             </div>
 
@@ -1078,6 +1177,12 @@
                     image_url: ''
                 },
 
+                // Product Detail Modal State
+                showDetailModal: false,
+                activeDetailProduct: null,
+                loadingDetail: false,
+                selectedDetailImageIndex: 0,
+
                 async init() {
                     this.authToken = localStorage.getItem('megatool_token') || sessionStorage.getItem('megatool_token');
                     await this.checkAuth();
@@ -1211,14 +1316,48 @@
                     return Math.min(Math.round((count / total) * 100), 100);
                 },
 
+                async viewProductDetail(sku) {
+                    this.showDetailModal = true;
+                    this.loadingDetail = true;
+                    this.selectedDetailImageIndex = 0;
+                    this.activeDetailProduct = null;
+                    
+                    try {
+                        // Check if listed to retain Shopee URL
+                        const listedItem = this.listedProducts.find(i => i.sku === sku);
+                        
+                        const res = await fetch(`/api/product/${sku}`, { headers: this.getHeaders() });
+                        if (res.ok) {
+                            const detail = await res.json();
+                            
+                            // Extract all high-res images
+                            let imgList = [];
+                            const imgRes = await fetch(`/api/product-images/${sku}`);
+                            if (imgRes.ok) {
+                                const imgData = await imgRes.json();
+                                imgList = imgData.images || [];
+                            }
+                            detail.images = imgList;
+                            detail.brand = detail.manufacturer || 'KTW';
+                            detail.shopee_url = listedItem ? listedItem.shopee_url : null;
+                            detail.sku = detail.code;
+                            this.activeDetailProduct = detail;
+                        }
+                    } catch (e) {
+                        console.error('Error loading detail:', e);
+                    }
+                    this.loadingDetail = false;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
                 openAttachModal(product = null) {
                     this.attachError = null;
                     if (product) {
                         this.attachForm = {
-                            sku: product.sku || '',
+                            sku: product.sku || product.code || '',
                             shopee_url: product.shopee_url || '',
                             name: product.name || '',
-                            brand: product.brand || '',
+                            brand: product.brand || product.manufacturer || '',
                             price: product.price || this.getSuggestedPrice(product) || 0,
                             image_url: product.image || product.image_url || ''
                         };
@@ -1326,7 +1465,7 @@
                 },
 
                 getSuggestedPrice(p) {
-                    const cost = p.cost_price || 0;
+                    const cost = (p.price && p.price.value) ? p.price.value : (p.cost_price || 0);
                     if (cost <= 0) return 0;
                     const markup = cost * (parseFloat(this.markupPercent) / 100);
                     const profit = Math.max(markup, parseFloat(this.minProfit));
@@ -1343,12 +1482,12 @@
                         this.selectedItems.splice(idx, 1);
                     } else {
                         this.selectedItems.push({
-                            sku: p.sku,
+                            sku: p.sku || p.code,
                             name: p.name,
                             price: this.getSuggestedPrice(p),
-                            brand: p.brand,
-                            image: p.image,
-                            stock: p.stock
+                            brand: p.brand || p.manufacturer,
+                            image: p.image || (p.images && p.images[0]),
+                            stock: p.stock?.stockLevel || p.stock || 0
                         });
                     }
                 },
@@ -1375,9 +1514,9 @@
                     this.showPreviewModal = true;
                     this.customBadgeText = 'มีสต็อกพร้อมส่งทันที';
                     
-                    // Fetch full product details for high-res images
+                    const sku = p.sku || p.code;
                     try {
-                        const res = await fetch(`/api/product-images/${p.sku}`, { headers: this.getHeaders() });
+                        const res = await fetch(`/api/product-images/${sku}`, { headers: this.getHeaders() });
                         if (res.ok) {
                             const data = await res.json();
                             if (data.images && data.images.length > 0) {
@@ -1388,7 +1527,6 @@
                         console.error('Error fetching images:', e);
                     }
 
-                    // Auto trigger preview generation
                     this.generatePreviewCover();
                 },
 
@@ -1401,15 +1539,17 @@
                     if (!this.activePreviewItem) return;
                     this.generatingPreview = true;
                     const imgUrl = (this.activePreviewItem.all_images && this.activePreviewItem.all_images[this.selectedImageIndex]) || this.activePreviewItem.image;
-                    
+                    const sku = this.activePreviewItem.sku || this.activePreviewItem.code;
+                    const brand = this.activePreviewItem.brand || this.activePreviewItem.manufacturer;
+
                     try {
                         const res = await fetch('/api/preview-cover', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                sku: this.activePreviewItem.sku,
+                                sku: sku,
                                 image_url: imgUrl,
-                                brand: this.activePreviewItem.brand,
+                                brand: brand,
                                 badge_text: this.customBadgeText,
                                 shop_name: this.shopName
                             })
@@ -1427,14 +1567,15 @@
 
                 addToQueueFromPreview() {
                     if (!this.activePreviewItem) return;
-                    if (!this.isItemSelected(this.activePreviewItem.sku)) {
+                    const sku = this.activePreviewItem.sku || this.activePreviewItem.code;
+                    if (!this.isItemSelected(sku)) {
                         this.selectedItems.push({
-                            sku: this.activePreviewItem.sku,
+                            sku: sku,
                             name: this.activePreviewItem.name,
                             price: this.getSuggestedPrice(this.activePreviewItem),
-                            brand: this.activePreviewItem.brand,
+                            brand: this.activePreviewItem.brand || this.activePreviewItem.manufacturer,
                             image: this.activePreviewItem.image,
-                            stock: this.activePreviewItem.stock
+                            stock: this.activePreviewItem.stock?.stockLevel || this.activePreviewItem.stock || 0
                         });
                     }
                     this.showPreviewModal = false;
