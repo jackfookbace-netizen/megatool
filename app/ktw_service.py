@@ -18,7 +18,7 @@ AUTH_DATA = {
     "password": "12341234"
 }
 
-_cached_token = "f1472937-9cd0-4e09-98e7-e415a1f02f59"
+_cached_token = None
 
 def refresh_token():
     global _cached_token
@@ -44,14 +44,43 @@ def get_headers():
         "Authorization": f"Bearer {get_token()}"
     }
 
+IMMUNE_PATTERNS = [
+    r'เครื่อง', r'สว่าน', r'ตู้', r'ปั๊ม', r'ชุด', r'คีม', r'ประแจ', r'ไขควง', r'กรรไกร',
+    r'ระดับน้ำ', r'ตลับเมตร', r'ดอก', r'ใบเลื่อย', r'ใบตัด', r'ใบเจียร', r'ใบขัด', r'เทป',
+    r'น้ำยา', r'สเปรย์', r'กาว', r'จาระบี', r'ถุงมือ', r'หน้ากาก', r'แว่นตา', r'พัดลม',
+    r'บันได', r'รอก', r'แม่แรง', r'กาพ่นสี', r'สายยาง', r'สายลม'
+]
+
+SPARE_PREFIXES = (
+    'MA', 'MF', 'MP', 'DP-', 'DA-', 'I122-', 'KT-M022-', 'K032-', 'K192-', 
+    'K272-', 'P172-', 'P132-', 'P282-', 'P182-', 'P192-', 'P272-', 'P042-', 'P222-', 
+    'P232-', 'P342-', 'P352-', 'P114-', 'P122-', 'V102-', 'V103P-', 'V104P-', 'V107P-', 'V108P-',
+    'V110P-', 'P283-', 'S372-', 'P652-', 'H212-', 'H214-', 'J072-', 'M222-', 'C062-', 'E062-', 'K062-'
+)
+
 def is_spare_part(item):
     name = (item.get('name') or '').strip()
-    if 'อะไหล่' in name or 'SPARE PART' in name.upper() or 'SPAREPART' in name.upper():
+    sku = (item.get('code') or '').strip()
+
+    # 1. Explicit spare keywords in Name or Category (100% spare parts)
+    if any(k in name for k in ['อะไหล่', 'SPARE PART', 'SPAREPART', 'ทุ่นไฟฟ้า', 'ฟิลคอยล์', 'ฟิลด์คอยล์', 'แปรงถ่าน']):
         return True
     for cat in item.get('categories', []):
         cname = cat.get('name', '') if isinstance(cat, dict) else str(cat)
         if 'อะไหล่' in cname or 'SPARE' in cname.upper():
             return True
+
+    # 2. Whitelist: Finished Tools & Commercial Accessories are IMMUNE (Never filtered out)
+    for pat in IMMUNE_PATTERNS:
+        if re.search(pat, name):
+            return False
+
+    # 3. Check spare SKU prefixes only for non-whitelisted items
+    if sku.startswith(SPARE_PREFIXES):
+        return True
+    if len(sku) >= 4 and sku.startswith('P') and sku[3] == '2':
+        return True
+
     return False
 
 def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_parts=True, page=0, page_size=20):
