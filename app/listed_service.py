@@ -19,7 +19,34 @@ _init_storage()
 def get_all_listed() -> Dict[str, dict]:
     try:
         with open(DATA_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            items = json.load(f)
+            
+        # Self-healing: auto-enrich any existing items with missing warehouse details
+        needs_save = False
+        from app.ktw_service import get_product_detail, clean_brand_name, extract_product_images
+        
+        for sku, item in items.items():
+            if not item.get("image_url") or item.get("brand") == "OTHER" or item.get("name") == sku or not item.get("price"):
+                detail = get_product_detail(sku)
+                if detail:
+                    item["name"] = detail.get("name") or item.get("name") or sku
+                    item["brand"] = clean_brand_name(detail.get("manufacturer"), sku)
+                    imgs = extract_product_images(detail)
+                    item["image_url"] = imgs[0] if imgs else item.get("image_url", "")
+                    cost_val = detail.get("price", {}).get("value", 0.0) or 0.0
+                    item["cost_price"] = cost_val
+                    item["stock"] = detail.get("stock", {}).get("stockLevel", 0) or 0
+                    if not item.get("price") or item["price"] <= 0:
+                        item["price"] = round(cost_val * 1.25) if cost_val > 0 else 0.0
+                    needs_save = True
+                    
+        if needs_save:
+            tmp_file = DATA_FILE + ".tmp"
+            with open(tmp_file, "w", encoding="utf-8") as f:
+                json.dump(items, f, ensure_ascii=False, indent=2)
+            os.replace(tmp_file, DATA_FILE)
+            
+        return items
     except Exception as e:
         print("Error reading listed products:", e)
         return {}
