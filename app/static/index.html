@@ -367,7 +367,14 @@
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="py-3 px-4 font-mono font-bold text-slate-700" x-text="item.sku"></td>
+                                            <td class="py-3 px-4" @click.stop>
+                                                <a :href="item.ktw_url || ('https://shop.ktw.co.th/p/' + item.sku)" target="_blank"
+                                                   title="เปิดดูสินค้าบนเว็บ shop.ktw.co.th"
+                                                   class="font-mono font-bold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center space-x-1">
+                                                    <span x-text="item.sku"></span>
+                                                    <i data-lucide="external-link" class="w-2.5 h-2.5"></i>
+                                                </a>
+                                            </td>
                                             <td class="py-3 px-4">
                                                 <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 uppercase" x-text="item.brand"></span>
                                             </td>
@@ -529,7 +536,12 @@
                                     </div>
 
                                     <!-- SKU Badge Top Right -->
-                                    <span class="absolute top-2.5 right-2.5 text-[10px] font-mono text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200" x-text="p.sku"></span>
+                                    <a :href="p.ktw_url || ('https://shop.ktw.co.th/p/' + p.sku)" target="_blank" @click.stop
+                                       title="คลิกเพื่อเปิดดูบนเว็บ shop.ktw.co.th"
+                                       class="absolute top-2.5 right-2.5 text-[10px] font-mono font-bold text-slate-600 hover:text-blue-600 bg-white/95 hover:bg-blue-50 px-2 py-0.5 rounded-md border border-slate-200 hover:border-blue-300 shadow-sm transition-all flex items-center space-x-1">
+                                        <span x-text="p.sku"></span>
+                                        <i data-lucide="external-link" class="w-2.5 h-2.5 text-slate-400"></i>
+                                    </a>
 
                                     <!-- Stock Badge Bottom Left -->
                                     <div class="absolute bottom-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-bold flex items-center space-x-1 shadow-sm"
@@ -732,7 +744,14 @@
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="py-3 px-4 font-mono font-bold text-slate-700" x-text="item.sku"></td>
+                                            <td class="py-3 px-4" @click.stop>
+                                                <a :href="item.ktw_url || ('https://shop.ktw.co.th/p/' + item.sku)" target="_blank"
+                                                   title="เปิดดูสินค้าบนเว็บ shop.ktw.co.th"
+                                                   class="font-mono font-bold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center space-x-1">
+                                                    <span x-text="item.sku"></span>
+                                                    <i data-lucide="external-link" class="w-2.5 h-2.5"></i>
+                                                </a>
+                                            </td>
                                             <td class="py-3 px-4">
                                                 <span class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 uppercase" x-text="item.brand"></span>
                                             </td>
@@ -841,13 +860,21 @@
 
                         <!-- Action Buttons -->
                         <div class="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                            <template x-if="activeDetailProduct?.shopee_url">
-                                <a :href="activeDetailProduct.shopee_url" target="_blank"
-                                   class="px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5">
-                                    <span>เปิดดูบน Shopee</span>
+                            <div class="flex items-center space-x-2">
+                                <template x-if="activeDetailProduct?.shopee_url">
+                                    <a :href="activeDetailProduct.shopee_url" target="_blank"
+                                       class="px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5">
+                                        <span>เปิดดูบน Shopee</span>
+                                        <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                                    </a>
+                                </template>
+
+                                <a :href="activeDetailProduct?.ktw_url || ('https://shop.ktw.co.th/p/' + (activeDetailProduct?.sku || activeDetailProduct?.code))" target="_blank"
+                                   class="px-4 py-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition-all flex items-center space-x-1.5 shadow-sm">
                                     <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                                    <span>เปิดดูบนเว็บ KTW</span>
                                 </a>
-                            </template>
+                            </div>
                             
                             <div class="flex items-center space-x-2">
                                 <button @click="showDetailModal = false; openCoverPreview(activeDetailProduct)"

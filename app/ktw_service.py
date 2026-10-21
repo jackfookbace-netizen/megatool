@@ -164,7 +164,8 @@ def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_pa
                     "is_spare_part": is_spare_part(item),
                     "stock": item.get('stock', {}).get('stockLevel', 0),
                     "stock_status": item.get('stock', {}).get('stockLevelStatus', 'outOfStock'),
-                    "store_name": item.get('stock', {}).get('storestock', {}).get('storeName', 'คลังหลัก')
+                    "store_name": item.get('stock', {}).get('storestock', {}).get('storeName', 'คลังหลัก'),
+                    "ktw_url": f"https://shop.ktw.co.th/p/{p_code}"
                 })
                 if len(products) >= page_size:
                     break
@@ -242,7 +243,9 @@ def get_product_detail(sku):
             headers = get_headers()
             r = requests.get(url, headers=headers, timeout=15)
         if r.status_code == 200:
-            return r.json()
+            data = r.json()
+            data["ktw_url"] = f"https://shop.ktw.co.th/p/{sku}"
+            return data
     except Exception as e:
         print(f"Error fetching detail {sku}:", e)
     return None
