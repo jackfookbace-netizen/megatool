@@ -4,6 +4,7 @@ temp/
 *.log
 .vscode/
 *.xlsx
+!Shopee_template_original.xlsx
 *.csv
 data/*.db
 app/users.json

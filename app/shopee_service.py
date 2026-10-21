@@ -7,7 +7,10 @@ import xml.etree.ElementTree as ET
 from app.image_service import generate_cover, upload_to_cdn
 from app.ktw_service import get_product_detail, clean_brand_name, detect_brand_from_sku, extract_product_images
 
-TEMPLATE_PATH = 'Shopee_template_original.xlsx'
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TEMPLATE_PATH = os.path.join(ROOT_DIR, 'Shopee_template_original.xlsx')
+if not os.path.exists(TEMPLATE_PATH):
+    TEMPLATE_PATH = 'Shopee_template_original.xlsx'
 
 import concurrent.futures
 
