@@ -191,8 +191,10 @@ class PreviewRequest(BaseModel):
 
 @app.post("/api/preview-cover")
 def api_preview_cover(req: PreviewRequest):
+    import hashlib
     brand = req.brand or detect_brand_from_sku(req.sku)
-    output_filename = f"{req.sku}_preview.jpg"
+    url_hash = hashlib.md5(req.image_url.encode('utf-8')).hexdigest()[:8]
+    output_filename = f"{req.sku}_{url_hash}_preview.jpg"
     output_path = f"app/static/covers/{output_filename}"
     try:
         generate_cover(
@@ -202,7 +204,8 @@ def api_preview_cover(req: PreviewRequest):
             sku=req.sku,
             badge_text=req.badge_text,
             custom_footer=req.custom_footer,
-            shop_name=req.shop_name or "MEGATOOL"
+            shop_name=req.shop_name or "MEGATOOL",
+            overwrite=True
         )
         return {"preview_url": f"/static/covers/{output_filename}"}
     except Exception as e:
@@ -212,6 +215,7 @@ class ExportItem(BaseModel):
     sku: str
     price: Optional[float] = None
     badge: Optional[str] = None
+    selected_image: Optional[str] = None
 
 class ExportRequest(BaseModel):
     items: List[ExportItem]

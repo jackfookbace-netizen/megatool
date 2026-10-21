@@ -1559,6 +1559,7 @@
 
                 selectImageAngle(idx) {
                     this.selectedImageIndex = idx;
+                    this.renderedCoverUrl = null;
                     this.generatePreviewCover();
                 },
 
@@ -1595,13 +1596,22 @@
                 addToQueueFromPreview() {
                     if (!this.activePreviewItem) return;
                     const sku = this.activePreviewItem.sku || this.activePreviewItem.code;
-                    if (!this.isItemSelected(sku)) {
+                    const selectedImg = (this.activePreviewItem.all_images && this.activePreviewItem.all_images[this.selectedImageIndex]) || this.activePreviewItem.image;
+                    
+                    const existingIndex = this.selectedItems.findIndex(i => i.sku === sku);
+                    if (existingIndex >= 0) {
+                        this.selectedItems[existingIndex].image = selectedImg;
+                        this.selectedItems[existingIndex].selected_image = selectedImg;
+                        this.selectedItems[existingIndex].badge = this.customBadgeText;
+                    } else {
                         this.selectedItems.push({
                             sku: sku,
                             name: this.activePreviewItem.name,
                             price: this.getSuggestedPrice(this.activePreviewItem),
                             brand: this.activePreviewItem.brand || this.activePreviewItem.manufacturer,
-                            image: this.activePreviewItem.image,
+                            image: selectedImg,
+                            selected_image: selectedImg,
+                            badge: this.customBadgeText,
                             stock: this.activePreviewItem.stock?.stockLevel || this.activePreviewItem.stock || 0
                         });
                     }
@@ -1618,7 +1628,8 @@
                             items: this.selectedItems.map(item => ({
                                 sku: item.sku,
                                 price: item.price,
-                                badge: this.customBadgeText
+                                badge: item.badge || this.customBadgeText,
+                                selected_image: item.selected_image || item.image
                             })),
                             shop_name: this.shopName,
                             filename: `Shopee_Mass_Upload_${Date.now()}.xlsx`

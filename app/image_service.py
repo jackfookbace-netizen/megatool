@@ -38,7 +38,8 @@ def generate_cover(
     badge_text=None,
     custom_footer=None,
     shop_name="MEGATOOL",
-    shop_subtitle="เมก้า ทูล"
+    shop_subtitle="เมก้า ทูล",
+    overwrite=True
 ):
     """
     Exact Zupertools Replica Template for Zonix Tools:
@@ -50,7 +51,7 @@ def generate_cover(
     - Product auto-cropped from whitespace and maximized to fill 80-85%
     - ZERO brand logo clutter (product branding is on the physical tool)
     """
-    if output_path and os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
+    if not overwrite and output_path and os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
         return output_path
 
     RED = (239, 28, 37, 255) # #EF1C25
