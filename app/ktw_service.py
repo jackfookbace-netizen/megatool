@@ -183,55 +183,86 @@ def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_pa
 
 def extract_product_images(detail):
     """
-    Extracts high-res distinct angle images and accessories from KTW product detail.
-    Avoids duplicate resolutions and sorts naturally (-1.jpg, -2.jpg, ...).
+    Extracts all high-res distinct angle images and promo/spec sheets from KTW product detail.
+    Deduplicates by filename, prioritizes superZoom > zoom > dataSheets > product,
+    and sorts naturally (primary / -1.jpg first, numbered angles in order, then promo/spec sheets).
     """
     if not detail:
         return []
         
-    raw_images = []
-    seen_endings = set()
+    candidates = {}
 
-    # 1. Primary image (high-res zoom)
+    # 1. From detail['images'] (GALLERY & PRIMARY images across formats)
     for im in detail.get('images', []):
-        if im.get('format') in ['superZoom', 'zoom']:
-            u = im.get('url', '').replace('/ktwcommercewebservices/v2', '')
-            if u:
-                m = re.search(r'-(\d+)\.(jpg|jpeg|png)', u, re.IGNORECASE)
-                tag = m.group(1) if m else u.split('/')[-1]
-                seen_endings.add(tag)
-                raw_images.append(f"https://shop.ktw.co.th{u}")
-            break
+        u = im.get('url', '').replace('/ktwcommercewebservices/v2', '')
+        if not u or not u.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) or 'vdo' in u.lower():
+            continue
+        fmt = im.get('format', '').lower()
+        score = 10
+        if fmt == 'superzoom': score = 100
+        elif fmt == 'zoom': score = 80
+        elif fmt == 'product': score = 50
+        elif fmt == 'thumbnail': score = 20
 
-    # 2. DataSheets (different angles / accessories / features)
-    sheet_imgs = []
+        is_primary = (im.get('imageType') == 'PRIMARY')
+        fn = u.split('/')[-1].lower()
+
+        if fn not in candidates or score > candidates[fn]['score']:
+            candidates[fn] = {
+                'score': score,
+                'url': f"https://shop.ktw.co.th{u}",
+                'is_primary': is_primary or candidates.get(fn, {}).get('is_primary', False),
+                'fn': fn
+            }
+
+    # 2. From detail['dataSheets'] (high-res specification sheets and alternate angles)
     for ds in detail.get('dataSheets', []):
         u = ds.get('url', '').replace('/ktwcommercewebservices/v2', '')
-        if u and u.lower().endswith(('.jpg', '.jpeg', '.png')) and 'vdo' not in u.lower():
-            m = re.search(r'-(\d+)\.(jpg|jpeg|png)', u, re.IGNORECASE)
-            tag = m.group(1) if m else u.split('/')[-1]
-            if tag not in seen_endings:
-                seen_endings.add(tag)
-                sheet_imgs.append(f"https://shop.ktw.co.th{u}")
+        if not u or not u.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) or 'vdo' in u.lower():
+            continue
+        fn = u.split('/')[-1].lower()
+        score = 70  # dataSheets are usually 1200x1200
+        if fn not in candidates or score > candidates[fn]['score']:
+            candidates[fn] = {
+                'score': score,
+                'url': f"https://shop.ktw.co.th{u}",
+                'is_primary': candidates.get(fn, {}).get('is_primary', False),
+                'fn': fn
+            }
 
-    def natural_sort_key(s):
-        match = re.search(r'-(\d+)\.(jpg|jpeg|png)', s, re.IGNORECASE)
-        return int(match.group(1)) if match else 999
-
-    sheet_imgs = sorted(sheet_imgs, key=natural_sort_key)
-    for img in sheet_imgs:
-        raw_images.append(img)
-
-    # Fallback to any images if none found
-    if not raw_images:
+    # Fallback if no images collected
+    if not candidates:
+        fallback = []
         for im in detail.get('images', []):
             u = im.get('url', '').replace('/ktwcommercewebservices/v2', '')
             if u:
                 full_u = f"https://shop.ktw.co.th{u}"
-                if full_u not in raw_images:
-                    raw_images.append(full_u)
+                if full_u not in fallback:
+                    fallback.append(full_u)
+        return fallback
 
-    return raw_images
+    # Natural sorting:
+    # Primary / Cover (-1.jpg or un-suffixed) first -> numbered angles (-2, -3, ...) -> promo/specs (-Nprice, -last, etc.)
+    def sort_key(item):
+        fn = item['fn']
+        is_pri = item['is_primary']
+        m = re.search(r'[-_](\d+)\.(jpg|jpeg|png|webp)$', fn, re.IGNORECASE)
+        num = int(m.group(1)) if m else None
+
+        # Primary image (usually #1 or marked PRIMARY)
+        if is_pri and (num == 1 or num is None):
+            return (0, 0, fn)
+        # Numbered angle images
+        if num is not None:
+            return (1, num, fn)
+        # Base SKU photo without suffixes (e.g. -MAKITA-M011-M6501B.jpg)
+        if not any(k in fn for k in ['nprice', 'last', 'spec', 'dim', 'promo']):
+            return (1, 0, fn)
+        # Promo / Nprice / last sheets
+        return (2, 999, fn)
+
+    sorted_items = sorted(candidates.values(), key=sort_key)
+    return [x['url'] for x in sorted_items]
 
 def get_product_detail(sku):
     headers = get_headers()
