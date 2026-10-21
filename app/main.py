@@ -236,7 +236,7 @@ def api_stats():
         "brands": [
             {"name": "Makita", "count": 17203, "color": "teal"},
             {"name": "POLO", "count": 4890, "color": "red"},
-            {"name": "Kärcher", "count": 8065, "color": "yellow"},
+            {"name": "Karcher", "count": 8065, "color": "yellow"},
             {"name": "Nachi", "count": 5445, "color": "red"},
             {"name": "Force", "count": 2898, "color": "blue"},
             {"name": "DongCheng", "count": 2781, "color": "indigo"},
