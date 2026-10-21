@@ -8,9 +8,19 @@ from app.image_service import generate_cover, upload_to_cdn
 from app.ktw_service import get_product_detail, clean_brand_name, detect_brand_from_sku, extract_product_images
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TEMPLATE_PATH = os.path.join(ROOT_DIR, 'Shopee_template_original.xlsx')
-if not os.path.exists(TEMPLATE_PATH):
-    TEMPLATE_PATH = 'Shopee_template_original.xlsx'
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+
+CANDIDATE_PATHS = [
+    os.path.join(APP_DIR, 'Shopee_template_original.xlsx'),
+    os.path.join(ROOT_DIR, 'Shopee_template_original.xlsx'),
+    'Shopee_template_original.xlsx'
+]
+
+TEMPLATE_PATH = CANDIDATE_PATHS[0]
+for p in CANDIDATE_PATHS:
+    if os.path.exists(p):
+        TEMPLATE_PATH = p
+        break
 
 import concurrent.futures
 
