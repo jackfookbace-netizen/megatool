@@ -220,6 +220,7 @@ class ExportItem(BaseModel):
     price: Optional[float] = None
     badge: Optional[str] = None
     selected_image: Optional[str] = None
+    selected_images: Optional[List[str]] = None
 
 class ExportRequest(BaseModel):
     items: List[ExportItem]

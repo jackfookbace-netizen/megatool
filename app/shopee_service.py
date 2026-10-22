@@ -143,14 +143,20 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
             width_cm = round(u0.get('conversionWidth', 100.0) / 10.0, 1)
             height_cm = round(u0.get('conversionHeight', 100.0) / 10.0, 1)
 
-        # Collect raw distinct angle images from detail (up to 9 images)
-        raw_images = extract_product_images(detail)[:9]
+        # Collect raw distinct angle images from detail or custom user selection (up to 9 images)
+        custom_images = item_info.get('selected_images')
+        if custom_images and isinstance(custom_images, list) and len(custom_images) > 0:
+            raw_images = [u for u in custom_images if u]
+        else:
+            raw_images = extract_product_images(detail)
+
         selected_cover = item_info.get('selected_image')
         if selected_cover:
             if selected_cover in raw_images:
                 raw_images.remove(selected_cover)
             raw_images.insert(0, selected_cover)
-            raw_images = raw_images[:9]
+            
+        raw_images = raw_images[:9]
 
         cdn_results = {}
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
