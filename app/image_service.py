@@ -253,7 +253,10 @@ def upload_to_cdn(image_path, max_retries=3):
     cache_key = os.path.basename(image_path)
     with _CACHE_LOCK:
         if cache_key in _MEM_CACHE and _MEM_CACHE[cache_key] and 'iili.io' in _MEM_CACHE[cache_key]:
-            return _MEM_CACHE[cache_key]
+            cached_url = _MEM_CACHE[cache_key]
+            # Skip known expired or invalid test prefix
+            if not cached_url.startswith('https://iili.io/njU'):
+                return cached_url
 
     url = 'https://freeimage.host/api/1/upload'
     api_key = '6d207e02198a847aa98d0a2a901485a5'

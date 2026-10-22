@@ -33,7 +33,9 @@ def clean_html(text):
     return text.strip()
 
 def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_name):
-    local_img_path = f"app/static/covers/{sku}_img_{img_idx}.jpg"
+    import hashlib
+    url_hash = hashlib.md5(f"{raw_img_url}_{brand}_{badge_text}_{shop_name}".encode('utf-8')).hexdigest()[:10]
+    local_img_path = f"app/static/covers/{sku}_{url_hash}.jpg"
     try:
         generate_cover(
             raw_img_url,

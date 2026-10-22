@@ -1764,7 +1764,10 @@
                                 sku: item.sku,
                                 price: item.price,
                                 badge: item.badge || this.customBadgeText,
-                                selected_image: item.selected_image || item.image
+                                selected_image: item.selected_image || item.image,
+                                selected_images: (item.selected_images && item.selected_images.length > 0)
+                                    ? item.selected_images
+                                    : (item.selected_image ? [item.selected_image] : undefined)
                             })),
                             shop_name: this.shopName,
                             filename: `Shopee_Mass_Upload_${Date.now()}.xlsx`
