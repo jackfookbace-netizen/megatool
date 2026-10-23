@@ -53,6 +53,12 @@ def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_nam
     return (img_idx, None)
 
 
+def col_to_idx(col_str):
+    num = 0
+    for ch in col_str:
+        num = num * 26 + (ord(ch.upper()) - ord('A') + 1)
+    return num
+
 def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx', shop_name='MEGATOOL', is_variation_group=False, parent_title=None, variation_group_name='รุ่น / ตัวเลือกสินค้า'):
     """
     Takes product_items: [{'sku': '...', 'price': 145, 'badge': '...'}]
@@ -238,52 +244,59 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                     if u not in final_gallery and len(final_gallery) < 9:
                         final_gallery.append(u)
 
+            def append_sorted_cells(row_el, cells_d, r_num):
+                for col_l in sorted(cells_d.keys(), key=col_to_idx):
+                    c_type, val = cells_d[col_l]
+                    if val is None or val == "":
+                        continue
+                    c_node = ET.SubElement(row_el, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c', {'r': f"{col_l}{r_num}"})
+                    if c_type == 's':
+                        c_node.attrib['t'] = 's'
+                        s_idx = get_or_add_str(val)
+                        v_node = ET.SubElement(c_node, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
+                        v_node.text = str(s_idx)
+                    else:
+                        v_node = ET.SubElement(c_node, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
+                        v_node.text = str(val)
+
             for idx, p_item in enumerate(processed_items):
                 row_elem = ET.Element('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row', {'r': str(current_row_num), 'spans': '1:38'})
+                cells = {}
 
-                def add_cell_num(col_letter, val):
-                    c = ET.SubElement(row_elem, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c', {'r': f"{col_letter}{current_row_num}"})
-                    v = ET.SubElement(c, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
-                    v.text = str(val)
-
-                def add_cell_str(col_letter, val):
-                    if val is None or val == "":
-                        return
-                    s_idx = get_or_add_str(val)
-                    c = ET.SubElement(row_elem, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c', {'r': f"{col_letter}{current_row_num}", 't': 's'})
-                    v = ET.SubElement(c, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
-                    v.text = str(s_idx)
+                # Category & Title (Columns A & B): Filled on ALL rows so Shopee never reports empty title
+                cells['A'] = ('n', group_cat_id)
+                cells['B'] = ('s', final_parent_title)
+                cells['C'] = ('s', final_parent_desc)
 
                 # Parent SKU in Column I
-                add_cell_str('I', parent_sku)
+                cells['I'] = ('s', parent_sku)
                 # Variation Tier 1 Name in Column K
-                add_cell_str('K', variation_group_name)
+                cells['K'] = ('s', variation_group_name)
                 # Option 1 in Column L
-                add_cell_str('L', p_item['opt_name'])
+                cells['L'] = ('s', p_item['opt_name'])
                 # Option Image in Column M
                 if p_item['var_cover']:
-                    add_cell_str('M', p_item['var_cover'])
+                    cells['M'] = ('s', p_item['var_cover'])
 
-                add_cell_num('P', p_item['sale_price'])
-                add_cell_num('Q', p_item['stock_qty'])
-                add_cell_str('R', p_item['sku'])
-                add_cell_num('AE', p_item['weight_kg'])
-                add_cell_num('AF', int(p_item['length_cm']))
-                add_cell_num('AG', int(p_item['width_cm']))
-                add_cell_num('AH', int(p_item['height_cm']))
-                add_cell_str('AI', "เปิด")
-                add_cell_str('AJ', "ปิด")
+                cells['P'] = ('n', p_item['sale_price'])
+                cells['Q'] = ('n', p_item['stock_qty'])
+                cells['R'] = ('s', p_item['sku'])
 
+                # Main Gallery Images (Columns V to AD): on first row
                 if idx == 0:
-                    add_cell_num('A', group_cat_id)
-                    add_cell_str('B', final_parent_title)
-                    add_cell_str('C', final_parent_desc)
-
                     cols_img = ['V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD']
                     for c_idx, col_l in enumerate(cols_img):
                         if c_idx < len(final_gallery):
-                            add_cell_str(col_l, final_gallery[c_idx])
+                            cells[col_l] = ('s', final_gallery[c_idx])
 
+                cells['AE'] = ('n', p_item['weight_kg'])
+                cells['AF'] = ('n', int(p_item['length_cm']))
+                cells['AG'] = ('n', int(p_item['width_cm']))
+                cells['AH'] = ('n', int(p_item['height_cm']))
+                cells['AI'] = ('s', "เปิด")
+                cells['AJ'] = ('s', "ปิด")
+
+                append_sorted_cells(row_elem, cells, current_row_num)
                 sheet_data.append(row_elem)
                 current_row_num += 1
     else:
@@ -392,44 +405,40 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
             # Map Category ID: Default tool category 101800 (สว่าน) or 101186 (เทป)
             cat_id = 101186 if brand == '3M' else 101800
 
-            def add_cell_num(col_letter, val):
-                c = ET.SubElement(row_elem, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c', {'r': f"{col_letter}{current_row_num}"})
-                v = ET.SubElement(c, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
-                v.text = str(val)
+            cells = {}
+            cells['A'] = ('n', cat_id)
+            cells['B'] = ('s', shopee_title)
+            cells['C'] = ('s', shopee_desc)
+            cells['I'] = ('s', sku)
+            cells['P'] = ('n', sale_price)
+            cells['Q'] = ('n', stock_qty)
+            cells['R'] = ('s', sku)
 
-            def add_cell_str(col_letter, val):
-                if val is None or val == "":
-                    return
-                s_idx = get_or_add_str(val)
-                c = ET.SubElement(row_elem, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c', {'r': f"{col_letter}{current_row_num}", 't': 's'})
-                v = ET.SubElement(c, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
-                v.text = str(s_idx)
-
-            # Populate columns
-            add_cell_num('A', cat_id)
-            add_cell_str('B', shopee_title)
-            add_cell_str('C', shopee_desc)
-            add_cell_str('I', sku)
-            add_cell_num('P', sale_price)
-            add_cell_num('Q', stock_qty)
-            add_cell_str('R', sku)
-            # Column U (GTIN) is optional - leave empty so Shopee does not trigger strict barcode checksum error
-            # add_cell_str('U', ean)
-
-            # Image columns V to AD (Cover + 8 gallery images = 9 slots)
             cols_img = ['V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD']
             for c_idx, col_l in enumerate(cols_img):
                 if c_idx < len(cdn_urls):
-                    add_cell_str(col_l, cdn_urls[c_idx])
+                    cells[col_l] = ('s', cdn_urls[c_idx])
 
-            add_cell_num('AE', weight_kg)
-            add_cell_num('AF', int(length_cm))
-            add_cell_num('AG', int(width_cm))
-            add_cell_num('AH', int(height_cm))
-            add_cell_str('AI', "เปิด") # Standard delivery (channel_id.7000)
-            add_cell_str('AJ', "ปิด")  # Express delivery (channel_id.7002)
-            # Column AK is ps_product_pre_order_dts (Leave empty for in-stock products)
-            # Column AL is et_title_reason (Leave empty)
+            cells['AE'] = ('n', weight_kg)
+            cells['AF'] = ('n', int(length_cm))
+            cells['AG'] = ('n', int(width_cm))
+            cells['AH'] = ('n', int(height_cm))
+            cells['AI'] = ('s', "เปิด")
+            cells['AJ'] = ('s', "ปิด")
+
+            for col_l in sorted(cells.keys(), key=col_to_idx):
+                c_type, val = cells[col_l]
+                if val is None or val == "":
+                    continue
+                c_node = ET.SubElement(row_elem, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c', {'r': f"{col_l}{current_row_num}"})
+                if c_type == 's':
+                    c_node.attrib['t'] = 's'
+                    s_idx = get_or_add_str(val)
+                    v_node = ET.SubElement(c_node, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
+                    v_node.text = str(s_idx)
+                else:
+                    v_node = ET.SubElement(c_node, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
+                    v_node.text = str(val)
 
             sheet_data.append(row_elem)
             current_row_num += 1
