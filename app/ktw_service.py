@@ -83,6 +83,85 @@ def is_spare_part(item):
 
     return False
 
+_BESTSELLER_CACHE = {}
+_BESTSELLER_CACHE_EXPIRY = {}
+
+def _get_bestsellers_all(final_query, exclude_spare_parts, in_stock_only):
+    import time
+    cache_key = f"{final_query}_{exclude_spare_parts}_{in_stock_only}"
+    now = time.time()
+    if cache_key in _BESTSELLER_CACHE and now < _BESTSELLER_CACHE_EXPIRY.get(cache_key, 0):
+        return _BESTSELLER_CACHE[cache_key]
+
+    headers = get_headers()
+    raw_items = []
+    for p_idx in range(5):
+        url = f"{API_BASE}/products/search?query={urllib.parse.quote(final_query)}&pageSize=100&currentPage={p_idx}"
+        try:
+            r = requests.get(url, headers=headers, timeout=15)
+            if r.status_code == 401:
+                refresh_token()
+                headers = get_headers()
+                r = requests.get(url, headers=headers, timeout=15)
+            if r.status_code == 200:
+                batch = r.json().get('products', [])
+                if not batch:
+                    break
+                raw_items.extend(batch)
+                if len(batch) < 100:
+                    break
+            else:
+                break
+        except Exception as e:
+            print("Error fetching bestsellers batch:", e)
+            break
+
+    products = []
+    for item in raw_items:
+        if exclude_spare_parts and is_spare_part(item):
+            continue
+        stock_qty = item.get('stock', {}).get('stockLevel', 0) or 0
+        stock_status = item.get('stock', {}).get('stockLevelStatus', '')
+        if in_stock_only:
+            if stock_qty <= 0 or stock_status == 'outOfStock':
+                continue
+
+        p_code = item.get('code')
+        p_name = item.get('name', p_code)
+        p_price = item.get('price', {}).get('value', 0)
+        p_was_price = item.get('price', {}).get('wasPrice', p_price)
+        
+        raw_img = ""
+        images = item.get('images', [])
+        all_imgs = []
+        for im in images:
+            u = im.get('url', '').replace('/ktwcommercewebservices/v2', '')
+            if u:
+                full_u = f"https://shop.ktw.co.th{u}"
+                if full_u not in all_imgs:
+                    all_imgs.append(full_u)
+        if all_imgs:
+            raw_img = all_imgs[0]
+                
+        products.append({
+            "sku": p_code,
+            "name": p_name,
+            "cost_price": p_price,
+            "was_price": p_was_price,
+            "image": raw_img,
+            "all_images": all_imgs,
+            "brand": clean_brand_name(item.get('manufacturer'), p_code),
+            "is_spare_part": is_spare_part(item),
+            "stock": item.get('stock', {}).get('stockLevel', 0),
+            "stock_status": item.get('stock', {}).get('stockLevelStatus', 'outOfStock'),
+            "store_name": item.get('stock', {}).get('storestock', {}).get('storeName', 'คลังหลัก'),
+            "ktw_url": f"https://shop.ktw.co.th/p/{p_code}"
+        })
+
+    _BESTSELLER_CACHE[cache_key] = products
+    _BESTSELLER_CACHE_EXPIRY[cache_key] = now + 300
+    return products
+
 def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_parts=True, bestseller_only=False, page=0, page_size=20):
     headers = get_headers()
     
@@ -102,6 +181,16 @@ def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_pa
         final_query = f"{base_q if base_q else '*'}:bestseller"
         if in_stock_only:
             final_query += ":inStockFlag_boolean:true"
+        all_bestsellers = _get_bestsellers_all(final_query, exclude_spare_parts, in_stock_only)
+        total_count = len(all_bestsellers)
+        start_idx = page * page_size
+        end_idx = start_idx + page_size
+        return {
+            "total": total_count,
+            "page": page,
+            "page_size": page_size,
+            "products": all_bestsellers[start_idx:end_idx]
+        }
     elif base_q:
         final_query = f"{base_q}:name-asc"
         if in_stock_only:
