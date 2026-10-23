@@ -471,18 +471,22 @@
                                     <span>สูตรราคา Shopee:</span>
                                 </span>
                                 
-                                <div class="flex items-center space-x-1.5">
-                                    <span>ทุน KTW +</span>
-                                    <div class="inline-flex items-center border border-slate-200 rounded-lg px-2 py-1 bg-white shadow-inner">
-                                        <input type="number" x-model="markupPercent" class="w-12 text-center font-bold text-orange-600 outline-none">
-                                        <span class="text-slate-400 ml-1 font-bold">%</span>
+                                <div class="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                                    <span>หักค่าธรรมเนียม Shopee</span>
+                                    <div class="inline-flex items-center border border-rose-200 rounded-lg px-2 py-1 bg-white shadow-inner">
+                                        <input type="number" x-model="shopeeFeePercent" class="w-10 text-center font-bold text-rose-600 outline-none">
+                                        <span class="text-slate-400 ml-0.5 font-bold">%</span>
+                                    </div>
+                                    <span>+ กำไรสุทธิ</span>
+                                    <div class="inline-flex items-center border border-emerald-200 rounded-lg px-2 py-1 bg-white shadow-inner">
+                                        <input type="number" x-model="targetMarginPercent" class="w-10 text-center font-bold text-emerald-600 outline-none">
+                                        <span class="text-slate-400 ml-0.5 font-bold">%</span>
                                     </div>
                                     <span>(กำไรขั้นต่ำ</span>
                                     <div class="inline-flex items-center border border-slate-200 rounded-lg px-2 py-1 bg-white shadow-inner">
                                         <input type="number" x-model="minProfit" class="w-12 text-center font-bold text-orange-600 outline-none">
-                                        <span class="text-slate-400 ml-1 font-bold">บ.</span>
+                                        <span class="text-slate-400 ml-1 font-bold">บ.)</span>
                                     </div>
-                                    <span>)</span>
                                 </div>
                             </div>
 
@@ -1290,7 +1294,8 @@
                 excludeSpares: true,
                 excludeListed: false,
                 bestsellerOnly: false,
-                markupPercent: 25,
+                shopeeFeePercent: 28,
+                targetMarginPercent: 7,
                 minProfit: 30,
                 shopName: 'MEGATOOL',
                 products: [],
@@ -1697,9 +1702,14 @@
                 getSuggestedPrice(p) {
                     const cost = (p.price && p.price.value) ? p.price.value : (p.cost_price || 0);
                     if (cost <= 0) return 0;
-                    const markup = cost * (parseFloat(this.markupPercent) / 100);
-                    const profit = Math.max(markup, parseFloat(this.minProfit));
-                    return Math.round(cost + profit);
+                    const fee = parseFloat(this.shopeeFeePercent) || 0;
+                    const margin = parseFloat(this.targetMarginPercent) || 0;
+                    const minProf = parseFloat(this.minProfit) || 0;
+
+                    // Formula: (Cost * (1 + margin%) or Cost + minProfit) / (1 - fee%)
+                    const targetNet = Math.max(cost * (1 + (margin / 100)), cost + minProf);
+                    const retentionRate = Math.max(1 - (fee / 100), 0.1);
+                    return Math.round(targetNet / retentionRate);
                 },
 
                 isItemSelected(sku) {

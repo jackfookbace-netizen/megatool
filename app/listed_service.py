@@ -37,7 +37,8 @@ def get_all_listed() -> Dict[str, dict]:
                     item["cost_price"] = cost_val
                     item["stock"] = detail.get("stock", {}).get("stockLevel", 0) or 0
                     if not item.get("price") or item["price"] <= 0:
-                        item["price"] = round(cost_val * 1.25) if cost_val > 0 else 0.0
+                        target_net = max(cost_val * 1.07, cost_val + 30)
+                        item["price"] = round(target_net / (1 - 0.28)) if cost_val > 0 else 0.0
                     item["ktw_url"] = f"https://shop.ktw.co.th/p/{sku}"
                     needs_save = True
                     
@@ -83,7 +84,8 @@ def save_listed_product(sku: str, shopee_url: str, name: str = "", brand: str = 
         brand = real_brand
         image_url = real_img or image_url
         if not price or price <= 0:
-            price = round(cost_val * 1.25) if cost_val > 0 else 0.0
+            target_net = max(cost_val * 1.07, cost_val + 30)
+            price = round(target_net / (1 - 0.28)) if cost_val > 0 else 0.0
     else:
         cost_val = 0.0
         stock_val = 0

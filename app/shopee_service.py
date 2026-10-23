@@ -119,13 +119,12 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
         ean = detail.get('ean') or ''
         cost_price = detail.get('price', {}).get('value', 0)
         
-        # Determine sale price
+        # Determine sale price using Shopee Net-Profit formula (Fee: 28%, Margin: 7%, min profit: 30 baht)
         if override_price and float(override_price) > 0:
             sale_price = float(override_price)
         else:
-            sale_price = round(cost_price * 1.25, 0)
-            if sale_price < cost_price + 30:
-                sale_price = cost_price + 30
+            target_net = max(cost_price * 1.07, cost_price + 30)
+            sale_price = round(target_net / (1 - 0.28), 0)
 
         # Stock
         stock_qty = detail.get('stock', {}).get('stockLevel', 100)
