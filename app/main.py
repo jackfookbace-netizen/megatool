@@ -232,7 +232,7 @@ class ExportRequest(BaseModel):
     shop_name: Optional[str] = "MEGATOOL"
     is_variation_group: Optional[bool] = False
     parent_title: Optional[str] = None
-    variation_group_name: Optional[str] = "รุ่น / ตัวเลือกสินค้า"
+    variation_group_name: Optional[str] = "รุ่นสินค้า"
 
 @app.post("/api/export")
 def api_export(req: ExportRequest, request: Request, authorization: Optional[str] = Header(None)):
@@ -248,7 +248,7 @@ def api_export(req: ExportRequest, request: Request, authorization: Optional[str
             shop_name=req.shop_name or "MEGATOOL",
             is_variation_group=req.is_variation_group or False,
             parent_title=req.parent_title,
-            variation_group_name=req.variation_group_name or "รุ่น / ตัวเลือกสินค้า"
+            variation_group_name=req.variation_group_name or "รุ่นสินค้า"
         )
         return {"download_url": file_url}
     except Exception as e:

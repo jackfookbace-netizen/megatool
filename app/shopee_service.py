@@ -59,7 +59,7 @@ def col_to_idx(col_str):
         num = num * 26 + (ord(ch.upper()) - ord('A') + 1)
     return num
 
-def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx', shop_name='MEGATOOL', is_variation_group=False, parent_title=None, variation_group_name='รุ่น / ตัวเลือกสินค้า'):
+def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx', shop_name='MEGATOOL', is_variation_group=False, parent_title=None, variation_group_name='รุ่นสินค้า'):
     """
     Takes product_items: [{'sku': '...', 'price': 145, 'badge': '...'}]
     Generates branded template images for ALL angles, uploads to CDN, and injects into official Shopee template.
@@ -259,6 +259,10 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                         v_node = ET.SubElement(c_node, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
                         v_node.text = str(val)
 
+            clean_var_tier = (variation_group_name or "รุ่นสินค้า").strip()
+            if len(clean_var_tier) > 14:
+                clean_var_tier = clean_var_tier[:14]
+
             for idx, p_item in enumerate(processed_items):
                 row_elem = ET.Element('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row', {'r': str(current_row_num), 'spans': '1:38'})
                 cells = {}
@@ -270,10 +274,15 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
 
                 # Parent SKU in Column I
                 cells['I'] = ('s', parent_sku)
-                # Variation Tier 1 Name in Column K
-                cells['K'] = ('s', variation_group_name)
-                # Option 1 in Column L
-                cells['L'] = ('s', p_item['opt_name'])
+                # Variation Integration No in Column J (Mandatory for Shopee variations!)
+                cells['J'] = ('s', "101")
+                # Variation Tier 1 Name in Column K (Strictly 1-14 chars limit in Shopee)
+                cells['K'] = ('s', clean_var_tier)
+                # Option 1 in Column L (Strictly 1-20 chars limit in Shopee)
+                clean_opt = (p_item['opt_name'] or "มาตรฐาน").strip()
+                if len(clean_opt) > 20:
+                    clean_opt = clean_opt[:20]
+                cells['L'] = ('s', clean_opt)
                 # Option Image in Column M
                 if p_item['var_cover']:
                     cells['M'] = ('s', p_item['var_cover'])

@@ -1420,7 +1420,7 @@
                         </div>
                         <div class="flex items-center space-x-2">
                             <label class="font-bold text-slate-700 shrink-0">ชื่อกลุ่มตัวเลือก (Tier 1):</label>
-                            <input type="text" x-model="groupVariationTierName" placeholder="เช่น รุ่น / ตัวเลือกสินค้า หรือ สี"
+                            <input type="text" x-model="groupVariationTierName" placeholder="เช่น รุ่นสินค้า หรือ สี" maxlength="14"
                                    class="px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs outline-none focus:border-orange-500 w-44">
                             <span class="text-[11px] text-slate-400">ระบุชื่อตัวเลือกของแต่ละรุ่นด้านล่างได้เลยครับ</span>
                         </div>
@@ -1562,7 +1562,7 @@
                 ledgerSearch: '',
                 exportMode: 'single', // 'single' or 'variations'
                 groupParentTitle: '',
-                groupVariationTierName: 'รุ่น / ตัวเลือกสินค้า',
+                groupVariationTierName: 'รุ่นสินค้า',
                 isManualSkuInput: false,
                 dashboardStats: null,
                 showAttachModal: false,
