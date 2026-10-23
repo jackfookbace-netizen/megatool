@@ -706,25 +706,101 @@
 
             <!-- TAB 3: LIVE ON SHOPEE VIEW -->
             <div x-show="activeTab === 'listed'" x-cloak class="space-y-6">
-                <!-- Header with Action -->
-                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <!-- Header with Action & Explanation -->
+                <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div>
-                        <h2 class="text-lg font-bold text-slate-900 flex items-center space-x-2">
-                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                            <span>สินค้าที่ขายอยู่บน Shopee ทั้งหมด</span>
-                            <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold" x-text="listedProducts.length + ' รายการ'"></span>
-                        </h2>
-                        <p class="text-xs text-slate-400 mt-0.5">
-                            คลิกที่สินค้าเพื่อดูรายละเอียด สต็อก รูปภาพ และสเปกจากคลัง
+                        <div class="flex items-center space-x-2.5">
+                            <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <h2 class="text-lg font-bold text-slate-900 flex items-center space-x-2">
+                                <span>บัญชีสินค้าที่ขายบน Shopee (Shopee Profit & Cost Ledger)</span>
+                                <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold" x-text="listedProducts.length + ' รายการ'"></span>
+                            </h2>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1">
+                            บันทึกรายการสินค้าจริงในคลัง KTW เทียบราคาทุนจริง, ราคาขายหน้าร้าน Shopee, หักค่าธรรมเนียม (<span class="font-bold text-rose-600" x-text="shopeeFeePercent + '%'"></span>) และกำไรสุทธิเข้ากระเป๋าจริง
                         </p>
                     </div>
 
-                    <div class="flex items-center space-x-2">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-600">
+                            <span>สูตรค่าธรรมเนียม Shopee:</span>
+                            <div class="inline-flex items-center border border-rose-200 rounded-lg px-2 py-0.5 bg-white shadow-inner font-bold text-rose-600">
+                                <input type="number" x-model="shopeeFeePercent" class="w-8 text-center outline-none">
+                                <span>%</span>
+                            </div>
+                        </div>
+
                         <button @click="switchTab('catalog')" 
                                 class="px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5">
-                            <i data-lucide="search" class="w-4 h-4"></i>
-                            <span>+ ไปเลือกสินค้าในคลังลง Shopee</span>
+                            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                            <span>+ ค้นหาสินค้าในคลังมาลงเพิ่ม</span>
                         </button>
+                    </div>
+                </div>
+
+                <!-- 4 KPI Metrics: Cost, Revenue, Fee, Net Profit -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- KPI 1: Total Listed Items -->
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm relative overflow-hidden">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">สินค้าที่ลงขายแล้ว</span>
+                            <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                                <i data-lucide="store" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-black text-slate-900 font-mono" x-text="listedProducts.length + ' รายการ'"></div>
+                        <div class="text-[11px] text-emerald-600 mt-1 font-semibold flex items-center space-x-1">
+                            <i data-lucide="check" class="w-3 h-3"></i>
+                            <span>เชื่อมโยงคลังสินค้า KTW 100%</span>
+                        </div>
+                    </div>
+
+                    <!-- KPI 2: Total Cost Price -->
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm relative overflow-hidden">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">เงินลงทุน (ราคาทุนรวม)</span>
+                            <div class="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
+                                <i data-lucide="package" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-black text-slate-800 font-mono" x-text="'฿' + getTotalListedCost().toLocaleString()"></div>
+                        <div class="text-[11px] text-slate-400 mt-1">
+                            ต้นทุนจริงจากระบบเกรียงไทยวัฒนา
+                        </div>
+                    </div>
+
+                    <!-- KPI 3: Total Selling Price -->
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm relative overflow-hidden">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">มูลค่าตั้งขายบน Shopee</span>
+                            <div class="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
+                                <i data-lucide="tag" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-black text-orange-600 font-mono" x-text="'฿' + getTotalListedRevenue().toLocaleString()"></div>
+                        <div class="text-[11px] text-rose-500 mt-1 font-medium">
+                            หักค่าธรรมเนียม Shopee ~฿<span x-text="getTotalListedFees().toLocaleString()"></span>
+                        </div>
+                    </div>
+
+                    <!-- KPI 4: Total Expected Net Profit -->
+                    <div class="bg-white rounded-2xl p-5 border shadow-sm relative overflow-hidden"
+                         :class="getTotalListedNetProfit() >= 0 ? 'border-emerald-300 bg-emerald-50/20' : 'border-rose-300 bg-rose-50/20'">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold uppercase tracking-wider"
+                                  :class="getTotalListedNetProfit() >= 0 ? 'text-emerald-700' : 'text-rose-700'">กำไรสุทธิรวมคาดการณ์</span>
+                            <div class="w-8 h-8 rounded-xl flex items-center justify-center"
+                                 :class="getTotalListedNetProfit() >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'">
+                                <i data-lucide="coins" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-black font-mono"
+                             :class="getTotalListedNetProfit() >= 0 ? 'text-emerald-600' : 'text-rose-600'"
+                             x-text="(getTotalListedNetProfit() >= 0 ? '+' : '') + '฿' + getTotalListedNetProfit().toLocaleString()"></div>
+                        <div class="text-[11px] font-bold mt-1"
+                             :class="getTotalListedNetProfit() >= 0 ? 'text-emerald-700' : 'text-rose-700'"
+                             x-text="(getTotalListedNetProfit() >= 0 ? 'กำไรเฉลี่ย +' : 'ขาดทุนเฉลี่ย ') + getTotalListedMarginPercent() + '% เข้ากระเป๋า'">
+                        </div>
                     </div>
                 </div>
 
@@ -737,12 +813,12 @@
                             </div>
                             <h3 class="text-base font-bold text-slate-800">ยังไม่มีสินค้าที่ลงขาย</h3>
                             <p class="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                                ไปที่แท็บ "แคตตาล็อกสินค้า" แล้วคลิกปุ่ม <strong>"แนบลิงก์ Shopee"</strong> บนสินค้าที่คุณได้ลงขายในหน้าร้านแล้ว เพื่อเก็บสถิติและป้องกันการลงซ้ำครับ
+                                ไปที่แท็บ "แคตตาล็อกสินค้า" แล้วคลิกเลือก <strong>"แนบลิงก์ Shopee"</strong> เพื่อบันทึกสินค้าที่คุณนำไปวางขายแล้ว ระบบจะติดตามและวิเคราะห์ต้นทุน-กำไรให้อัตโนมัติ
                             </p>
                             <button @click="switchTab('catalog')" 
                                     class="mt-4 px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-sm transition-all inline-flex items-center space-x-1.5">
                                 <i data-lucide="search" class="w-4 h-4"></i>
-                                <span>ไปหน้าค้นหาแคตตาล็อก</span>
+                                <span>ไปเลือกสินค้าจากคลัง KTW</span>
                             </button>
                         </div>
                     </template>
@@ -751,13 +827,16 @@
                         <div class="overflow-x-auto">
                             <table class="w-full text-left border-collapse text-xs">
                                 <thead>
-                                    <tr class="bg-slate-50 text-slate-600 border-b border-slate-100">
-                                        <th class="py-3.5 px-4 font-bold">สินค้าจริงในคลัง</th>
-                                        <th class="py-3.5 px-4 font-bold">รหัส SKU</th>
-                                        <th class="py-3.5 px-4 font-bold">แบรนด์</th>
-                                        <th class="py-3.5 px-4 font-bold">ราคาขาย Shopee</th>
-                                        <th class="py-3.5 px-4 font-bold">ลิงก์หน้าร้าน Shopee</th>
-                                        <th class="py-3.5 px-4 font-bold">วันที่บันทึก</th>
+                                    <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                                        <th class="py-3.5 px-4 font-bold">สินค้า & สเปกในคลัง</th>
+                                        <th class="py-3.5 px-3 font-bold">รหัส SKU</th>
+                                        <th class="py-3.5 px-3 font-bold">แบรนด์</th>
+                                        <th class="py-3.5 px-4 font-bold text-slate-700">ราคาทุน KTW</th>
+                                        <th class="py-3.5 px-4 font-bold text-orange-600">ราคาตั้งขาย Shopee</th>
+                                        <th class="py-3.5 px-3 font-bold text-rose-500">หัก Shopee (<span x-text="shopeeFeePercent + '%'"></span>)</th>
+                                        <th class="py-3.5 px-4 font-bold text-blue-700">เงินรับสุทธิ</th>
+                                        <th class="py-3.5 px-4 font-bold text-emerald-700">กำไรสุทธิคาดการณ์</th>
+                                        <th class="py-3.5 px-3 font-bold text-center">หน้าร้าน Shopee</th>
                                         <th class="py-3.5 px-4 font-bold text-right">การจัดการ</th>
                                     </tr>
                                 </thead>
@@ -765,12 +844,14 @@
                                     <template x-for="item in listedProducts" :key="item.sku">
                                         <tr class="hover:bg-slate-50/80 transition-colors cursor-pointer group"
                                             @click="viewProductDetail(item.sku)">
+                                            
+                                            <!-- Product Info & Stock -->
                                             <td class="py-3 px-4">
                                                 <div class="flex items-center space-x-3">
                                                     <img :src="item.image_url || 'https://via.placeholder.com/60?text=KTW'" 
                                                          class="w-12 h-12 rounded-xl object-contain bg-white border border-slate-200 p-1 shrink-0 group-hover:scale-105 transition-transform">
-                                                    <div>
-                                                        <span class="font-bold text-slate-800 line-clamp-1 max-w-sm group-hover:text-orange-600 transition-colors" x-text="item.name || item.sku"></span>
+                                                    <div class="min-w-0">
+                                                        <span class="font-bold text-slate-800 line-clamp-1 max-w-xs group-hover:text-orange-600 transition-colors" x-text="item.name || item.sku"></span>
                                                         <span class="text-[10px] text-emerald-600 font-medium flex items-center space-x-1 mt-0.5">
                                                             <span>สต็อกคลัง:</span>
                                                             <strong x-text="item.stock ? item.stock.toLocaleString() + ' ชิ้น' : 'มีพร้อมส่ง'"></strong>
@@ -778,7 +859,9 @@
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="py-3 px-4" @click.stop>
+
+                                            <!-- SKU with KTW Link -->
+                                            <td class="py-3 px-3" @click.stop>
                                                 <a :href="item.ktw_url || ('https://shop.ktw.co.th/p/' + item.sku)" target="_blank"
                                                    title="เปิดดูสินค้าบนเว็บ shop.ktw.co.th"
                                                    class="font-mono font-bold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center space-x-1">
@@ -786,35 +869,70 @@
                                                     <i data-lucide="external-link" class="w-2.5 h-2.5"></i>
                                                 </a>
                                             </td>
-                                            <td class="py-3 px-4">
-                                                <span class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 uppercase" x-text="item.brand"></span>
+
+                                            <!-- Brand Badge -->
+                                            <td class="py-3 px-3">
+                                                <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 uppercase" x-text="item.brand"></span>
                                             </td>
+
+                                            <!-- 1. Cost Price -->
+                                            <td class="py-3 px-4 font-mono font-bold text-slate-700 text-xs">
+                                                <div x-text="'฿' + (item.cost_price ? Number(item.cost_price).toLocaleString() : '0')"></div>
+                                                <div class="text-[10px] text-slate-400 font-sans font-normal">ทุนจาก KTW</div>
+                                            </td>
+
+                                            <!-- 2. Selling Price with Edit trigger -->
                                             <td class="py-3 px-4">
-                                                <div class="font-mono font-extrabold text-orange-600 text-sm" x-text="'฿' + (item.price ? item.price.toLocaleString() : '-')"></div>
-                                                <div x-show="item.cost_price" class="text-[10px] text-slate-400 mt-0.5 flex items-center space-x-1 font-sans">
-                                                    <span>ทุน:</span>
-                                                    <span class="font-semibold text-slate-600 font-mono" x-text="'฿' + Number(item.cost_price).toLocaleString()"></span>
-                                                    <span x-show="item.price && item.cost_price" 
-                                                          class="font-bold ml-1 font-mono"
-                                                          :class="(item.price - item.cost_price) >= 0 ? 'text-emerald-600' : 'text-rose-600'"
-                                                          x-text="'(' + (item.price - item.cost_price >= 0 ? '+' : '') + (((item.price - item.cost_price) / item.cost_price) * 100).toFixed(0) + '%)'"></span>
+                                                <div class="flex items-center space-x-1">
+                                                    <span class="font-mono font-black text-orange-600 text-sm" x-text="'฿' + (item.price ? Number(item.price).toLocaleString() : '0')"></span>
+                                                    <button @click.stop="openAttachModal(item)" title="กดเพื่อแก้ไขราคาขายจริง" class="text-slate-400 hover:text-orange-600 p-0.5 rounded transition-colors">
+                                                        <i data-lucide="edit-2" class="w-3 h-3"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="text-[10px] text-slate-400 font-sans">ตั้งขายหน้าร้าน</div>
+                                            </td>
+
+                                            <!-- 3. Shopee Fee -->
+                                            <td class="py-3 px-3 font-mono font-medium text-rose-500 text-xs">
+                                                <div x-text="'-฿' + getShopeeFee(item.price).toLocaleString()"></div>
+                                                <div class="text-[10px] text-slate-400 font-sans">โดนหัก <span x-text="shopeeFeePercent + '%'"></span></div>
+                                            </td>
+
+                                            <!-- 4. Net Revenue (Money received from Shopee) -->
+                                            <td class="py-3 px-4 font-mono font-bold text-blue-800 text-xs">
+                                                <div x-text="'฿' + getNetRevenue(item.price).toLocaleString()"></div>
+                                                <div class="text-[10px] text-slate-400 font-sans">รับจริงจาก Shopee</div>
+                                            </td>
+
+                                            <!-- 5. Net Profit (Margin) -->
+                                            <td class="py-3 px-4 font-mono">
+                                                <div class="text-sm font-black"
+                                                     :class="getNetProfit(item) >= 0 ? 'text-emerald-600' : 'text-rose-600'"
+                                                     x-text="(getNetProfit(item) >= 0 ? '+' : '') + '฿' + getNetProfit(item).toLocaleString()"></div>
+                                                <div class="mt-0.5">
+                                                    <span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full inline-block"
+                                                          :class="getNetProfit(item) >= 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'"
+                                                          x-text="(getNetProfit(item) >= 0 ? '+' : '') + getNetProfitMargin(item) + '% กำไร'"></span>
                                                 </div>
                                             </td>
-                                            <td class="py-3 px-4" @click.stop>
+
+                                            <!-- 6. Shopee Link -->
+                                            <td class="py-3 px-3 text-center" @click.stop>
                                                 <a :href="item.shopee_url" target="_blank" 
-                                                   class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold border border-emerald-200 transition-colors">
-                                                    <span>เปิดหน้าร้าน Shopee</span>
-                                                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                                                   class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold border border-orange-200 text-xs transition-colors shadow-xs">
+                                                    <span>เปิด Shopee</span>
+                                                    <i data-lucide="external-link" class="w-3 h-3"></i>
                                                 </a>
                                             </td>
-                                            <td class="py-3 px-4 text-slate-400 font-mono text-[11px]" x-text="item.updated_at || item.created_at"></td>
+
+                                            <!-- 7. Actions -->
                                             <td class="py-3 px-4 text-right space-x-1" @click.stop>
-                                                <button @click="openAttachModal(item)" title="แก้ไขลิงก์" 
-                                                        class="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors border border-slate-200">
+                                                <button @click="openAttachModal(item)" title="แก้ไขราคาหรือลิงก์" 
+                                                        class="p-1.5 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors border border-slate-200">
                                                     <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
                                                 </button>
-                                                <button @click="deleteAttach(item.sku)" title="ลบสถานะขาย" 
-                                                        class="p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors border border-slate-200">
+                                                <button @click="deleteAttach(item.sku)" title="ยกเลิกลิงก์สินค้า" 
+                                                        class="p-1.5 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors border border-slate-200">
                                                     <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                                                 </button>
                                             </td>
@@ -1016,16 +1134,25 @@
                                    placeholder="เช่น 1190, 1250"
                                    class="w-full pl-8 pr-3 py-2.5 rounded-xl border border-slate-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-sm font-bold font-mono outline-none text-orange-600 bg-white">
                         </div>
-                        <!-- Live Profit Margin Preview -->
-                        <div x-show="attachForm.cost_price && attachForm.price" class="mt-1.5 flex items-center justify-between text-[11px] bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200/60">
-                            <span class="text-slate-500">กำไรสุทธิคาดการณ์:</span>
-                            <span class="font-bold font-mono" 
-                                  :class="(attachForm.price - attachForm.cost_price) >= 0 ? 'text-emerald-600' : 'text-rose-600'"
-                                  x-text="(attachForm.price - attachForm.cost_price >= 0 ? '+' : '') + '฿' + (attachForm.price - attachForm.cost_price).toLocaleString() + ' (' + (((attachForm.price - attachForm.cost_price) / attachForm.cost_price) * 100).toFixed(1) + '%)'">
-                            </span>
+                        <!-- Real-time Net Profit & Breakdown -->
+                        <div x-show="attachForm.cost_price && attachForm.price" class="bg-slate-50 rounded-xl p-3 border border-slate-200/80 space-y-1.5 text-xs mt-2">
+                            <div class="flex items-center justify-between text-slate-500">
+                                <span>หัก Shopee (<span x-text="shopeeFeePercent + '%'"></span>):</span>
+                                <span class="font-mono text-rose-500 font-semibold" x-text="'-฿' + getShopeeFee(attachForm.price).toLocaleString()"></span>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-600">
+                                <span>เงินรับสุทธิจาก Shopee:</span>
+                                <span class="font-mono text-blue-700 font-bold" x-text="'฿' + getNetRevenue(attachForm.price).toLocaleString()"></span>
+                            </div>
+                            <div class="pt-1.5 border-t border-slate-200 flex items-center justify-between font-bold">
+                                <span class="text-slate-800">กำไรสุทธิเข้ากระเป๋าจริง:</span>
+                                <span class="font-mono text-sm"
+                                      :class="getNetProfit(attachForm) >= 0 ? 'text-emerald-600' : 'text-rose-600'"
+                                      x-text="(getNetProfit(attachForm) >= 0 ? '+' : '') + '฿' + getNetProfit(attachForm).toLocaleString() + ' (' + (getNetProfit(attachForm) >= 0 ? '+' : '') + getNetProfitMargin(attachForm) + '%)'"></span>
+                            </div>
                         </div>
                         <p class="text-[10px] text-slate-400 mt-1">
-                            *กรอกราคาจริงที่คุณตั้งขายใน Shopee เพื่อให้ระบบคำนวณกำไรและยอดขายรวมได้อย่างถูกต้อง
+                            *สูตร Shopee: หักค่าธรรมเนียม <span x-text="shopeeFeePercent + '%'"></span> จากราคาขายจริง แล้วหักต้นทุน KTW เป็นกำไรสุทธิ
                         </p>
                     </div>
 
@@ -1562,13 +1689,16 @@
                 openAttachModal(product = null) {
                     this.attachError = null;
                     if (product) {
+                        const cost = (product.price && product.price.value) ? product.price.value : (product.cost_price || 0);
+                        const rawPrice = (typeof product.price === 'number' || (typeof product.price === 'string' && !isNaN(product.price) && product.price !== '')) ? parseFloat(product.price) : 0;
+                        const initialPrice = rawPrice > 0 ? rawPrice : (this.getSuggestedPrice(product) || cost);
                         this.attachForm = {
                             sku: product.sku || product.code || '',
                             shopee_url: product.shopee_url || '',
                             name: product.name || '',
                             brand: product.brand || product.manufacturer || '',
-                            cost_price: product.cost_price || 0,
-                            price: product.price || this.getSuggestedPrice(product) || 0,
+                            cost_price: cost,
+                            price: Math.round(initialPrice),
                             image_url: product.image || product.image_url || ''
                         };
                     } else {
@@ -1697,6 +1827,54 @@
                 nextPage() {
                     this.currentPage++;
                     this.search();
+                },
+
+                // Shopee Ledger & Profit Calculation Helpers
+                getShopeeFee(price) {
+                    const p = parseFloat(price) || 0;
+                    const fee = parseFloat(this.shopeeFeePercent) || 28;
+                    return Math.round(p * (fee / 100));
+                },
+
+                getNetRevenue(price) {
+                    const p = parseFloat(price) || 0;
+                    return Math.round(p - this.getShopeeFee(p));
+                },
+
+                getNetProfit(item) {
+                    const price = parseFloat(item.price) || 0;
+                    const cost = parseFloat(item.cost_price) || 0;
+                    const netRev = this.getNetRevenue(price);
+                    return Math.round(netRev - cost);
+                },
+
+                getNetProfitMargin(item) {
+                    const cost = parseFloat(item.cost_price) || 0;
+                    if (cost <= 0) return 0;
+                    const profit = this.getNetProfit(item);
+                    return ((profit / cost) * 100).toFixed(1);
+                },
+
+                getTotalListedCost() {
+                    return this.listedProducts.reduce((sum, i) => sum + (parseFloat(i.cost_price) || 0), 0);
+                },
+
+                getTotalListedRevenue() {
+                    return this.listedProducts.reduce((sum, i) => sum + (parseFloat(i.price) || 0), 0);
+                },
+
+                getTotalListedFees() {
+                    return this.listedProducts.reduce((sum, i) => sum + this.getShopeeFee(i.price), 0);
+                },
+
+                getTotalListedNetProfit() {
+                    return this.listedProducts.reduce((sum, i) => sum + this.getNetProfit(i), 0);
+                },
+
+                getTotalListedMarginPercent() {
+                    const cost = this.getTotalListedCost();
+                    if (cost <= 0) return 0;
+                    return ((this.getTotalListedNetProfit() / cost) * 100).toFixed(1);
                 },
 
                 getSuggestedPrice(p) {
