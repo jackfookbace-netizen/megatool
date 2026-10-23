@@ -3,6 +3,12 @@ import json
 import urllib.parse
 
 AUTH_URL = "https://shop.ktw.co.th/authorizationserver/oauth/token"
+Z053_0075_EXTRA_IMAGES = [
+    "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/ha6/h29/9848542298142/-3M-Z053-0075-1.jpg",
+    "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hde/haa/9848511299614/-3M-Z053-0075-2.jpg",
+    "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h88/h58/9848512610334/-3M-Z053-0075-3.jpg"
+]
+
 API_BASE = "https://shop.ktw.co.th/rest/v2/ktw"
 
 HEADERS_AUTH = {
@@ -131,6 +137,11 @@ def _get_bestsellers_all(final_query, exclude_spare_parts, in_stock_only):
         p_price = item.get('price', {}).get('value', 0)
         p_was_price = item.get('price', {}).get('wasPrice', p_price)
         
+        # Special condition for Z053-0073 (10 rolls @ 10 THB/roll = 100 THB/pack)
+        if p_code == "Z053-0073":
+            p_price = 100.0
+            p_was_price = 100.0
+        
         raw_img = ""
         images = item.get('images', [])
         all_imgs = []
@@ -140,6 +151,11 @@ def _get_bestsellers_all(final_query, exclude_spare_parts, in_stock_only):
                 full_u = f"https://shop.ktw.co.th{u}"
                 if full_u not in all_imgs:
                     all_imgs.append(full_u)
+        if p_code == "Z053-0073":
+            for extra_u in Z053_0075_EXTRA_IMAGES:
+                if extra_u not in all_imgs:
+                    all_imgs.append(extra_u)
+
         if all_imgs:
             raw_img = all_imgs[0]
                 
@@ -232,6 +248,11 @@ def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_pa
                 p_name = item.get('name', p_code)
                 p_price = item.get('price', {}).get('value', 0)
                 p_was_price = item.get('price', {}).get('wasPrice', p_price)
+
+                # Special condition for Z053-0073 (10 rolls @ 10 THB/roll = 100 THB/pack)
+                if p_code == "Z053-0073":
+                    p_price = 100.0
+                    p_was_price = 100.0
                 
                 # Image
                 raw_img = ""
@@ -243,6 +264,11 @@ def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_pa
                         full_u = f"https://shop.ktw.co.th{u}"
                         if full_u not in all_imgs:
                             all_imgs.append(full_u)
+                if p_code == "Z053-0073":
+                    for extra_u in Z053_0075_EXTRA_IMAGES:
+                        if extra_u not in all_imgs:
+                            all_imgs.append(extra_u)
+
                 if all_imgs:
                     raw_img = all_imgs[0]
                         
@@ -357,7 +383,7 @@ def extract_product_images(detail):
     sorted_items = sorted(candidates.values(), key=sort_key)
     return [x['url'] for x in sorted_items]
 
-def get_product_detail(sku):
+def get_product_detail(sku, is_subfetch=False):
     headers = get_headers()
     url = f"{API_BASE}/products/{sku}?fields=FULL"
     try:
@@ -369,6 +395,31 @@ def get_product_detail(sku):
         if r.status_code == 200:
             data = r.json()
             data["ktw_url"] = f"https://shop.ktw.co.th/p/{sku}"
+
+            # Special condition for Z053-0073:
+            # 1. 10 rolls @ 10 THB/roll -> cost is 100 THB/pack (10x10)
+            # 2. Merge images with Z053-0075
+            if sku.upper() == "Z053-0073":
+                if "price" in data:
+                    data["price"]["value"] = 100.0
+                    data["price"]["wasPrice"] = 100.0
+                if not is_subfetch:
+                    try:
+                        d75 = get_product_detail("Z053-0075", is_subfetch=True)
+                        if d75:
+                            existing_urls = {im.get('url') for im in data.get('images', [])}
+                            for im in d75.get('images', []):
+                                if im.get('url') not in existing_urls:
+                                    data.setdefault('images', []).append(im)
+                                    existing_urls.add(im.get('url'))
+                            existing_ds = {ds.get('url') for ds in data.get('dataSheets', [])}
+                            for ds in d75.get('dataSheets', []):
+                                if ds.get('url') not in existing_ds:
+                                    data.setdefault('dataSheets', []).append(ds)
+                                    existing_ds.add(ds.get('url'))
+                    except Exception as e_merge:
+                        print("Error merging Z053-0075 images into Z053-0073:", e_merge)
+
             return data
     except Exception as e:
         print(f"Error fetching detail {sku}:", e)
