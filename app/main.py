@@ -20,7 +20,17 @@ from app.listed_service import (
     delete_listed_product, get_dashboard_summary
 )
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="KTW to Shopee Automation Center")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Ensure static folders
 os.makedirs("app/static/covers", exist_ok=True)

@@ -36,6 +36,7 @@ def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_nam
     import hashlib
     url_hash = hashlib.md5(f"{raw_img_url}_{brand}_{badge_text}_{shop_name}".encode('utf-8')).hexdigest()[:10]
     local_img_path = f"app/static/covers/{sku}_{url_hash}.jpg"
+    filename = f"{sku}_{url_hash}.jpg"
     try:
         generate_cover(
             raw_img_url,
@@ -45,11 +46,22 @@ def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_nam
             badge_text=badge_text,
             shop_name=shop_name
         )
+        # Tier 1: Cloudflare CDN (Freeimage / iili.io)
         uploaded_cdn = upload_to_cdn(local_img_path)
-        if uploaded_cdn and 'ktw.co.th' not in uploaded_cdn and uploaded_cdn.startswith('http'):
+        if uploaded_cdn and uploaded_cdn.startswith('http'):
             return (img_idx, uploaded_cdn)
+
+        # Tier 2: Public Render server URL (branded template cover)
+        if os.path.exists(local_img_path):
+            render_url = f"https://megatool-yrho.onrender.com/static/covers/{filename}"
+            return (img_idx, render_url)
     except Exception as e:
         print(f"Error applying template to {sku} image {img_idx}:", e)
+
+    # Tier 3: Direct original high-res KTW image URL
+    if raw_img_url and raw_img_url.startswith('http'):
+        return (img_idx, raw_img_url)
+
     return (img_idx, None)
 
 
@@ -180,16 +192,14 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                     idx = future_to_idx[fut]
                     try:
                         img_idx, cdn_url = fut.result()
-                        if cdn_url and 'ktw.co.th' not in cdn_url:
+                        if cdn_url and cdn_url.startswith('http'):
                             cdn_results[img_idx] = cdn_url
                     except Exception as e:
                         print(f"Failed processing image {idx} for {sku}:", e)
 
             cdn_urls = [cdn_results[i] for i in range(len(raw_images)) if i in cdn_results]
             if not cdn_urls and raw_images:
-                _, fallback_cover = _process_single_image(raw_images[0], 0, sku, brand, badge_text, shop_name)
-                if fallback_cover:
-                    cdn_urls.append(fallback_cover)
+                cdn_urls = [u for u in raw_images if u and u.startswith('http')]
 
             var_cover = cdn_urls[0] if cdn_urls else ""
             if var_cover and var_cover not in all_gallery_images:
@@ -239,10 +249,11 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
 • สินค้าทุกชิ้นตรวจสอบและแพ็คห่ออย่างดีก่อนจัดส่งทุกวันครับ"""
 
             final_gallery = all_gallery_images[:9]
-            if len(final_gallery) < 9 and processed_items[0]['cdn_urls']:
-                for u in processed_items[0]['cdn_urls']:
-                    if u not in final_gallery and len(final_gallery) < 9:
-                        final_gallery.append(u)
+            if len(final_gallery) < 9:
+                for p in processed_items:
+                    for u in p.get('cdn_urls', []):
+                        if u and u not in final_gallery and len(final_gallery) < 9:
+                            final_gallery.append(u)
 
             def append_sorted_cells(row_el, cells_d, r_num):
                 for col_l in sorted(cells_d.keys(), key=col_to_idx):
@@ -377,19 +388,15 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                     idx = future_to_idx[fut]
                     try:
                         img_idx, cdn_url = fut.result()
-                        if cdn_url and 'ktw.co.th' not in cdn_url:
+                        if cdn_url and cdn_url.startswith('http'):
                             cdn_results[img_idx] = cdn_url
                     except Exception as e:
                         print(f"Failed processing image {idx} for {sku}:", e)
 
             # Build ordered list of CDN URLs
             cdn_urls = [cdn_results[i] for i in range(len(raw_images)) if i in cdn_results]
-
-            # If for any reason cover (image 0) is missing, retry synchronously up to 2 times
             if not cdn_urls and raw_images:
-                _, fallback_cover = _process_single_image(raw_images[0], 0, sku, brand, badge_text, shop_name)
-                if fallback_cover:
-                    cdn_urls.append(fallback_cover)
+                cdn_urls = [u for u in raw_images if u and u.startswith('http')]
 
 
 

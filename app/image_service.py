@@ -239,7 +239,7 @@ def _save_cdn_cache_threadsafe(key, url):
         except Exception as e:
             print("Error saving cdn cache:", e)
 
-def upload_to_cdn(image_path, max_retries=3):
+def upload_to_cdn(image_path, max_retries=1):
     """
     Uploads image to Freeimage.host (Cloudflare-backed iili.io CDN)
     with thread-safe persistent caching and automatic retries.
@@ -269,7 +269,7 @@ def upload_to_cdn(image_path, max_retries=3):
                     url,
                     data={'key': api_key, 'action': 'upload', 'format': 'json'},
                     files={'source': f},
-                    timeout=20
+                    timeout=5
                 )
                 if r.status_code == 200:
                     data = r.json()
