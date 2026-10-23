@@ -1393,7 +1393,54 @@
                         const res = await fetch('/api/listed', { headers: this.getHeaders() });
                         if (res.ok) {
                             const data = await res.json();
-                            this.listedProducts = data.items || [];
+                            let serverItems = data.items || [];
+
+                            // Two-way LocalStorage sync: Protect against Render container restarts & redeploys
+                            let localBackup = {};
+                            try {
+                                localBackup = JSON.parse(localStorage.getItem('megatool_listed_products_backup') || '{}');
+                            } catch (e) {}
+
+                            const serverSkus = new Set(serverItems.map(i => i.sku));
+                            const missingItems = Object.values(localBackup).filter(i => i && i.sku && !serverSkus.has(i.sku) && i.shopee_url);
+
+                            if (missingItems.length > 0 && this.currentUser) {
+                                for (const item of missingItems) {
+                                    try {
+                                        await fetch('/api/listed', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                ...this.getHeaders()
+                                            },
+                                            body: JSON.stringify({
+                                                sku: item.sku,
+                                                shopee_url: item.shopee_url,
+                                                name: item.name || '',
+                                                brand: item.brand || '',
+                                                price: item.price || 0,
+                                                image_url: item.image_url || ''
+                                            })
+                                        });
+                                    } catch (err) {
+                                        console.error('Auto-sync item error:', err);
+                                    }
+                                }
+                                const refreshRes = await fetch('/api/listed', { headers: this.getHeaders() });
+                                if (refreshRes.ok) {
+                                    const refreshedData = await refreshRes.json();
+                                    serverItems = refreshedData.items || serverItems;
+                                }
+                            }
+
+                            this.listedProducts = serverItems;
+
+                            // Update local backup with latest verified items
+                            const updatedBackup = {};
+                            for (const item of this.listedProducts) {
+                                updatedBackup[item.sku] = item;
+                            }
+                            localStorage.setItem('megatool_listed_products_backup', JSON.stringify(updatedBackup));
                         }
                     } catch (e) {
                         console.error('Error fetching listed products:', e);
@@ -1487,6 +1534,17 @@
                     this.savingAttach = true;
                     this.attachError = null;
                     try {
+                        // Optimistically save to local backup immediately
+                        const itemToSave = { ...this.attachForm };
+                        if (itemToSave.sku && itemToSave.shopee_url) {
+                            let localBackup = {};
+                            try {
+                                localBackup = JSON.parse(localStorage.getItem('megatool_listed_products_backup') || '{}');
+                            } catch (e) {}
+                            localBackup[itemToSave.sku] = itemToSave;
+                            localStorage.setItem('megatool_listed_products_backup', JSON.stringify(localBackup));
+                        }
+
                         const res = await fetch('/api/listed', {
                             method: 'POST',
                             headers: {
@@ -1502,20 +1560,27 @@
                             await this.fetchDashboardStats();
                             this.search();
                         } else {
-                            this.attachError = data.detail || 'เกิดข้อผิดพลาดในการบันทึก';
+                            this.attachError = data.detail || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
                         }
                     } catch (e) {
-                        this.attachError = 'เชื่อมต่อระบบล้มเหลว: ' + e;
+                        this.attachError = 'เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + e;
                     }
                     this.savingAttach = false;
                     this.$nextTick(() => lucide.createIcons());
                 },
 
                 async deleteAttach(sku) {
-                    if (!confirm(`คุณต้องการยกเลิกสถานะสินค้าที่ลงขายแล้วสำหรับรหัส ${sku} ใช่หรือไม่?`)) {
+                    if (!confirm(`ยืนยันการยกเลิกลิงก์ Shopee ของรหัสสินค้า ${sku} หรือไม่?`)) {
                         return;
                     }
                     try {
+                        let localBackup = {};
+                        try {
+                            localBackup = JSON.parse(localStorage.getItem('megatool_listed_products_backup') || '{}');
+                        } catch (e) {}
+                        delete localBackup[sku];
+                        localStorage.setItem('megatool_listed_products_backup', JSON.stringify(localBackup));
+
                         const res = await fetch(`/api/listed/${sku}`, {
                             method: 'DELETE',
                             headers: this.getHeaders()
