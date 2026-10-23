@@ -434,6 +434,15 @@
                             <input type="checkbox" x-model="excludeListed" @change="search()" class="rounded text-orange-600 focus:ring-orange-500 w-4 h-4">
                             <span class="font-bold">ซ่อนสินค้าที่ขายอยู่แล้ว</span>
                         </label>
+                        <!-- Bestseller toggle -->
+                        <button type="button" 
+                                @click="toggleBestseller()" 
+                                :class="bestsellerOnly ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white border-orange-500 shadow-md font-bold ring-2 ring-orange-300' : 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100 font-semibold'"
+                                class="flex items-center space-x-1.5 px-3 py-2.5 rounded-xl border cursor-pointer select-none text-xs transition-all">
+                            <span>🔥</span>
+                            <span>สินค้าขายดี (KTW Bestseller)</span>
+                            <span x-show="bestsellerOnly" class="ml-1 bg-white text-orange-600 text-[10px] px-1.5 py-0.5 rounded-full font-black shadow-sm">ON</span>
+                        </button>
 
                         <!-- Search Button -->
                         <button @click="search()" 
@@ -486,6 +495,13 @@
                     <!-- Brand Filter Pills -->
                     <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-100 items-center">
                         <span class="text-xs font-medium text-slate-400 mr-1">แบรนด์ยอดนิยม:</span>
+                        <!-- Bestseller Quick Pill -->
+                        <button @click="toggleBestseller()" 
+                                :class="bestsellerOnly ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-sm ring-2 ring-orange-400 font-bold' : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 font-semibold'"
+                                class="px-3 py-1 rounded-lg text-xs transition-all flex items-center space-x-1">
+                            <span>🔥</span>
+                            <span>สินค้าขายดี</span>
+                        </button>
                         <template x-for="b in brands" :key="b.name">
                             <button @click="selectBrand(b.name)" 
                                     :class="activeBrand === b.name ? 'bg-orange-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
@@ -503,6 +519,10 @@
                     <h2 class="text-sm font-semibold text-slate-600 flex items-center space-x-2">
                         <span>รายการสินค้าในระบบ</span>
                         <span class="text-xs font-normal text-slate-400" x-text="'(พบ ' + totalResults.toLocaleString() + ' รายการ)'"></span>
+                        <span x-show="bestsellerOnly" class="bg-amber-100 text-amber-800 text-[11px] px-2.5 py-0.5 rounded-full font-bold flex items-center space-x-1 border border-amber-200">
+                            <span>🔥</span>
+                            <span>หมวดสินค้าขายดี KTW</span>
+                        </span>
                     </h2>
                     <div class="text-xs text-slate-400">
                         คลิกที่สินค้าเพื่อดูรายละเอียด หรือกด <span class="text-orange-600 font-semibold">"ดูรูปที่แต่งแล้ว"</span> เพื่อพรีวิวปกตามแบรนด์จริง
@@ -1220,6 +1240,7 @@
                 inStockOnly: true,
                 excludeSpares: true,
                 excludeListed: false,
+                bestsellerOnly: false,
                 markupPercent: 25,
                 minProfit: 30,
                 shopName: 'MEGATOOL',
@@ -1514,7 +1535,7 @@
                     if (!this.currentUser) return;
                     this.loading = true;
                     try {
-                        let url = `/api/search?q=${encodeURIComponent(this.searchQuery)}&in_stock=${this.inStockOnly}&exclude_spares=${this.excludeSpares}&exclude_listed=${this.excludeListed}&page=${this.currentPage}&page_size=20`;
+                        let url = `/api/search?q=${encodeURIComponent(this.searchQuery)}&in_stock=${this.inStockOnly}&exclude_spares=${this.excludeSpares}&exclude_listed=${this.excludeListed}&bestseller_only=${this.bestsellerOnly}&page=${this.currentPage}&page_size=20`;
                         if (this.activeBrand) {
                             url += `&brand=${encodeURIComponent(this.activeBrand)}`;
                         }
@@ -1531,6 +1552,12 @@
                     }
                     this.loading = false;
                     this.$nextTick(() => lucide.createIcons());
+                },
+
+                toggleBestseller() {
+                    this.bestsellerOnly = !this.bestsellerOnly;
+                    this.currentPage = 0;
+                    this.search();
                 },
 
                 selectBrand(brand) {

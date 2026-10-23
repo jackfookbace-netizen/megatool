@@ -138,13 +138,14 @@ def api_search(
     brand: Optional[str] = Query(None, description="Brand filter"),
     in_stock: bool = Query(True, description="In stock only"),
     exclude_spares: bool = Query(True, description="Filter out spare parts"),
+    bestseller_only: bool = Query(False, description="Filter KTW bestseller items only"),
     exclude_listed: bool = Query(False, description="Filter out products already live on Shopee"),
     page: int = Query(0, description="Page index"),
     page_size: int = Query(20, description="Page size")
 ):
     user = get_current_user(request, authorization)
     # Perform search
-    data = search_products(query=q, brand=brand, in_stock_only=in_stock, exclude_spare_parts=exclude_spares, page=page, page_size=page_size)
+    data = search_products(query=q, brand=brand, in_stock_only=in_stock, exclude_spare_parts=exclude_spares, bestseller_only=bestseller_only, page=page, page_size=page_size)
     
     listed_map = get_all_listed()
     

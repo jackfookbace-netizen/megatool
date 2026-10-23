@@ -83,7 +83,7 @@ def is_spare_part(item):
 
     return False
 
-def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_parts=True, page=0, page_size=20):
+def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_parts=True, bestseller_only=False, page=0, page_size=20):
     headers = get_headers()
     
     clean_q = query.strip() if query and query.strip() != "*" else ""
@@ -98,7 +98,11 @@ def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_pa
         else:
             base_q = ""
 
-    if base_q:
+    if bestseller_only:
+        final_query = f"{base_q if base_q else '*'}:bestseller"
+        if in_stock_only:
+            final_query += ":inStockFlag_boolean:true"
+    elif base_q:
         final_query = f"{base_q}:name-asc"
         if in_stock_only:
             final_query += ":inStockFlag_boolean:true"
