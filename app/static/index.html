@@ -722,6 +722,12 @@
                     </div>
 
                     <div class="flex flex-wrap items-center gap-3">
+                        <div class="relative">
+                            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5"></i>
+                            <input type="text" x-model="ledgerSearch" placeholder="🔍 ค้นหา SKU, ชื่อรุ่น, ตัวเลือก..." 
+                                   class="pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-800 outline-none focus:bg-white focus:border-orange-400 w-52">
+                        </div>
+
                         <div class="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-600">
                             <span>สูตรค่าธรรมเนียม Shopee:</span>
                             <div class="inline-flex items-center border border-rose-200 rounded-lg px-2 py-0.5 bg-white shadow-inner font-bold text-rose-600">
@@ -841,7 +847,7 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">
-                                    <template x-for="item in listedProducts" :key="item.sku">
+                                    <template x-for="item in getFilteredListedProducts()" :key="item.sku">
                                         <tr class="hover:bg-slate-50/80 transition-colors cursor-pointer group"
                                             @click="viewProductDetail(item.sku)">
                                             
@@ -852,10 +858,24 @@
                                                          class="w-12 h-12 rounded-xl object-contain bg-white border border-slate-200 p-1 shrink-0 group-hover:scale-105 transition-transform">
                                                     <div class="min-w-0">
                                                         <span class="font-bold text-slate-800 line-clamp-1 max-w-xs group-hover:text-orange-600 transition-colors" x-text="item.name || item.sku"></span>
-                                                        <span class="text-[10px] text-emerald-600 font-medium flex items-center space-x-1 mt-0.5">
-                                                            <span>สต็อกคลัง:</span>
-                                                            <strong x-text="item.stock ? item.stock.toLocaleString() + ' ชิ้น' : 'มีพร้อมส่ง'"></strong>
-                                                        </span>
+                                                        <div class="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                                            <template x-if="item.variation_name">
+                                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 inline-flex items-center space-x-1">
+                                                                    <i data-lucide="layers" class="w-2.5 h-2.5"></i>
+                                                                    <span>รุ่นย่อย:</span>
+                                                                    <strong x-text="item.variation_name"></strong>
+                                                                </span>
+                                                            </template>
+                                                            <template x-if="getSharedLinkCount(item.shopee_url) > 1">
+                                                                <span class="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-bold border border-amber-200 inline-flex items-center space-x-1" :title="'ลิงก์นี้มี ' + getSharedLinkCount(item.shopee_url) + ' รุ่นรวมกัน'">
+                                                                    <i data-lucide="link" class="w-2.5 h-2.5"></i>
+                                                                    <span x-text="'รวม ' + getSharedLinkCount(item.shopee_url) + ' รุ่น'"></span>
+                                                                </span>
+                                                            </template>
+                                                            <span class="text-[10px] text-emerald-600 font-medium">
+                                                                สต็อก: <strong x-text="item.stock ? item.stock.toLocaleString() + ' ชิ้น' : 'มีพร้อมส่ง'"></strong>
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>
@@ -927,6 +947,11 @@
 
                                             <!-- 7. Actions -->
                                             <td class="py-3 px-4 text-right space-x-1" @click.stop>
+                                                <button @click="openAttachModalForSameLink(item)" title="เพิ่มรุ่นย่อย/ตัวเลือกอื่นในลิงก์ Shopee เดียวกันนี้" 
+                                                        class="p-1.5 rounded-xl text-amber-600 hover:text-amber-800 hover:bg-amber-50 transition-colors border border-amber-200"
+                                                        x-show="item.shopee_url">
+                                                    <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                                                </button>
                                                 <button @click="openAttachModal(item)" title="แก้ไขราคาหรือลิงก์" 
                                                         class="p-1.5 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors border border-slate-200">
                                                     <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
@@ -1079,8 +1104,23 @@
                     </button>
                 </div>
 
+                <!-- Manual SKU Input if adding another variation to same link -->
+                <div x-show="isManualSkuInput" class="my-3 p-3 bg-amber-50/60 border border-amber-200 rounded-2xl space-y-2">
+                    <label class="block text-xs font-bold text-amber-900">
+                        ระบุรหัส SKU ในคลัง KTW ของรุ่นย่อยนี้:
+                    </label>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" x-model="attachForm.sku" @blur="fetchSkuForAttach()" placeholder="เช่น Z053-0075 หรือ M011-M9513B"
+                               class="flex-1 px-3 py-2 rounded-xl border border-amber-300 bg-white text-xs font-mono font-bold uppercase outline-none focus:ring-2 focus:ring-amber-200">
+                        <button type="button" @click="fetchSkuForAttach()" 
+                                class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-colors shrink-0">
+                            ดึงข้อมูลคลัง
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Product Preview Card from Warehouse -->
-                <div class="my-4 p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center space-x-3">
+                <div x-show="attachForm.sku" class="my-4 p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center space-x-3">
                     <img :src="attachForm.image_url || 'https://via.placeholder.com/80?text=KTW'" 
                          class="w-14 h-14 object-contain rounded-xl bg-white border border-slate-200 p-1 shrink-0">
                     <div class="flex-1 min-w-0">
@@ -1115,6 +1155,25 @@
                         </div>
                         <p class="text-[10px] text-slate-400 mt-1">
                             ก๊อปปี้ลิงก์สินค้าจากหน้า Shopee Seller Centre หรือหน้าเว็บ Shopee มาวางที่นี่
+                        </p>
+                    </div>
+
+                    <!-- Variation / Option Name Field (For multi-model / variation listings) -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-800 mb-1 flex items-center justify-between">
+                            <span class="flex items-center space-x-1">
+                                <i data-lucide="layers" class="w-3.5 h-3.5 text-indigo-600"></i>
+                                <span>ชื่อตัวเลือก / รุ่นย่อย (Variation Name)</span>
+                            </span>
+                            <span class="text-[10px] text-slate-400">กรณีใน 1 ลิงก์มีหลายรุ่นให้เลือก</span>
+                        </label>
+                        <div class="relative">
+                            <input type="text" x-model="attachForm.variation_name"
+                                   placeholder="เช่น สีดำ (แพ็ค 10 ม้วน), เครื่องเปล่า, หรือ ครบชุด แบต 1 ก้อน"
+                                   class="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-xs font-medium outline-none bg-indigo-50/20">
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-1">
+                            *หาก 1 ลิงก์ Shopee มีหลายรุ่นย่อย ให้ระบุชื่อตัวเลือกเพื่อแยกคำนวณต้นทุน-กำไรเฉพาะรุ่นนี้ (สามารถใช้ลิงก์เดียวกันซ้ำได้)
                         </p>
                     </div>
 
@@ -1327,6 +1386,47 @@
                     </button>
                 </div>
 
+                <!-- Export Mode Selection: Single vs Variations Group -->
+                <div x-show="selectedItems.length > 1" class="my-3 p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <span class="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
+                            <i data-lucide="layers" class="w-4 h-4 text-orange-600"></i>
+                            <span>รูปแบบการสร้างไฟล์ Excel Shopee:</span>
+                        </span>
+                        <div class="inline-flex p-1 bg-white border border-slate-200 rounded-xl text-xs font-bold shadow-xs">
+                            <button type="button" @click="exportMode = 'single'"
+                                    :class="exportMode === 'single' ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                    class="px-3 py-1 rounded-lg transition-all">
+                                แยกสินค้าเดี่ยว
+                            </button>
+                            <button type="button" @click="exportMode = 'variations'; if(!groupParentTitle) groupParentTitle = getDefaultParentTitle()"
+                                    :class="exportMode === 'variations' ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                    class="px-3 py-1 rounded-lg transition-all flex items-center space-x-1">
+                                <span>🔗 รวมเป็น 1 สินค้ามีหลายรุ่น</span>
+                                <span class="bg-amber-400 text-amber-950 text-[10px] px-1.5 py-0.2 rounded-full">แนะนำ</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Variations Options Configuration -->
+                    <div x-show="exportMode === 'variations'" class="space-y-2.5 pt-2 border-t border-slate-200/60 text-xs">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">
+                                ชื่อสินค้าหลักบน Shopee (Parent Title):
+                            </label>
+                            <input type="text" x-model="groupParentTitle" 
+                                   :placeholder="getDefaultParentTitle()"
+                                   class="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-xs outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-200">
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <label class="font-bold text-slate-700 shrink-0">ชื่อกลุ่มตัวเลือก (Tier 1):</label>
+                            <input type="text" x-model="groupVariationTierName" placeholder="เช่น รุ่น / ตัวเลือกสินค้า หรือ สี"
+                                   class="px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs outline-none focus:border-orange-500 w-44">
+                            <span class="text-[11px] text-slate-400">ระบุชื่อตัวเลือกของแต่ละรุ่นด้านล่างได้เลยครับ</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Queue Items List -->
                 <div class="max-h-80 overflow-y-auto divide-y divide-slate-100 my-4">
                     <template x-for="item in selectedItems" :key="item.sku">
@@ -1344,6 +1444,12 @@
                                         <button @click="showQueueModal = false; openCoverPreview(item)" title="ปรับแต่งรูปปกและตัดรูปออก" class="text-blue-500 hover:text-blue-700 underline font-sans ml-1">
                                             (แก้ไขรูป)
                                         </button>
+                                    </div>
+                                    <!-- Option Name input when in variations mode -->
+                                    <div x-show="exportMode === 'variations'" class="mt-1.5 flex items-center space-x-1.5">
+                                        <span class="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 shrink-0">ชื่อตัวเลือก:</span>
+                                        <input type="text" x-model="item.variation_name" :placeholder="item.name.substring(0, 24)"
+                                               class="text-[11px] px-2 py-0.5 border border-indigo-200 rounded-lg bg-white text-slate-800 font-medium outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200 w-52">
                                     </div>
                                 </div>
                             </div>
@@ -1453,6 +1559,11 @@
 
                 // Listed & Dashboard State
                 listedProducts: [],
+                ledgerSearch: '',
+                exportMode: 'single', // 'single' or 'variations'
+                groupParentTitle: '',
+                groupVariationTierName: 'รุ่น / ตัวเลือกสินค้า',
+                isManualSkuInput: false,
                 dashboardStats: null,
                 showAttachModal: false,
                 savingAttach: false,
@@ -1688,6 +1799,7 @@
 
                 openAttachModal(product = null) {
                     this.attachError = null;
+                    this.isManualSkuInput = !product;
                     if (product) {
                         const cost = (product.price && product.price.value) ? product.price.value : (product.cost_price || 0);
                         const rawPrice = (typeof product.price === 'number' || (typeof product.price === 'string' && !isNaN(product.price) && product.price !== '')) ? parseFloat(product.price) : 0;
@@ -1695,6 +1807,7 @@
                         this.attachForm = {
                             sku: product.sku || product.code || '',
                             shopee_url: product.shopee_url || '',
+                            variation_name: product.variation_name || '',
                             name: product.name || '',
                             brand: product.brand || product.manufacturer || '',
                             cost_price: cost,
@@ -1705,6 +1818,7 @@
                         this.attachForm = {
                             sku: '',
                             shopee_url: '',
+                            variation_name: '',
                             name: '',
                             brand: '',
                             cost_price: 0,
@@ -1827,6 +1941,77 @@
                 nextPage() {
                     this.currentPage++;
                     this.search();
+                },
+
+                // Shopee Variations & Group Helpers
+                getSharedLinkCount(url) {
+                    if (!url) return 0;
+                    const clean = url.trim().toLowerCase();
+                    return this.listedProducts.filter(i => (i.shopee_url || '').trim().toLowerCase() === clean).length;
+                },
+
+                getFilteredListedProducts() {
+                    if (!this.ledgerSearch || !this.ledgerSearch.trim()) {
+                        return this.listedProducts;
+                    }
+                    const q = this.ledgerSearch.trim().toLowerCase();
+                    return this.listedProducts.filter(item => {
+                        const sku = (item.sku || '').toLowerCase();
+                        const name = (item.name || '').toLowerCase();
+                        const brand = (item.brand || '').toLowerCase();
+                        const varName = (item.variation_name || '').toLowerCase();
+                        const url = (item.shopee_url || '').toLowerCase();
+                        return sku.includes(q) || name.includes(q) || brand.includes(q) || varName.includes(q) || url.includes(q);
+                    });
+                },
+
+                openAttachModalForSameLink(parentItem) {
+                    this.attachError = null;
+                    this.isManualSkuInput = true;
+                    this.attachForm = {
+                        sku: '',
+                        shopee_url: parentItem.shopee_url || '',
+                        name: '',
+                        brand: parentItem.brand || '',
+                        variation_name: '',
+                        cost_price: 0,
+                        price: 0,
+                        image_url: ''
+                    };
+                    this.showAttachModal = true;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                async fetchSkuForAttach() {
+                    const sku = (this.attachForm.sku || '').trim().toUpperCase();
+                    if (!sku) return;
+                    try {
+                        const res = await fetch(`/api/products/${sku}`, { headers: this.getHeaders() });
+                        if (res.ok) {
+                            const data = await res.json();
+                            this.attachForm.sku = sku;
+                            this.attachForm.name = data.name || sku;
+                            this.attachForm.brand = data.brand || 'KTW';
+                            this.attachForm.cost_price = (data.price && data.price.value) ? data.price.value : (data.cost_price || 0);
+                            this.attachForm.image_url = data.image || data.image_url || (data.all_images && data.all_images[0]) || '';
+                            if (!this.attachForm.price || this.attachForm.price <= 0) {
+                                this.attachForm.price = this.getSuggestedPrice(data);
+                            }
+                        } else {
+                            this.attachError = `ไม่พบข้อมูล SKU ${sku} ในคลัง KTW`;
+                        }
+                    } catch (e) {
+                        console.error('fetchSkuForAttach error:', e);
+                    }
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                getDefaultParentTitle() {
+                    if (this.selectedItems.length === 0) return '';
+                    const first = this.selectedItems[0];
+                    const brand = first.brand || 'KTW';
+                    const cleanName = (first.name || first.sku).replace(/\[.*?\]/g, '').trim();
+                    return `[${brand} แท้ 100%] ${cleanName} รวมรุ่นตัวเลือกสเปก ของแท้มาตรฐานโรงงาน`;
                 },
 
                 // Shopee Ledger & Profit Calculation Helpers
@@ -2090,18 +2275,23 @@
                     this.downloadUrl = null;
                     
                     try {
+                        const isVar = (this.exportMode === 'variations' && this.selectedItems.length > 1);
                         const payload = {
                             items: this.selectedItems.map(item => ({
                                 sku: item.sku,
                                 price: item.price,
                                 badge: item.badge || this.customBadgeText,
+                                variation_name: item.variation_name || item.name,
                                 selected_image: item.selected_image || item.image,
                                 selected_images: (item.selected_images && item.selected_images.length > 0)
                                     ? item.selected_images
                                     : (item.selected_image ? [item.selected_image] : undefined)
                             })),
                             shop_name: this.shopName,
-                            filename: `Shopee_Mass_Upload_${Date.now()}.xlsx`
+                            is_variation_group: isVar,
+                            parent_title: this.groupParentTitle || undefined,
+                            variation_group_name: this.groupVariationTierName || "รุ่น / ตัวเลือกสินค้า",
+                            filename: isVar ? `Shopee_Variations_Group_${Date.now()}.xlsx` : `Shopee_Mass_Upload_${Date.now()}.xlsx`
                         };
 
                         const res = await fetch('/api/export', {

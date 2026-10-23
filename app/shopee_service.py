@@ -53,7 +53,7 @@ def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_nam
     return (img_idx, None)
 
 
-def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx', shop_name='MEGATOOL'):
+def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx', shop_name='MEGATOOL', is_variation_group=False, parent_title=None, variation_group_name='รุ่น / ตัวเลือกสินค้า'):
     """
     Takes product_items: [{'sku': '...', 'price': 145, 'badge': '...'}]
     Generates branded template images for ALL angles, uploads to CDN, and injects into official Shopee template.
@@ -101,152 +101,338 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
 
     start_row = 7
     current_row_num = start_row
-    for item_info in product_items:
-        sku = item_info['sku']
-        override_price = item_info.get('price')
-        badge_text = item_info.get('badge')
+    if is_variation_group and len(product_items) > 0:
+        parent_sku = f"PARENT_{product_items[0]['sku']}"
+        group_brand = "GENUINE"
+        group_cat_id = 101800
         
-        detail = get_product_detail(sku)
-        if not detail:
-            continue
+        processed_items = []
+        all_gallery_images = []
+        combined_descs = []
+
+        for item_info in product_items:
+            sku = item_info['sku']
+            override_price = item_info.get('price')
+            badge_text = item_info.get('badge')
+            custom_var_name = item_info.get('variation_name')
             
-        row_elem = ET.Element('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row', {'r': str(current_row_num), 'spans': '1:38'})
+            detail = get_product_detail(sku)
+            if not detail:
+                continue
+                
+            brand = clean_brand_name(detail.get('manufacturer'), sku)
+            group_brand = brand
+            if brand == '3M':
+                group_cat_id = 101186
+                
+            raw_name = detail.get('name', sku)
+            raw_desc = clean_html(detail.get('description', ''))
+            cost_price = detail.get('price', {}).get('value', 0)
+            
+            if override_price and float(override_price) > 0:
+                sale_price = float(override_price)
+            else:
+                target_net = max(cost_price * 1.07, cost_price + 30)
+                sale_price = round(target_net / (1 - 0.28), 0)
+                
+            stock_qty = detail.get('stock', {}).get('stockLevel', 100)
+            if stock_qty <= 0:
+                stock_qty = 50
+                
+            weight_kg = 1.0
+            width_cm = 10.0
+            length_cm = 15.0
+            height_cm = 10.0
+            units = detail.get('conversionUnits', [])
+            if units:
+                u0 = units[0]
+                weight_kg = u0.get('conversionGross', 1.0)
+                length_cm = round(u0.get('conversionLength', 150.0) / 10.0, 1)
+                width_cm = round(u0.get('conversionWidth', 100.0) / 10.0, 1)
+                height_cm = round(u0.get('conversionHeight', 100.0) / 10.0, 1)
 
+            custom_images = item_info.get('selected_images')
+            if custom_images and isinstance(custom_images, list) and len(custom_images) > 0:
+                raw_images = [u for u in custom_images if u]
+            else:
+                raw_images = extract_product_images(detail)
 
-        brand = clean_brand_name(detail.get('manufacturer'), sku)
-        raw_name = detail.get('name', sku)
-        raw_desc = clean_html(detail.get('description', ''))
-        ean = detail.get('ean') or ''
-        cost_price = detail.get('price', {}).get('value', 0)
+            selected_cover = item_info.get('selected_image')
+            if selected_cover:
+                if selected_cover in raw_images:
+                    raw_images.remove(selected_cover)
+                raw_images.insert(0, selected_cover)
+            raw_images = raw_images[:9]
+
+            cdn_results = {}
+            with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+                future_to_idx = {
+                    executor.submit(_process_single_image, u, idx, sku, brand, badge_text, shop_name): idx
+                    for idx, u in enumerate(raw_images)
+                }
+                for fut in concurrent.futures.as_completed(future_to_idx):
+                    idx = future_to_idx[fut]
+                    try:
+                        img_idx, cdn_url = fut.result()
+                        if cdn_url and 'ktw.co.th' not in cdn_url:
+                            cdn_results[img_idx] = cdn_url
+                    except Exception as e:
+                        print(f"Failed processing image {idx} for {sku}:", e)
+
+            cdn_urls = [cdn_results[i] for i in range(len(raw_images)) if i in cdn_results]
+            if not cdn_urls and raw_images:
+                _, fallback_cover = _process_single_image(raw_images[0], 0, sku, brand, badge_text, shop_name)
+                if fallback_cover:
+                    cdn_urls.append(fallback_cover)
+
+            var_cover = cdn_urls[0] if cdn_urls else ""
+            if var_cover and var_cover not in all_gallery_images:
+                all_gallery_images.append(var_cover)
+
+            opt_name = (custom_var_name or "").strip()
+            if not opt_name:
+                opt_name = raw_name.replace(f"[{brand}]", "").strip()
+                if len(opt_name) > 20:
+                    opt_name = opt_name[:20]
+
+            combined_descs.append(f"• ตัวเลือก: {opt_name} (รหัส {sku})\n{raw_desc[:200]}...")
+
+            processed_items.append({
+                "sku": sku,
+                "raw_name": raw_name,
+                "brand": brand,
+                "sale_price": sale_price,
+                "stock_qty": stock_qty,
+                "weight_kg": weight_kg,
+                "length_cm": length_cm,
+                "width_cm": width_cm,
+                "height_cm": height_cm,
+                "opt_name": opt_name,
+                "var_cover": var_cover,
+                "cdn_urls": cdn_urls
+            })
+
+        if processed_items:
+            if parent_title and parent_title.strip():
+                final_parent_title = parent_title.strip()
+            else:
+                first_name = processed_items[0]['raw_name']
+                final_parent_title = f"[{group_brand} แท้ 100%] {first_name} รวมรุ่นตัวเลือกสเปก ของแท้มาตรฐานโรงงาน"
+            if len(final_parent_title) > 120:
+                final_parent_title = final_parent_title[:117] + "..."
+
+            desc_bullet_text = "\n\n".join(combined_descs)
+            final_parent_desc = f"""[{group_brand} แท้ 100%] รวมตัวเลือกสินค้าคุณภาพมาตรฐานสากล
+สินค้าส่งตรงจากโรงงานผู้ผลิต มั่นใจได้ในคุณภาพของแท้ 100%
+
+【 รายละเอียดตัวเลือกสินค้าในรายการนี้ 】
+{desc_bullet_text}
+
+【 ข้อแนะนำการสั่งซื้อ 】
+• สามารถกดเลือกตัวเลือกรุ่น/สเปกที่ต้องการได้ที่ปุ่มตัวเลือกสินค้าด้านบน
+• สินค้าทุกชิ้นตรวจสอบและแพ็คห่ออย่างดีก่อนจัดส่งทุกวันครับ"""
+
+            final_gallery = all_gallery_images[:9]
+            if len(final_gallery) < 9 and processed_items[0]['cdn_urls']:
+                for u in processed_items[0]['cdn_urls']:
+                    if u not in final_gallery and len(final_gallery) < 9:
+                        final_gallery.append(u)
+
+            for idx, p_item in enumerate(processed_items):
+                row_elem = ET.Element('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row', {'r': str(current_row_num), 'spans': '1:38'})
+
+                def add_cell_num(col_letter, val):
+                    c = ET.SubElement(row_elem, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c', {'r': f"{col_letter}{current_row_num}"})
+                    v = ET.SubElement(c, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
+                    v.text = str(val)
+
+                def add_cell_str(col_letter, val):
+                    if val is None or val == "":
+                        return
+                    s_idx = get_or_add_str(val)
+                    c = ET.SubElement(row_elem, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c', {'r': f"{col_letter}{current_row_num}", 't': 's'})
+                    v = ET.SubElement(c, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
+                    v.text = str(s_idx)
+
+                # Parent SKU in Column I
+                add_cell_str('I', parent_sku)
+                # Variation Tier 1 Name in Column K
+                add_cell_str('K', variation_group_name)
+                # Option 1 in Column L
+                add_cell_str('L', p_item['opt_name'])
+                # Option Image in Column M
+                if p_item['var_cover']:
+                    add_cell_str('M', p_item['var_cover'])
+
+                add_cell_num('P', p_item['sale_price'])
+                add_cell_num('Q', p_item['stock_qty'])
+                add_cell_str('R', p_item['sku'])
+                add_cell_num('AE', p_item['weight_kg'])
+                add_cell_num('AF', int(p_item['length_cm']))
+                add_cell_num('AG', int(p_item['width_cm']))
+                add_cell_num('AH', int(p_item['height_cm']))
+                add_cell_str('AI', "เปิด")
+                add_cell_str('AJ', "ปิด")
+
+                if idx == 0:
+                    add_cell_num('A', group_cat_id)
+                    add_cell_str('B', final_parent_title)
+                    add_cell_str('C', final_parent_desc)
+
+                    cols_img = ['V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD']
+                    for c_idx, col_l in enumerate(cols_img):
+                        if c_idx < len(final_gallery):
+                            add_cell_str(col_l, final_gallery[c_idx])
+
+                sheet_data.append(row_elem)
+                current_row_num += 1
+    else:
+        for item_info in product_items:
+            sku = item_info['sku']
+            override_price = item_info.get('price')
+            badge_text = item_info.get('badge')
         
-        # Determine sale price using Shopee Net-Profit formula (Fee: 28%, Margin: 7%, min profit: 30 baht)
-        if override_price and float(override_price) > 0:
-            sale_price = float(override_price)
-        else:
-            target_net = max(cost_price * 1.07, cost_price + 30)
-            sale_price = round(target_net / (1 - 0.28), 0)
-
-        # Stock
-        stock_qty = detail.get('stock', {}).get('stockLevel', 100)
-        if stock_qty <= 0:
-            stock_qty = 50
-
-        # Weight & Dims
-        weight_kg = 1.0
-        width_cm = 10.0
-        length_cm = 15.0
-        height_cm = 10.0
-        units = detail.get('conversionUnits', [])
-        if units:
-            u0 = units[0]
-            weight_kg = u0.get('conversionGross', 1.0)
-            length_cm = round(u0.get('conversionLength', 150.0) / 10.0, 1)
-            width_cm = round(u0.get('conversionWidth', 100.0) / 10.0, 1)
-            height_cm = round(u0.get('conversionHeight', 100.0) / 10.0, 1)
-
-        # Collect raw distinct angle images from detail or custom user selection (up to 9 images)
-        custom_images = item_info.get('selected_images')
-        if custom_images and isinstance(custom_images, list) and len(custom_images) > 0:
-            raw_images = [u for u in custom_images if u]
-        else:
-            raw_images = extract_product_images(detail)
-
-        selected_cover = item_info.get('selected_image')
-        if selected_cover:
-            if selected_cover in raw_images:
-                raw_images.remove(selected_cover)
-            raw_images.insert(0, selected_cover)
+            detail = get_product_detail(sku)
+            if not detail:
+                continue
             
-        raw_images = raw_images[:9]
-
-        cdn_results = {}
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            future_to_idx = {
-                executor.submit(_process_single_image, u, idx, sku, brand, badge_text, shop_name): idx
-                for idx, u in enumerate(raw_images)
-            }
-            for fut in concurrent.futures.as_completed(future_to_idx):
-                idx = future_to_idx[fut]
-                try:
-                    img_idx, cdn_url = fut.result()
-                    if cdn_url and 'ktw.co.th' not in cdn_url:
-                        cdn_results[img_idx] = cdn_url
-                except Exception as e:
-                    print(f"Failed processing image {idx} for {sku}:", e)
-
-        # Build ordered list of CDN URLs
-        cdn_urls = [cdn_results[i] for i in range(len(raw_images)) if i in cdn_results]
-
-        # If for any reason cover (image 0) is missing, retry synchronously up to 2 times
-        if not cdn_urls and raw_images:
-            _, fallback_cover = _process_single_image(raw_images[0], 0, sku, brand, badge_text, shop_name)
-            if fallback_cover:
-                cdn_urls.append(fallback_cover)
+            row_elem = ET.Element('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row', {'r': str(current_row_num), 'spans': '1:38'})
 
 
+            brand = clean_brand_name(detail.get('manufacturer'), sku)
+            raw_name = detail.get('name', sku)
+            raw_desc = clean_html(detail.get('description', ''))
+            ean = detail.get('ean') or ''
+            cost_price = detail.get('price', {}).get('value', 0)
+        
+            # Determine sale price using Shopee Net-Profit formula (Fee: 28%, Margin: 7%, min profit: 30 baht)
+            if override_price and float(override_price) > 0:
+                sale_price = float(override_price)
+            else:
+                target_net = max(cost_price * 1.07, cost_price + 30)
+                sale_price = round(target_net / (1 - 0.28), 0)
 
-        # SEO Title
-        shopee_title = f"[{brand} แท้ 100%] {raw_name} รหัส {sku} ของแท้มาตรฐานโรงงาน"
-        if len(shopee_title) > 120:
-            shopee_title = shopee_title[:117] + "..."
+            # Stock
+            stock_qty = detail.get('stock', {}).get('stockLevel', 100)
+            if stock_qty <= 0:
+                stock_qty = 50
 
-        shopee_desc = f"""[{brand} แท้ 100%] {raw_name}
-สินค้าคุณภาพมาตรฐานสากล ส่งตรงจากโรงงานผลิต มั่นใจได้ในของแท้ 100%
+            # Weight & Dims
+            weight_kg = 1.0
+            width_cm = 10.0
+            length_cm = 15.0
+            height_cm = 10.0
+            units = detail.get('conversionUnits', [])
+            if units:
+                u0 = units[0]
+                weight_kg = u0.get('conversionGross', 1.0)
+                length_cm = round(u0.get('conversionLength', 150.0) / 10.0, 1)
+                width_cm = round(u0.get('conversionWidth', 100.0) / 10.0, 1)
+                height_cm = round(u0.get('conversionHeight', 100.0) / 10.0, 1)
 
-【 จุดเด่นและสเปกสินค้า 】
-{raw_desc}
+            # Collect raw distinct angle images from detail or custom user selection (up to 9 images)
+            custom_images = item_info.get('selected_images')
+            if custom_images and isinstance(custom_images, list) and len(custom_images) > 0:
+                raw_images = [u for u in custom_images if u]
+            else:
+                raw_images = extract_product_images(detail)
 
-【 ข้อมูลจำเพาะ 】
-• แบรนด์: {brand}
-• รหัสสินค้า (SKU): {sku}
-• บาร์โค้ดสากล (EAN): {ean if ean else '-'}
+            selected_cover = item_info.get('selected_image')
+            if selected_cover:
+                if selected_cover in raw_images:
+                    raw_images.remove(selected_cover)
+                raw_images.insert(0, selected_cover)
+            
+            raw_images = raw_images[:9]
 
-📦 สินค้ามีสต็อกจริงพร้อมส่ง แพ็คห่อแน่นหนาอย่างดี จัดส่งรวดเร็วทุกวันครับ"""
+            cdn_results = {}
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                future_to_idx = {
+                    executor.submit(_process_single_image, u, idx, sku, brand, badge_text, shop_name): idx
+                    for idx, u in enumerate(raw_images)
+                }
+                for fut in concurrent.futures.as_completed(future_to_idx):
+                    idx = future_to_idx[fut]
+                    try:
+                        img_idx, cdn_url = fut.result()
+                        if cdn_url and 'ktw.co.th' not in cdn_url:
+                            cdn_results[img_idx] = cdn_url
+                    except Exception as e:
+                        print(f"Failed processing image {idx} for {sku}:", e)
 
-        # Map Category ID: Default tool category 101800 (สว่าน) or 101186 (เทป)
-        cat_id = 101186 if brand == '3M' else 101800
+            # Build ordered list of CDN URLs
+            cdn_urls = [cdn_results[i] for i in range(len(raw_images)) if i in cdn_results]
 
-        def add_cell_num(col_letter, val):
-            c = ET.SubElement(row_elem, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c', {'r': f"{col_letter}{current_row_num}"})
-            v = ET.SubElement(c, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
-            v.text = str(val)
+            # If for any reason cover (image 0) is missing, retry synchronously up to 2 times
+            if not cdn_urls and raw_images:
+                _, fallback_cover = _process_single_image(raw_images[0], 0, sku, brand, badge_text, shop_name)
+                if fallback_cover:
+                    cdn_urls.append(fallback_cover)
 
-        def add_cell_str(col_letter, val):
-            if val is None or val == "":
-                return
-            s_idx = get_or_add_str(val)
-            c = ET.SubElement(row_elem, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c', {'r': f"{col_letter}{current_row_num}", 't': 's'})
-            v = ET.SubElement(c, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
-            v.text = str(s_idx)
 
-        # Populate columns
-        add_cell_num('A', cat_id)
-        add_cell_str('B', shopee_title)
-        add_cell_str('C', shopee_desc)
-        add_cell_str('I', sku)
-        add_cell_num('P', sale_price)
-        add_cell_num('Q', stock_qty)
-        add_cell_str('R', sku)
-        # Column U (GTIN) is optional - leave empty so Shopee does not trigger strict barcode checksum error
-        # add_cell_str('U', ean)
 
-        # Image columns V to AD (Cover + 8 gallery images = 9 slots)
-        cols_img = ['V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD']
-        for c_idx, col_l in enumerate(cols_img):
-            if c_idx < len(cdn_urls):
-                add_cell_str(col_l, cdn_urls[c_idx])
+            # SEO Title
+            shopee_title = f"[{brand} แท้ 100%] {raw_name} รหัส {sku} ของแท้มาตรฐานโรงงาน"
+            if len(shopee_title) > 120:
+                shopee_title = shopee_title[:117] + "..."
 
-        add_cell_num('AE', weight_kg)
-        add_cell_num('AF', int(length_cm))
-        add_cell_num('AG', int(width_cm))
-        add_cell_num('AH', int(height_cm))
-        add_cell_str('AI', "เปิด") # Standard delivery (channel_id.7000)
-        add_cell_str('AJ', "ปิด")  # Express delivery (channel_id.7002)
-        # Column AK is ps_product_pre_order_dts (Leave empty for in-stock products)
-        # Column AL is et_title_reason (Leave empty)
+            shopee_desc = f"""[{brand} แท้ 100%] {raw_name}
+    สินค้าคุณภาพมาตรฐานสากล ส่งตรงจากโรงงานผลิต มั่นใจได้ในของแท้ 100%
 
-        sheet_data.append(row_elem)
-        current_row_num += 1
+    【 จุดเด่นและสเปกสินค้า 】
+    {raw_desc}
+
+    【 ข้อมูลจำเพาะ 】
+    • แบรนด์: {brand}
+    • รหัสสินค้า (SKU): {sku}
+    • บาร์โค้ดสากล (EAN): {ean if ean else '-'}
+
+    📦 สินค้ามีสต็อกจริงพร้อมส่ง แพ็คห่อแน่นหนาอย่างดี จัดส่งรวดเร็วทุกวันครับ"""
+
+            # Map Category ID: Default tool category 101800 (สว่าน) or 101186 (เทป)
+            cat_id = 101186 if brand == '3M' else 101800
+
+            def add_cell_num(col_letter, val):
+                c = ET.SubElement(row_elem, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c', {'r': f"{col_letter}{current_row_num}"})
+                v = ET.SubElement(c, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
+                v.text = str(val)
+
+            def add_cell_str(col_letter, val):
+                if val is None or val == "":
+                    return
+                s_idx = get_or_add_str(val)
+                c = ET.SubElement(row_elem, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c', {'r': f"{col_letter}{current_row_num}", 't': 's'})
+                v = ET.SubElement(c, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
+                v.text = str(s_idx)
+
+            # Populate columns
+            add_cell_num('A', cat_id)
+            add_cell_str('B', shopee_title)
+            add_cell_str('C', shopee_desc)
+            add_cell_str('I', sku)
+            add_cell_num('P', sale_price)
+            add_cell_num('Q', stock_qty)
+            add_cell_str('R', sku)
+            # Column U (GTIN) is optional - leave empty so Shopee does not trigger strict barcode checksum error
+            # add_cell_str('U', ean)
+
+            # Image columns V to AD (Cover + 8 gallery images = 9 slots)
+            cols_img = ['V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD']
+            for c_idx, col_l in enumerate(cols_img):
+                if c_idx < len(cdn_urls):
+                    add_cell_str(col_l, cdn_urls[c_idx])
+
+            add_cell_num('AE', weight_kg)
+            add_cell_num('AF', int(length_cm))
+            add_cell_num('AG', int(width_cm))
+            add_cell_num('AH', int(height_cm))
+            add_cell_str('AI', "เปิด") # Standard delivery (channel_id.7000)
+            add_cell_str('AJ', "ปิด")  # Express delivery (channel_id.7002)
+            # Column AK is ps_product_pre_order_dts (Leave empty for in-stock products)
+            # Column AL is et_title_reason (Leave empty)
+
+            sheet_data.append(row_elem)
+            current_row_num += 1
 
     # Update sharedStrings counts
     total_ss = current_si_count + len(new_strings)

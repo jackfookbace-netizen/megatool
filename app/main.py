@@ -96,6 +96,7 @@ class AttachShopeeRequest(BaseModel):
     brand: Optional[str] = ""
     price: Optional[float] = 0.0
     image_url: Optional[str] = ""
+    variation_name: Optional[str] = ""
 
 @app.get("/api/listed")
 def api_get_listed():
@@ -116,7 +117,8 @@ def api_save_listed(req: AttachShopeeRequest, request: Request, authorization: O
         name=req.name,
         brand=req.brand,
         price=req.price or 0.0,
-        image_url=req.image_url or ""
+        image_url=req.image_url or "",
+        variation_name=req.variation_name or ""
     )
     return {"success": True, "item": item}
 
@@ -220,6 +222,7 @@ class ExportItem(BaseModel):
     sku: str
     price: Optional[float] = None
     badge: Optional[str] = None
+    variation_name: Optional[str] = None
     selected_image: Optional[str] = None
     selected_images: Optional[List[str]] = None
 
@@ -227,6 +230,9 @@ class ExportRequest(BaseModel):
     items: List[ExportItem]
     filename: Optional[str] = "Shopee_Mass_Upload_Batch_Auto.xlsx"
     shop_name: Optional[str] = "MEGATOOL"
+    is_variation_group: Optional[bool] = False
+    parent_title: Optional[str] = None
+    variation_group_name: Optional[str] = "รุ่น / ตัวเลือกสินค้า"
 
 @app.post("/api/export")
 def api_export(req: ExportRequest, request: Request, authorization: Optional[str] = Header(None)):
@@ -236,7 +242,14 @@ def api_export(req: ExportRequest, request: Request, authorization: Optional[str
         raise HTTPException(status_code=400, detail="No items to export")
     items_data = [item.dict() for item in req.items]
     try:
-        file_url = export_shopee_batch(items_data, req.filename, shop_name=req.shop_name or "MEGATOOL")
+        file_url = export_shopee_batch(
+            items_data, 
+            req.filename, 
+            shop_name=req.shop_name or "MEGATOOL",
+            is_variation_group=req.is_variation_group or False,
+            parent_title=req.parent_title,
+            variation_group_name=req.variation_group_name or "รุ่น / ตัวเลือกสินค้า"
+        )
         return {"download_url": file_url}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

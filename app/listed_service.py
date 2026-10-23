@@ -57,7 +57,7 @@ def get_listed_product(sku: str) -> Optional[dict]:
     all_items = get_all_listed()
     return all_items.get(sku)
 
-def save_listed_product(sku: str, shopee_url: str, name: str = "", brand: str = "", price: float = 0.0, image_url: str = "") -> dict:
+def save_listed_product(sku: str, shopee_url: str, name: str = "", brand: str = "", price: float = 0.0, image_url: str = "", variation_name: str = "") -> dict:
     from app.ktw_service import get_product_detail, clean_brand_name, extract_product_images
     
     clean_sku = sku.strip()
@@ -96,6 +96,7 @@ def save_listed_product(sku: str, shopee_url: str, name: str = "", brand: str = 
     item_data = {
         "sku": clean_sku,
         "shopee_url": clean_url,
+        "variation_name": (variation_name or "").strip(),
         "name": name or clean_sku,
         "brand": brand or "OTHER",
         "price": price,
