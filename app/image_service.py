@@ -783,6 +783,28 @@ def extract_model_label(name, sku):
             
     return model_code, sub
 
+def clean_warranty(w):
+    if not w:
+        return "ของแท้ 100% ประกันศูนย์"
+    w = str(w).strip()
+    if 'motor' in w.lower() or 'มอเตอร์' in w:
+        m = re.search(r'(\d+)\s*(?:ปี|year)', w, re.IGNORECASE)
+        if m:
+            return f"ประกันมอเตอร์ {m.group(1)} ปี"
+        m = re.search(r'(\d+)\s*(?:เดือน|month)', w, re.IGNORECASE)
+        if m:
+            return f"ประกันมอเตอร์ {m.group(1)} เดือน"
+        return "ประกันมอเตอร์ 1 ปี"
+    m = re.search(r'(\d+)\s*(?:ปี|year)', w, re.IGNORECASE)
+    if m:
+        return f"ประกันศูนย์ {m.group(1)} ปี"
+    m = re.search(r'(\d+)\s*(?:เดือน|month)', w, re.IGNORECASE)
+    if m:
+        return f"ประกันศูนย์ {m.group(1)} เดือน"
+    if len(w) <= 24:
+        return w
+    return "ของแท้ 100% ประกันศูนย์"
+
 def extract_key_specs(detail):
     specs = {}
     if not detail:
@@ -793,24 +815,27 @@ def extract_key_specs(detail):
     for c in classifs:
         for f in c.get('features', []):
             name = f.get('name') or f.get('description') or ''
+            code = f.get('code', '')
             vals = f.get('featureValues', [])
             val_str = ', '.join([v.get('value', '') for v in vals if v.get('value')])
             if name and val_str and val_str != '-':
-                if 'กำลังไฟ' in name or 'continuous_rating' in f.get('code', ''):
+                if 'กำลังมอเตอร์' in name or 'motor_power' in code:
+                    specs['กำลังมอเตอร์'] = val_str
+                elif 'กำลังไฟ' in name or 'power_phase' in code or 'voltage' in code or 'continuous_rating' in code:
                     specs['กำลังไฟฟ้า'] = val_str
-                elif 'ความเร็วรอบ' in name or 'no_load_speed' in f.get('code', ''):
+                elif 'ความเร็วรอบ' in name or 'no_load_speed' in code:
                     specs['ความเร็วรอบ'] = val_str
-                elif 'เส้นผ่านศูนย์กลาง' in name or 'grinding_diameter' in f.get('code', ''):
+                elif 'เส้นผ่านศูนย์กลาง' in name or 'grinding_diameter' in code:
                     specs['ขนาดใบตัด/เจียร์'] = val_str
-                elif 'น้ำหนัก' in name or 'weight' in f.get('code', ''):
+                elif 'น้ำหนัก' in name or 'weight' in code:
                     specs['น้ำหนักตัวเครื่อง'] = val_str
-                elif 'ขนาดแกน' in name or 'spindle' in f.get('code', ''):
+                elif 'ขนาดแกน' in name or 'spindle' in code:
                     specs['ขนาดแกนเกลียว'] = val_str
-                elif 'สายไฟ' in name or 'cord' in f.get('code', ''):
+                elif 'สายไฟ' in name or 'cord' in code:
                     specs['ความยาวสายไฟ'] = val_str
-                elif 'แรงดัน' in name:
+                elif ('แรงดัน' in name or 'pressure' in code) and 'ไฟ' not in name and 'สาย' not in name:
                     specs['แรงดันสูงสุด'] = val_str
-                elif 'อัตราการไหล' in name or 'ปริมาณน้ำ' in name:
+                elif 'อัตราการไหล' in name or 'ปริมาณน้ำ' in name or 'flow_rate' in code:
                     specs['อัตราการไหลของน้ำ'] = val_str
 
     # 2. From Description bullet points (POLO, DongCheng, consumables, etc.)
@@ -827,23 +852,50 @@ def extract_key_specs(detail):
             parts = re.split(r'[:：]', line, maxsplit=1)
             k = parts[0].strip()
             v = parts[1].strip()
-            if k and v and len(k) < 30 and len(v) < 60:
-                if 'กำลังไฟ' in k and 'กำลังไฟฟ้า' not in specs:
+            if k and v and len(k) < 40 and len(v) < 60:
+                # Hose length first (avoids "สายอัดฉีดแรงดันสูง" matching pressure!)
+                if ('สาย' in k or 'hose' in k.lower()) and 'ความยาวสายฉีด' not in specs:
+                    m_v = re.search(r'(\d+(?:\.\d+)?)\s*(?:ม\.|เมตร|m\b)', v, re.IGNORECASE)
+                    m_k = re.search(r'(\d+(?:\.\d+)?)\s*(?:ม\.|เมตร|m\b)', k, re.IGNORECASE)
+                    if m_v:
+                        specs['ความยาวสายฉีด'] = f"{m_v.group(1)} เมตร"
+                    elif m_k:
+                        specs['ความยาวสายฉีด'] = f"{m_k.group(1)} เมตร"
+                    elif not any(q in v for q in ['ชิ้น', 'อัน', 'เส้น', 'ชุด', 'กล่อง']):
+                        specs['ความยาวสายฉีด'] = v
+                elif 'กำลังมอเตอร์' in k and 'กำลังมอเตอร์' not in specs:
+                    specs['กำลังมอเตอร์'] = v
+                elif ('ประเภทมอเตอร์' in k or 'ชนิดมอเตอร์' in k) and 'ประเภทมอเตอร์' not in specs:
+                    specs['ประเภทมอเตอร์'] = v
+                elif 'กำลังไฟ' in k and 'กำลังไฟฟ้า' not in specs:
                     specs['กำลังไฟฟ้า'] = v
-                elif 'แรงดัน' in k and 'แรงดันสูงสุด' not in specs:
+                elif ('แรงดัน' in k or 'pressure' in k.lower()) and 'สาย' not in k and 'ไฟ' not in k and 'แรงดันสูงสุด' not in specs:
                     specs['แรงดันสูงสุด'] = v
                 elif ('ปริมาณน้ำ' in k or 'อัตราการไหล' in k or 'อัตราการฉีด' in k) and 'อัตราการไหลของน้ำ' not in specs:
                     specs['อัตราการไหลของน้ำ'] = v
-                elif 'สาย' in k and 'ความยาวสายฉีด' not in specs:
-                    specs['ความยาวสายฉีด'] = v
                 elif 'น้ำหนัก' in k and 'น้ำหนักตัวเครื่อง' not in specs:
                     specs['น้ำหนักตัวเครื่อง'] = v
-                elif 'มอเตอร์' in k and 'ประเภทมอเตอร์' not in specs:
-                    specs['ประเภทมอเตอร์'] = v
                 elif 'ความเร็วรอบ' in k and 'ความเร็วรอบ' not in specs:
                     specs['ความเร็วรอบ'] = v
-        elif 'Auto Stop' in line and 'ระบบตัดการทำงาน' not in specs:
+        
+        # Free-text checks in line
+        if 'Auto Stop' in line and 'ระบบตัดการทำงาน' not in specs:
             specs['ระบบตัดการทำงาน'] = 'ระบบ Auto Stop'
+        if ('เหนี่ยวนำ' in line or 'Induction' in line) and 'ประเภทมอเตอร์' not in specs:
+            specs['ประเภทมอเตอร์'] = 'มอเตอร์เหนี่ยวนำ'
+        elif ('แปรงถ่าน' in line or 'Universal' in line) and 'ประเภทมอเตอร์' not in specs:
+            specs['ประเภทมอเตอร์'] = 'มอเตอร์แปรงถ่าน'
+            
+        # Free-text hose check if still missing
+        if 'ความยาวสายฉีด' not in specs and ('สายอัดฉีด' in line or 'สายฉีด' in line):
+            m_line = re.search(r'ยาว(?:ถึง)?\s*(\d+(?:\.\d+)?)\s*(?:ม\.|เมตร|m\b)', line, re.IGNORECASE)
+            if m_line:
+                specs['ความยาวสายฉีด'] = f"{m_line.group(1)} เมตร"
+
+    # Fallback: if 'กำลังมอเตอร์' is in specs but 'กำลังไฟฟ้า' missing and vice-versa
+    if 'กำลังมอเตอร์' not in specs and 'กำลังไฟฟ้า' in specs and 'วัตต์' in specs['กำลังไฟฟ้า']:
+        specs['กำลังมอเตอร์'] = specs['กำลังไฟฟ้า']
+        del specs['กำลังไฟฟ้า']
 
     # 3. Fallback from conversionUnits if weight missing
     if 'น้ำหนักตัวเครื่อง' not in specs:
@@ -883,7 +935,8 @@ def generate_comparison_card(
     header_box = [30, 30, CANVAS_SIZE - 30, 115]
     draw.rounded_rectangle(header_box, radius=18, fill=(15, 23, 42, 255))
 
-    draw.text((60, 42), f"📊 {parent_title[:45]}", font=font_title, fill=(255, 255, 255, 255))
+    clean_parent_title = re.sub(r'[\U00010000-\U0010ffff]|[\u2600-\u27bf]', '', str(parent_title)).strip()
+    draw.text((60, 42), clean_parent_title[:45], font=font_title, fill=(255, 255, 255, 255))
     draw.text((60, 82), "ตารางเปรียบเทียบสเปกเพื่อให้คุณเลือกรุ่นที่ตอบโจทย์งานที่สุด", font=font_sub, fill=(203, 213, 225, 255))
 
     shop_str = f"{shop_name} OFFICIAL"
@@ -894,14 +947,16 @@ def generate_comparison_card(
     processed_items = []
     all_spec_keys = []
     preferred_order = [
-        'แรงดันสูงสุด', 'กำลังไฟฟ้า', 'อัตราการไหลของน้ำ', 'ความเร็วรอบ',
-        'ขนาดใบตัด/เจียร์', 'ความยาวสายฉีด', 'ระบบตัดการทำงาน', 'น้ำหนักตัวเครื่อง'
+        'แรงดันสูงสุด', 'กำลังมอเตอร์', 'ประเภทมอเตอร์', 'กำลังไฟฟ้า', 'อัตราการไหลของน้ำ',
+        'ความยาวสายฉีด', 'ระบบตัดการทำงาน', 'ความเร็วรอบ', 'ขนาดใบตัด/เจียร์', 'น้ำหนักตัวเครื่อง'
     ]
 
     for item in items[:4]:
         sku = item.get('sku')
         detail = get_product_detail(sku)
         specs = extract_key_specs(detail)
+        raw_w = (detail.get('warrenty') or detail.get('warranty')) if detail else None
+        cleaned_w = clean_warranty(raw_w)
         
         for k in specs.keys():
             if k not in all_spec_keys:
@@ -932,6 +987,7 @@ def generate_comparison_card(
             'model_sub': model_sub,
             'price': item.get('price', 0),
             'specs': specs,
+            'warranty': cleaned_w,
             'thumb': thumb_im
         })
 
@@ -940,7 +996,7 @@ def generate_comparison_card(
     for k in all_spec_keys:
         if k not in ordered_keys:
             ordered_keys.append(k)
-    ordered_keys = ordered_keys[:6]
+    ordered_keys = ordered_keys[:7]
 
     if not ordered_keys:
         ordered_keys = ['กำลังไฟฟ้า', 'ความเร็วรอบ / แรงดัน', 'ขนาด / ความจุ', 'น้ำหนักตัวเครื่อง']
@@ -1030,7 +1086,7 @@ def generate_comparison_card(
     draw.text((tbl_left + 25, last_ry1 + (row_h - 22) // 2), "• การรับประกันศูนย์", font=font_label, fill=(51, 65, 85, 255))
     for idx, m in enumerate(processed_items):
         col_x = tbl_left + label_col_w + (idx * model_col_w)
-        w_text = "ของแท้ 100% ประกันศูนย์"
+        w_text = m.get('warranty') or "ของแท้ 100% ประกันศูนย์"
         wb = font_val.getbbox(w_text)
         ww = wb[2] - wb[0]
         draw.text((col_x + (model_col_w - ww) // 2, last_ry1 + (row_h - 20) // 2), w_text, font=font_val, fill=(16, 185, 129, 255))
@@ -1041,7 +1097,7 @@ def generate_comparison_card(
 
     footer_box = [30, 1130, CANVAS_SIZE - 30, 1175]
     draw.rounded_rectangle(footer_box, radius=12, fill=(241, 245, 249, 255))
-    footer_text = "🛡️ MEGATOOL OFFICIAL STORE • สินค้าของแท้ 100% พร้อมจัดส่งด่วน • มีศูนย์บริการรองรับมาตรฐานสากล"
+    footer_text = f"{shop_name} OFFICIAL STORE • สินค้าของแท้ 100% พร้อมจัดส่งด่วน • มีศูนย์บริการรองรับมาตรฐานสากล"
     ft_b = font_footer.getbbox(footer_text)
     ft_w = ft_b[2] - ft_b[0]
     draw.text(((CANVAS_SIZE - ft_w) // 2, 1142), footer_text, font=font_footer, fill=(71, 85, 105, 255))

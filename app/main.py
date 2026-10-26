@@ -314,7 +314,7 @@ def api_generate_comparison(req: ComparisonCardRequest):
         raise HTTPException(status_code=400, detail="จำเป็นต้องมีสินค้าอย่างน้อย 2 รุ่นเพื่อสร้างตารางเปรียบเทียบ")
     
     skus_str = "_".join([item.get('sku', '') for item in req.items])
-    url_hash = hashlib.md5(f"{skus_str}_{req.parent_title}".encode('utf-8')).hexdigest()[:8]
+    url_hash = hashlib.md5(f"{skus_str}_{req.parent_title}_v2".encode('utf-8')).hexdigest()[:8]
     filename = f"comparison_{url_hash}.jpg"
     local_path = f"app/static/covers/{filename}"
     
@@ -326,7 +326,7 @@ def api_generate_comparison(req: ComparisonCardRequest):
             shop_name=req.shop_name or "MEGATOOL"
         )
         
-        cdn_url = upload_to_cdn(local_path)
+        cdn_url = upload_to_cdn(local_path, force=True)
         public_url = cdn_url if (cdn_url and cdn_url.startswith('http')) else f"https://megatool-yrho.onrender.com/static/covers/{filename}"
         
         return {

@@ -307,12 +307,12 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                 try:
                     import hashlib
                     var_skus = "_".join([p['sku'] for p in processed_items])
-                    comp_hash = hashlib.md5(f"comp_{var_skus}".encode('utf-8')).hexdigest()[:8]
+                    comp_hash = hashlib.md5(f"comp_{var_skus}_v2".encode('utf-8')).hexdigest()[:8]
                     comp_file = f"comparison_{comp_hash}.jpg"
                     comp_local = f"app/static/covers/{comp_file}"
                     from app.image_service import generate_comparison_card
                     generate_comparison_card(processed_items, comp_local, parent_title=final_parent_title, shop_name=shop_name)
-                    uploaded_comp = upload_to_cdn(comp_local)
+                    uploaded_comp = upload_to_cdn(comp_local, force=True)
                     comp_url = uploaded_comp if (uploaded_comp and uploaded_comp.startswith('http')) else f"https://megatool-yrho.onrender.com/static/covers/{comp_file}"
                     if comp_url:
                         if len(final_gallery) > 0:
