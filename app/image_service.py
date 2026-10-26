@@ -679,28 +679,54 @@ def get_custom_product_images(sku: str) -> list:
 
 def delete_custom_product_image(sku: str, image_url: str) -> bool:
     """
-    Permanently deletes a custom collage image for a SKU from both JSON db and disk.
+    Permanently deletes a custom collage image for a SKU from JSON db, disk, and cache.
     """
     if not sku or not image_url:
         return False
     db = _load_collages_db()
     removed = False
-    target_fname = image_url.split('/')[-1].split('?')[0]
+    target_clean = image_url.strip()
+    target_fname = target_clean.split('/')[-1].split('?')[0]
     
+    # 1. Remove from product_collages.json
     if sku in db:
         new_list = []
         for item in db[sku]:
-            u = (item.get("url") or item.get("cdn_url")) if isinstance(item, dict) else str(item)
-            if target_fname in u or image_url == u:
+            u = item.get("url", "") if isinstance(item, dict) else str(item)
+            c = item.get("cdn_url", "") if isinstance(item, dict) else ""
+            if (target_clean == u) or (target_clean == c) or (target_fname in u) or (target_fname in c):
                 removed = True
             else:
                 new_list.append(item)
         db[sku] = new_list
         _save_collages_db(db)
         
-    # Delete physical file on disk
+    # 2. Find associated local filenames (e.g. from cdn_cache.json)
+    local_fnames_to_delete = []
     if target_fname.startswith("collage_") and target_fname.endswith(".jpg"):
-        disk_p = os.path.join("app/static/covers", target_fname)
+        local_fnames_to_delete.append(target_fname)
+        
+    cdn_cache_path = "app/static/covers/cdn_cache.json"
+    if os.path.exists(cdn_cache_path):
+        try:
+            with open(cdn_cache_path, "r", encoding="utf-8") as f:
+                c_cache = json.load(f)
+            updated_cache = False
+            for k, v in list(c_cache.items()):
+                if (target_clean == v) or (target_fname in v) or (target_fname == k):
+                    local_fnames_to_delete.append(k)
+                    del c_cache[k]
+                    updated_cache = True
+            if updated_cache:
+                with open(cdn_cache_path, "w", encoding="utf-8") as f:
+                    json.dump(c_cache, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print("Error cleaning cdn_cache.json:", e)
+
+    # 3. Delete physical file from disk
+    covers_dir = "app/static/covers"
+    for l_fname in set(local_fnames_to_delete):
+        disk_p = os.path.join(covers_dir, l_fname)
         if os.path.exists(disk_p):
             try:
                 os.remove(disk_p)

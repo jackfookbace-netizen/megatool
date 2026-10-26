@@ -1422,7 +1422,7 @@
                                             </span>
 
                                             <!-- Collage Badge -->
-                                            <span x-show="img.includes('collage_')" 
+                                            <span x-show="isCollageImage(img)" 
                                                   class="absolute top-0.5 left-0.5 bg-indigo-600 text-white text-[7px] px-1 py-0.5 rounded font-bold shadow-xs">
                                                 รวมชุด
                                             </span>
@@ -1433,8 +1433,19 @@
                                             </div>
                                         </button>
 
-                                        <!-- Corner Toggle Button (✕ to cut out, + to re-add) -->
-                                        <button type="button" 
+                                        <!-- Corner Button: Delete if Collage, Toggle Exclude if Original KTW -->
+                                        <!-- 1. For Generated Collage: Permanent Delete Button -->
+                                        <button x-show="isCollageImage(img)"
+                                                type="button" 
+                                                @click.stop="deleteCollageAction(activePreviewItem.sku || activePreviewItem.code, img)"
+                                                title="คลิกเพื่อลบรูปภาพที่รวมนี้ออกจากระบบถาวร"
+                                                class="absolute top-0 right-0 w-4 h-4 rounded-full bg-rose-600 hover:bg-rose-700 text-white shadow ring-1 ring-white flex items-center justify-center text-[8px] font-bold transition-all z-10 cursor-pointer">
+                                            <span>✕</span>
+                                        </button>
+
+                                        <!-- 2. For Original KTW Images: Exclusion Toggle Button (✕ to cut out, + to re-add) -->
+                                        <button x-show="!isCollageImage(img)"
+                                                type="button" 
                                                 @click.stop="toggleImageExclusion(idx)"
                                                 :title="isImageExcluded(idx) ? 'คลิกเพื่อนำรูปนี้กลับมาลง Shopee' : 'คลิกเพื่อตัดรูปนี้ออก ไม่นำไปลง Shopee'"
                                                 :class="isImageExcluded(idx) ? 'bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-white scale-110' : 'bg-rose-500 hover:bg-rose-600 text-white shadow ring-1 ring-white'"
@@ -1447,16 +1458,16 @@
                             </div>
 
                             <!-- Active Collage Saved Notice & Delete Action -->
-                            <div x-show="activePreviewItem?.all_images && activePreviewItem.all_images[selectedImageIndex] && activePreviewItem.all_images[selectedImageIndex].includes('collage_')"
-                                 class="mt-2.5 flex items-center justify-between p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
-                                <div class="flex items-center space-x-1.5 text-emerald-800 font-semibold text-[11px]">
-                                    <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-600"></i>
-                                    <span>ภาพรวมอุปกรณ์นี้ถูกบันทึกไว้ในสินค้านี้ถาวรตลอดไป</span>
+                            <div x-show="activePreviewItem?.all_images && isCollageImage(activePreviewItem.all_images[selectedImageIndex])"
+                                 class="mt-2.5 flex items-center justify-between p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl text-xs">
+                                <div class="flex items-center space-x-1.5 text-indigo-900 font-semibold text-[11px]">
+                                    <i data-lucide="check-circle" class="w-3.5 h-3.5 text-indigo-600"></i>
+                                    <span>ภาพรวมอุปกรณ์นี้บันทึกไว้ในระบบ (กดปุ่มลบได้หากไม่ต้องการ)</span>
                                 </div>
                                 <button type="button" 
                                         @click="deleteCollageAction(activePreviewItem.sku || activePreviewItem.code, activePreviewItem.all_images[selectedImageIndex])"
-                                        class="px-2.5 py-1 text-[10px] bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 font-bold border border-rose-200 rounded-lg transition-all flex items-center space-x-1 shadow-xs cursor-pointer">
-                                    <i data-lucide="trash-2" class="w-3 h-3 text-rose-600"></i>
+                                        class="px-2.5 py-1 text-[11px] bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg transition-all flex items-center space-x-1 shadow-xs cursor-pointer">
+                                    <i data-lucide="trash-2" class="w-3 h-3 text-white"></i>
                                     <span>ลบรูปที่รวมนี้</span>
                                 </button>
                             </div>
@@ -1774,6 +1785,7 @@
                 jumpPageInput: '',
                 loading: false,
                 searchAbortController: null,
+                activeCustomImages: [],
                 brands: [
                     { name: 'Makita', count: 17203 },
                     { name: 'POLO', count: 4890 },
@@ -2644,6 +2656,7 @@
                         const res = await fetch(`/api/product-images/${sku}`, { headers: this.getHeaders() });
                         if (res.ok) {
                             const data = await res.json();
+                            this.activeCustomImages = data.custom_images || [];
                             let imgs = data.images || [];
                             // Merge with client-side localStorage fallback for resilience
                             const localSaved = this.getCollagesFromLocal(sku);
@@ -2801,8 +2814,17 @@
                     } catch (e) {}
                 },
 
+                isCollageImage(img) {
+                    if (!img || typeof img !== 'string') return false;
+                    if (img.includes('collage_')) return true;
+                    if (this.activeCustomImages && this.activeCustomImages.includes(img)) return true;
+                    const sku = this.activePreviewItem?.sku || this.activePreviewItem?.code;
+                    if (sku && this.getCollagesFromLocal(sku).includes(img)) return true;
+                    return false;
+                },
+
                 async deleteCollageAction(sku, imgUrl) {
-                    if (!confirm('คุณต้องการลบรูปภาพที่รวมนี้ออกจากสินค้านี้ใช่หรือไม่?')) return;
+                    if (!confirm('คุณต้องการลบรูปภาพที่รวมนี้ออกจากสินค้านี้อย่างถาวรใช่หรือไม่?')) return;
                     try {
                         await fetch('/api/delete-custom-image', {
                             method: 'POST',
@@ -2810,6 +2832,9 @@
                             body: JSON.stringify({ sku: sku, image_url: imgUrl })
                         });
                         this.removeCollageFromLocal(sku, imgUrl);
+                        if (this.activeCustomImages) {
+                            this.activeCustomImages = this.activeCustomImages.filter(u => u !== imgUrl);
+                        }
                         if (this.activePreviewItem?.all_images) {
                             this.activePreviewItem.all_images = this.activePreviewItem.all_images.filter(u => u !== imgUrl);
                             this.selectedImageIndex = 0;
@@ -2856,6 +2881,8 @@
                                 this.activePreviewItem.all_images.push(newUrl);
                             }
                             this.saveCollageToLocal(sku, newUrl);
+                            if (!this.activeCustomImages) this.activeCustomImages = [];
+                            if (!this.activeCustomImages.includes(newUrl)) this.activeCustomImages.push(newUrl);
                             this.selectedImageIndex = this.activePreviewItem.all_images.length - 1;
                             this.customUseTemplate = false;
                             this.renderedCoverUrl = newUrl;
