@@ -1656,7 +1656,7 @@
                                         </button>
                                         <span>•</span>
                                         <button type="button" 
-                                                @click="item.use_template = !(item.use_template !== false)"
+                                                @click="item.use_template = !(item.use_template !== false); saveCartToStorage()"
                                                 title="คลิกเพื่อสลับระหว่างใส่กรอบ template หรือใช้รูปต้นฉบับ"
                                                 class="text-[10px] px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer font-sans"
                                                 :class="item.use_template !== false ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'">
@@ -1666,7 +1666,7 @@
                                     <!-- Option Name input when in variations mode -->
                                     <div x-show="exportMode === 'variations'" class="mt-1.5 flex items-center space-x-1.5">
                                         <span class="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 shrink-0">ชื่อตัวเลือก:</span>
-                                        <input type="text" x-model="item.variation_name" :placeholder="item.name.substring(0, 24)"
+                                        <input type="text" x-model="item.variation_name" @input="saveCartToStorage()" :placeholder="item.name.substring(0, 24)"
                                                class="text-[11px] px-2 py-0.5 border border-indigo-200 rounded-lg bg-white text-slate-800 font-medium outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200 w-52">
                                     </div>
                                 </div>
@@ -1810,6 +1810,7 @@
                 selectedDetailImageIndex: 0,
 
                 async init() {
+                    this.loadCartFromStorage();
                     this.authToken = localStorage.getItem('megatool_token') || sessionStorage.getItem('megatool_token');
                     await this.checkAuth();
                     if (this.currentUser) {
@@ -1818,6 +1819,24 @@
                         this.search();
                     }
                     this.$nextTick(() => lucide.createIcons());
+                },
+
+                saveCartToStorage() {
+                    try {
+                        localStorage.setItem('megatool_selected_items', JSON.stringify(this.selectedItems || []));
+                    } catch (e) {}
+                },
+
+                loadCartFromStorage() {
+                    try {
+                        const raw = localStorage.getItem('megatool_selected_items');
+                        if (raw) {
+                            const parsed = JSON.parse(raw);
+                            if (Array.isArray(parsed)) {
+                                this.selectedItems = parsed;
+                            }
+                        }
+                    } catch (e) {}
                 },
 
                 switchTab(tab) {
@@ -2505,21 +2524,30 @@
                             stock: p.stock?.stockLevel || p.stock || 0
                         });
                     }
+                    this.saveCartToStorage();
+                    this.$nextTick(() => lucide.createIcons());
                 },
 
                 updateItemPrice(sku, val) {
                     const item = this.selectedItems.find(i => i.sku === sku);
                     if (item) {
                         item.price = parseFloat(val) || 0;
+                        this.saveCartToStorage();
                     }
                 },
 
                 removeItemFromQueue(sku) {
                     this.selectedItems = this.selectedItems.filter(i => i.sku !== sku);
+                    this.saveCartToStorage();
+                    this.$nextTick(() => lucide.createIcons());
                 },
 
                 clearQueue() {
-                    this.selectedItems = [];
+                    if (confirm('คุณต้องการล้างสินค้าทั้งหมดในตะกร้าใช่หรือไม่?')) {
+                        this.selectedItems = [];
+                        this.saveCartToStorage();
+                        this.$nextTick(() => lucide.createIcons());
+                    }
                 },
 
                 isImageExcluded(idx) {
@@ -2872,6 +2900,7 @@
                             stock: this.activePreviewItem.stock?.stockLevel || this.activePreviewItem.stock || 0
                         });
                     }
+                    this.saveCartToStorage();
                     this.showPreviewModal = false;
                 },
 
