@@ -2588,6 +2588,12 @@
                     }
                     this.selectedImageIndex = idx;
                     this.renderedCoverUrl = null;
+                    const imgUrl = (this.activePreviewItem?.all_images && this.activePreviewItem.all_images[idx]) || this.activePreviewItem?.image;
+                    if (imgUrl && (imgUrl.includes('collage_') || imgUrl.includes('comparison_'))) {
+                        this.customUseTemplate = false;
+                        this.renderedCoverUrl = imgUrl;
+                        return;
+                    }
                     this.generatePreviewCover();
                 },
 
@@ -2606,7 +2612,7 @@
                     const currentIdx = this.selectedImageIndex;
                     const imgUrl = (this.activePreviewItem.all_images && this.activePreviewItem.all_images[currentIdx]) || this.activePreviewItem.image;
 
-                    if (!this.customUseTemplate) {
+                    if (!this.customUseTemplate || (imgUrl && (imgUrl.includes('collage_') || imgUrl.includes('comparison_')))) {
                         this.renderedCoverUrl = imgUrl;
                         this.generatingPreview = false;
                         return;
@@ -2674,6 +2680,7 @@
                                 sku: sku,
                                 image_urls: selectedUrls,
                                 title: this.collageTitle || 'อุปกรณ์มาตรฐานในชุดครบเซ็ต',
+                                badge_text: this.customBadgeText || 'มีสต็อกพร้อมส่งทันที',
                                 shop_name: this.shopName
                             })
                         });
@@ -2686,6 +2693,7 @@
                             }
                             this.activePreviewItem.all_images.push(newUrl);
                             this.selectedImageIndex = this.activePreviewItem.all_images.length - 1;
+                            this.customUseTemplate = false;
                             this.renderedCoverUrl = newUrl;
                             this.collageSelectedIndices = [];
                             alert('✅ รวมภาพอุปกรณ์ครบชุดสำเร็จแล้ว! ระบบเพิ่มเข้าไปในรายการรูปของสินค้านี้เรียบร้อยครับ');

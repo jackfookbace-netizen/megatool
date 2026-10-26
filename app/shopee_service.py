@@ -36,16 +36,31 @@ def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_nam
     import hashlib
     import requests
 
-    if not use_template:
+    is_already_framed = (
+        not use_template or 
+        'collage_' in str(raw_img_url) or 
+        'comparison_' in str(raw_img_url)
+    )
+
+    if is_already_framed:
+        # If the file is already a local static file (like /static/covers/collage_...)
+        if '/static/covers/' in str(raw_img_url):
+            fname = str(raw_img_url).split('/static/covers/')[-1].split('?')[0]
+            local_raw_path = f"app/static/covers/{fname}"
+            if os.path.exists(local_raw_path):
+                uploaded_cdn = upload_to_cdn(local_raw_path)
+                if uploaded_cdn and uploaded_cdn.startswith('http'):
+                    return (img_idx, uploaded_cdn)
+                return (img_idx, f"https://megatool-yrho.onrender.com/static/covers/{fname}")
+
         url_hash = hashlib.md5(raw_img_url.encode('utf-8')).hexdigest()[:10]
         raw_filename = f"raw_{sku}_{url_hash}.jpg"
         local_raw_path = f"app/static/covers/{raw_filename}"
         try:
             if not os.path.exists(local_raw_path):
-                resp = requests.get(raw_img_url, timeout=12)
-                if resp.status_code == 200:
-                    with open(local_raw_path, 'wb') as f:
-                        f.write(resp.content)
+                from app.image_service import fetch_image_safe
+                im = fetch_image_safe(raw_img_url)
+                im.convert('RGB').save(local_raw_path, 'JPEG', quality=95)
 
             # Tier 1: Cloudflare CDN
             if os.path.exists(local_raw_path):
@@ -57,7 +72,7 @@ def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_nam
                 render_url = f"https://megatool-yrho.onrender.com/static/covers/{raw_filename}"
                 return (img_idx, render_url)
         except Exception as e:
-            print(f"Error processing raw image for {sku} {img_idx}:", e)
+            print(f"Error processing raw/framed image for {sku} {img_idx}:", e)
 
         # Tier 3: Direct original KTW image URL
         if raw_img_url and raw_img_url.startswith('http'):

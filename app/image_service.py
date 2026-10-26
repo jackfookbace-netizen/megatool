@@ -359,41 +359,27 @@ def generate_collage(
     image_urls,
     output_path,
     title="อุปกรณ์มาตรฐานในชุดครบเซ็ต",
+    badge_text="มีสต็อกพร้อมส่งทันที",
     shop_name="MEGATOOL"
 ):
     """
-    Combines 2 to 4 product images into a clean 1200x1200px collage card
-    Layouts:
-      - 2 images: 2 vertical split cards side by side
-      - 3 images: 1 large left (main tool) + 2 stacked right (accessories/box)
-      - 4 images: 2x2 grid
+    Combines 2 to 4 product images directly inside the official MEGATOOL shop template:
+    - 1200x1200px Clean White background
+    - Solid Red Outer Border (#EF1C25, 22px)
+    - Top-Right: MEGATOOL official red logo (with curved smile under OO)
+    - Top-Left: Collage Title badge pill (e.g. 📦 อุปกรณ์มาตรฐานในกล่องครบชุด)
+    - Center Safe Area: 2-4 photos with numbered red circle badges ① ② ③ ④
+    - Bottom-Right: 'ของแท้ 100%' + Slanted Red Ribbon 'มีสต็อกพร้อมส่งทันที'
+    - Card slots strictly avoid overlapping with the logo and ribbon!
     """
     CANVAS_SIZE = 1200
-    canvas = Image.new("RGBA", (CANVAS_SIZE, CANVAS_SIZE), (248, 250, 252, 255))
+    RED = (239, 28, 37, 255)
+    WHITE = (255, 255, 255, 255)
+
+    canvas = Image.new("RGBA", (CANVAS_SIZE, CANVAS_SIZE), WHITE)
     draw = ImageDraw.Draw(canvas)
 
-    BORDER_W = 16
-    draw.rectangle([0, 0, CANVAS_SIZE - 1, CANVAS_SIZE - 1], outline=(239, 28, 37, 255), width=BORDER_W)
-
-    inner_box = [BORDER_W, BORDER_W, CANVAS_SIZE - BORDER_W, CANVAS_SIZE - BORDER_W]
-    draw.rectangle(inner_box, fill=(255, 255, 255, 255))
-
-    font_title = load_font("leelawdb.ttf", 36)
-    font_sub = load_font("leelawdb.ttf", 22)
-    font_num = load_font("tahomabd.ttf", 24)
-    font_tag = load_font("leelawdb.ttf", 20)
-
-    # 1. Header Area
-    header_box = [30, 30, CANVAS_SIZE - 30, 115]
-    draw.rounded_rectangle(header_box, radius=18, fill=(15, 23, 42, 255))
-
-    draw.text((60, 48), f"📦 {title[:40]}", font=font_title, fill=(255, 255, 255, 255))
-    
-    shop_str = f"{shop_name} OFFICIAL"
-    shop_bbox = font_sub.getbbox(shop_str)
-    sw = shop_bbox[2] - shop_bbox[0]
-    draw.text((CANVAS_SIZE - 70 - sw, 58), shop_str, font=font_sub, fill=(249, 115, 22, 255))
-
+    # 1. Load and trim images
     loaded_imgs = []
     for u in image_urls[:4]:
         try:
@@ -404,78 +390,171 @@ def generate_collage(
             print("Error loading image for collage:", e)
 
     if not loaded_imgs:
-        raise ValueError("No valid images could be loaded for collage")
+        raise ValueError("ไม่สามารถดาวน์โหลดรูปภาพได้ กรุณาลองใหม่อีกครั้ง")
 
     count = len(loaded_imgs)
-    content_top = 135
-    content_bottom = 1110
-    content_left = 30
-    content_right = CANVAS_SIZE - 30
-    c_w = content_right - content_left
-    c_h = content_bottom - content_top
 
+    # 2. Layout Grid Slots (Safe zones: never intersects with top-right logo or bottom-right ribbon!)
+    # Top bar area: y: 35..130 (Top-left: Title pill, Top-right: MEGATOOL logo)
+    # Bottom-right area: x: 570..1200, y: 920..1200 (Ribbon + ของแท้ 100%)
     slots = []
-    if count == 2:
-        gap = 20
-        w_each = (c_w - gap) // 2
-        slots.append([content_left, content_top, content_left + w_each, content_bottom])
-        slots.append([content_left + w_each + gap, content_top, content_right, content_bottom])
-    elif count == 3:
-        gap = 20
-        left_w = int(c_w * 0.54)
-        right_w = c_w - left_w - gap
-        h_each = (c_h - gap) // 2
-        slots.append([content_left, content_top, content_left + left_w, content_bottom])
-        slots.append([content_left + left_w + gap, content_top, content_right, content_top + h_each])
-        slots.append([content_left + left_w + gap, content_top + h_each + gap, content_right, content_bottom])
-    else: # 4 images (2x2 grid)
-        gap = 20
-        w_each = (c_w - gap) // 2
-        h_each = (c_h - gap) // 2
-        slots.append([content_left, content_top, content_left + w_each, content_top + h_each])
-        slots.append([content_left + w_each + gap, content_top, content_right, content_top + h_each])
-        slots.append([content_left, content_top + h_each + gap, content_left + w_each, content_bottom])
-        slots.append([content_left + w_each + gap, content_top + h_each + gap, content_right, content_bottom])
+    gap = 20
 
+    if count == 2:
+        # 2 large cards side-by-side
+        w_each = 530
+        slots.append([45, 145, 45 + w_each, 1140])       # Left: large tool
+        slots.append([45 + w_each + gap, 145, 1155, 920]) # Right: accessories (safe above ribbon)
+
+    elif count == 3:
+        # 1 large left (main tool) + 2 right (accessories & box)
+        w_left = 530
+        h_right_each = 365
+        slots.append([45, 145, 45 + w_left, 1140])                                              # Left full height
+        slots.append([45 + w_left + gap, 145, 1155, 145 + h_right_each])                        # Top right
+        slots.append([45 + w_left + gap, 145 + h_right_each + gap, 1155, 145 + (h_right_each * 2) + gap]) # Middle right (stops at y=895, safely above ribbon!)
+
+    else: # 4 images
+        # 2x2 grid
+        # Col 1 (Left): x: 45..585 (can go down to y=1140)
+        # Col 2 (Right): x: 605..1155 (Top: y: 145..520, Bottom: y: 540..915, strictly above y=920 ribbon!)
+        slots.append([45, 145, 585, 620])   # Slot 1: Top-Left
+        slots.append([605, 145, 1155, 520])  # Slot 2: Top-Right
+        slots.append([45, 640, 585, 1140])  # Slot 3: Bottom-Left
+        slots.append([605, 540, 1155, 915])  # Slot 4: Bottom-Right (Safe above ribbon!)
+
+    font_num = load_font("tahomabd.ttf", 26)
+
+    # 3. Draw each image inside its slot
     for idx, (slot, img) in enumerate(zip(slots, loaded_imgs)):
         sx1, sy1, sx2, sy2 = slot
+        # Draw soft card border
         draw.rounded_rectangle([sx1, sy1, sx2, sy2], radius=16, fill=(255, 255, 255, 255), outline=(226, 232, 240, 255), width=2)
-        
-        pad = 25
-        available_w = (sx2 - sx1) - (pad * 2)
-        available_h = (sy2 - sy1) - (pad * 2) - 30
+
+        pad = 20
+        avail_w = (sx2 - sx1) - (pad * 2)
+        avail_h = (sy2 - sy1) - (pad * 2)
 
         im_w, im_h = img.size
-        scale = min(available_w / im_w, available_h / im_h)
+        scale = min(avail_w / im_w, avail_h / im_h)
         new_w = max(10, int(im_w * scale))
         new_h = max(10, int(im_h * scale))
         resized_im = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
-        paste_x = sx1 + (sx2 - sx1 - new_w) // 2
-        paste_y = sy1 + 15 + (available_h - new_h) // 2
-        canvas.paste(resized_im, (paste_x, paste_y), resized_im)
+        px = sx1 + (sx2 - sx1 - new_w) // 2
+        py = sy1 + (sy2 - sy1 - new_h) // 2
+        canvas.paste(resized_im, (px, py), resized_im)
 
-        # Number Badge (Circle 1, 2, 3...)
-        badge_r = 18
-        bx = sx1 + 20
-        by = sy1 + 20
-        draw.ellipse([bx, by, bx + (badge_r * 2), by + (badge_r * 2)], fill=(239, 28, 37, 255))
+        # Number Circle Badge ① ② ③ ④
+        badge_r = 20
+        bx = sx1 + 16
+        by = sy1 + 16
+        draw.ellipse([bx, by, bx + (badge_r * 2), by + (badge_r * 2)], fill=RED)
         num_str = str(idx + 1)
         nb = font_num.getbbox(num_str)
         nw = nb[2] - nb[0]
         nh = nb[3] - nb[1]
-        draw.text((bx + badge_r - nw // 2, by + badge_r - nh // 2 - 2), num_str, font=font_num, fill=(255, 255, 255, 255))
+        draw.text((bx + badge_r - nw // 2, by + badge_r - nh // 2 - 2), num_str, font=font_num, fill=WHITE)
 
-    # Footer Bar
-    footer_box = [30, 1125, CANVAS_SIZE - 30, 1175]
-    draw.rounded_rectangle(footer_box, radius=12, fill=(241, 245, 249, 255))
-    footer_text = "🛡️ รับประกันสินค้าของแท้ 100% • เช็คอุปกรณ์ครบถ้วนก่อนจัดส่งทุกกล่อง • บริการหลังการขายมาตรฐานศูนย์"
-    ft_b = font_tag.getbbox(footer_text)
-    ft_w = ft_b[2] - ft_b[0]
-    draw.text(((CANVAS_SIZE - ft_w) // 2, 1138), footer_text, font=font_tag, fill=(71, 85, 105, 255))
+    # 4. Top-Left Title Badge Pill (Opposite MEGATOOL Logo)
+    f_title = load_font("leelawdb.ttf", 32)
+    clean_title = f"📦 {title.strip()}"
+    tb = f_title.getbbox(clean_title)
+    tw = tb[2] - tb[0]
+    
+    pill_x1 = 45
+    pill_y1 = 42
+    pill_x2 = min(620, pill_x1 + tw + 32)
+    pill_y2 = pill_y1 + 52
+    draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=14, fill=(15, 23, 42, 255))
+    draw.text((pill_x1 + 16, pill_y1 + 8), clean_title[:28], font=f_title, fill=WHITE)
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    canvas.convert('RGB').save(output_path, "JPEG", quality=92)
+    # 5. Top-Right: Official MEGATOOL Red Logo (Exact shop template)
+    border_w = 22
+    f_prefix = load_font('arialbd.ttf', 84)
+    f_tool = load_font('ariblk.ttf', 84)
+
+    part_prefix = 'MEGA'
+    char_t, char_o1, char_o2, char_l = 'T', 'O', 'O', 'L'
+
+    w_prefix = draw.textbbox((0, 0), part_prefix, font=f_prefix)[2]
+    w_t = draw.textbbox((0, 0), char_t, font=f_tool)[2]
+    w_o1 = draw.textbbox((0, 0), char_o1, font=f_tool)[2]
+    w_o2 = draw.textbbox((0, 0), char_o2, font=f_tool)[2]
+    w_l = draw.textbbox((0, 0), char_l, font=f_tool)[2]
+
+    total_w = w_prefix + w_t + w_o1 + w_o2 + w_l
+    margin_right = 50
+    margin_top = 38
+
+    x_start = CANVAS_SIZE - margin_right - total_w
+    y_text = margin_top
+
+    draw.text((x_start, y_text), part_prefix, fill=RED, font=f_prefix)
+    xt = x_start + w_prefix
+    draw.text((xt, y_text), char_t, fill=RED, font=f_tool)
+    xo1 = xt + w_t
+    draw.text((xo1, y_text), char_o1, fill=RED, font=f_tool)
+    xo2 = xo1 + w_o1
+    draw.text((xo2, y_text), char_o2, fill=RED, font=f_tool)
+    xl = xo2 + w_o2
+    draw.text((xl, y_text), char_l, fill=RED, font=f_tool)
+
+    o1_box = draw.textbbox((xo1, y_text), char_o1, font=f_tool)
+    o2_box = draw.textbbox((xo2, y_text), char_o2, font=f_tool)
+    arc_left = o1_box[0] + 6
+    arc_right = o2_box[2] - 6
+    arc_top = o1_box[3] - 16
+    arc_bot = o1_box[3] + 16
+    draw.arc([arc_left, arc_top, arc_right, arc_bot], start=10, end=170, fill=RED, width=7)
+
+    # 6. Bottom-Right: Slanted Red Ribbon Banner
+    banner_h = 120
+    y_top = CANVAS_SIZE - banner_h
+    y_bot = CANVAS_SIZE
+    x_slant_bot = 570
+    x_slant_top = 635
+
+    draw.polygon([
+        (x_slant_bot, y_bot),
+        (CANVAS_SIZE, y_bot),
+        (CANVAS_SIZE, y_top),
+        (x_slant_top, y_top)
+    ], fill=RED)
+
+    display_banner_text = badge_text or "มีสต็อกพร้อมส่งทันที"
+    f_banner = load_font('tahomabd.ttf', 48)
+    text_center_x = (x_slant_top + CANVAS_SIZE - border_w) // 2
+    text_center_y = y_top + (banner_h // 2) - 4
+    draw.text((text_center_x, text_center_y), display_banner_text, fill=WHITE, font=f_banner, anchor='mm')
+
+    # 7. Above Banner: 'ของแท้ 100%'
+    f_badge_thai = load_font('tahomabd.ttf', 54)
+    f_badge_num = load_font('arialbd.ttf', 62)
+    badge_y = y_top - 58
+
+    num_str = "100%"
+    thai_str = "ของแท้"
+
+    num_box = draw.textbbox((0, 0), num_str, font=f_badge_num)
+    num_w = num_box[2] - num_box[0]
+    thai_box = draw.textbbox((0, 0), thai_str, font=f_badge_thai)
+    thai_w = thai_box[2] - thai_box[0]
+
+    num_x = CANVAS_SIZE - 45 - num_w
+    thai_x = num_x - 30 - thai_w
+
+    draw.text((thai_x, badge_y), thai_str, fill=RED, font=f_badge_thai, anchor='ls')
+    draw.text((num_x, badge_y), num_str, fill=RED, font=f_badge_num, anchor='ls')
+
+    draw.line([(num_x - 4, badge_y - 64), (num_x + num_w + 4, badge_y - 64)], fill=RED, width=4)
+    draw.line([(num_x - 4, badge_y + 8), (num_x + num_w + 4, badge_y + 8)], fill=RED, width=4)
+
+    # 8. Outer Red Border (drawn LAST so it cleanly frames everything!)
+    draw.rectangle([(0, 0), (CANVAS_SIZE - 1, CANVAS_SIZE - 1)], outline=RED, width=border_w)
+
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    canvas.convert('RGB').save(output_path, "JPEG", quality=95)
     return output_path
 
 

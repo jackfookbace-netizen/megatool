@@ -246,6 +246,7 @@ class CollageRequest(BaseModel):
     sku: str
     image_urls: List[str]
     title: Optional[str] = "อุปกรณ์มาตรฐานในชุดครบเซ็ต"
+    badge_text: Optional[str] = "มีสต็อกพร้อมส่งทันที"
     shop_name: Optional[str] = "MEGATOOL"
 
 @app.post("/api/generate-collage")
@@ -263,6 +264,7 @@ def api_generate_collage(req: CollageRequest):
             req.image_urls[:4],
             local_path,
             title=req.title or "อุปกรณ์มาตรฐานในชุดครบเซ็ต",
+            badge_text=req.badge_text or "มีสต็อกพร้อมส่งทันที",
             shop_name=req.shop_name or "MEGATOOL"
         )
         
