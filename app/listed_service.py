@@ -117,6 +117,19 @@ def save_listed_product(sku: str, shopee_url: str, name: str = "", brand: str = 
     
     return item_data
 
+def update_listed_product_price(sku: str, price: float) -> Optional[dict]:
+    all_items = get_all_listed()
+    clean_sku = sku.strip()
+    if clean_sku in all_items:
+        all_items[clean_sku]["price"] = round(float(price), 2)
+        all_items[clean_sku]["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        tmp_file = DATA_FILE + ".tmp"
+        with open(tmp_file, "w", encoding="utf-8") as f:
+            json.dump(all_items, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_file, DATA_FILE)
+        return all_items[clean_sku]
+    return None
+
 def delete_listed_product(sku: str) -> bool:
     all_items = get_all_listed()
     if sku in all_items:

@@ -906,11 +906,13 @@
                                                 <span x-text="'฿' + (item.cost_price ? Number(item.cost_price).toLocaleString(undefined, {minimumFractionDigits: (item.cost_price % 1 !== 0 ? 2 : 0)}) : '0')"></span>
                                             </td>
 
-                                            <!-- 2. Selling Price with Edit trigger -->
+                                            <!-- 2. Selling Price with Quick Edit trigger -->
                                             <td class="py-3 px-4 tabular-nums text-right">
-                                                <div class="inline-flex items-center justify-end space-x-1.5">
-                                                    <span class="font-bold text-orange-600 text-xs" x-text="'฿' + (item.price ? Number(item.price).toLocaleString() : '0')"></span>
-                                                    <button @click.stop="openAttachModal(item)" title="กดเพื่อแก้ไขราคาขายจริง" class="text-slate-300 hover:text-orange-600 p-0.5 rounded transition-colors">
+                                                <div class="inline-flex items-center justify-end space-x-1.5 cursor-pointer group/price"
+                                                     @click.stop="quickEditPrice(item)"
+                                                     title="คลิกเพื่อแก้ไขราคาขาย Shopee ทันที">
+                                                    <span class="font-bold text-orange-600 text-xs group-hover/price:underline" x-text="'฿' + (item.price ? Number(item.price).toLocaleString() : '0')"></span>
+                                                    <button type="button" @click.stop="quickEditPrice(item)" title="แก้ไขราคาขาย" class="text-slate-300 hover:text-orange-600 p-0.5 rounded transition-colors">
                                                         <i data-lucide="pencil" class="w-3 h-3"></i>
                                                     </button>
                                                 </div>
@@ -1695,31 +1697,56 @@
                                 localBackup = JSON.parse(localStorage.getItem('megatool_listed_products_backup') || '{}');
                             } catch (e) {}
 
-                            const serverSkus = new Set(serverItems.map(i => i.sku));
-                            const missingItems = Object.values(localBackup).filter(i => i && i.sku && !serverSkus.has(i.sku) && i.shopee_url);
+                            const serverMap = new Map(serverItems.map(i => [i.sku, i]));
+                            let needsRefresh = false;
 
-                            if (missingItems.length > 0 && this.currentUser) {
-                                for (const item of missingItems) {
-                                    try {
-                                        await fetch('/api/listed', {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                ...this.getHeaders()
-                                            },
-                                            body: JSON.stringify({
-                                                sku: item.sku,
-                                                shopee_url: item.shopee_url,
-                                                name: item.name || '',
-                                                brand: item.brand || '',
-                                                price: item.price || 0,
-                                                image_url: item.image_url || ''
-                                            })
-                                        });
-                                    } catch (err) {
-                                        console.error('Auto-sync item error:', err);
+                            for (const [sku, localItem] of Object.entries(localBackup)) {
+                                if (!localItem || !localItem.sku) continue;
+                                const serverItem = serverMap.get(sku);
+
+                                if (!serverItem) {
+                                    // 1. Item missing on server (e.g. after container restart) -> Re-sync to server
+                                    if (this.currentUser && localItem.shopee_url) {
+                                        try {
+                                            await fetch('/api/listed', {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    ...this.getHeaders()
+                                                },
+                                                body: JSON.stringify(localItem)
+                                            });
+                                            needsRefresh = true;
+                                        } catch (err) {
+                                            console.error('Auto-sync item error:', err);
+                                        }
+                                    }
+                                } else {
+                                    // 2. Item exists: Check if local edit has newer price
+                                    const localTime = new Date(localItem.updated_at || 0).getTime();
+                                    const serverTime = new Date(serverItem.updated_at || 0).getTime();
+                                    if (localTime > serverTime && localItem.price && localItem.price !== serverItem.price) {
+                                        serverItem.price = localItem.price;
+                                        serverItem.updated_at = localItem.updated_at;
+                                        if (this.currentUser) {
+                                            try {
+                                                await fetch('/api/listed/price', {
+                                                    method: 'POST',
+                                                    headers: {
+                                                        'Content-Type': 'application/json',
+                                                        ...this.getHeaders()
+                                                    },
+                                                    body: JSON.stringify({ sku: sku, price: localItem.price })
+                                                });
+                                            } catch (err) {
+                                                console.error('Sync price to server error:', err);
+                                            }
+                                        }
                                     }
                                 }
+                            }
+
+                            if (needsRefresh) {
                                 const refreshRes = await fetch('/api/listed', { headers: this.getHeaders() });
                                 if (refreshRes.ok) {
                                     const refreshedData = await refreshRes.json();
@@ -1732,12 +1759,56 @@
                             // Update local backup with latest verified items
                             const updatedBackup = {};
                             for (const item of this.listedProducts) {
-                                updatedBackup[item.sku] = item;
+                                updatedBackup[item.sku] = { ...item };
                             }
                             localStorage.setItem('megatool_listed_products_backup', JSON.stringify(updatedBackup));
                         }
                     } catch (e) {
                         console.error('Error fetching listed products:', e);
+                    }
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                async quickEditPrice(item) {
+                    const currentPrice = item.price || 0;
+                    const input = prompt(`แก้ไขราคาขายบน Shopee (บาท)\nรหัสสินค้า: ${item.sku}\nชื่อ: ${item.name || item.sku}\n\nราคาปัจจุบัน: ฿${Number(currentPrice).toLocaleString()}\nกรอกราคาขายใหม่ที่ต้องการ:`, currentPrice);
+                    if (input === null) return;
+                    const newPrice = parseFloat(String(input).replace(/,/g, '').trim());
+                    if (isNaN(newPrice) || newPrice <= 0) {
+                        alert('กรุณากรอกตัวเลขราคาที่ถูกต้อง (มากกว่า 0)');
+                        return;
+                    }
+
+                    // 1. Optimistic instant update in UI
+                    const nowIso = new Date().toISOString();
+                    item.price = newPrice;
+                    item.updated_at = nowIso;
+
+                    // 2. Save to LocalStorage immediately
+                    let localBackup = {};
+                    try {
+                        localBackup = JSON.parse(localStorage.getItem('megatool_listed_products_backup') || '{}');
+                    } catch (e) {}
+                    localBackup[item.sku] = { ...item, price: newPrice, updated_at: nowIso };
+                    localStorage.setItem('megatool_listed_products_backup', JSON.stringify(localBackup));
+
+                    // 3. Persist to server
+                    try {
+                        const res = await fetch('/api/listed/price', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...this.getHeaders()
+                            },
+                            body: JSON.stringify({ sku: item.sku, price: newPrice })
+                        });
+                        if (res.ok) {
+                            await this.fetchDashboardStats();
+                        } else {
+                            console.error('Failed to persist price on server');
+                        }
+                    } catch (err) {
+                        console.error('Network error saving price:', err);
                     }
                     this.$nextTick(() => lucide.createIcons());
                 },
@@ -1836,8 +1907,9 @@
                     this.savingAttach = true;
                     this.attachError = null;
                     try {
-                        // Optimistically save to local backup immediately
-                        const itemToSave = { ...this.attachForm };
+                        // Optimistically save to local backup immediately with timestamp
+                        const nowIso = new Date().toISOString();
+                        const itemToSave = { ...this.attachForm, updated_at: nowIso };
                         if (itemToSave.sku && itemToSave.shopee_url) {
                             let localBackup = {};
                             try {

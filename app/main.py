@@ -17,7 +17,7 @@ from app.shopee_service import export_shopee_batch
 from app.auth_service import verify_user, create_token, verify_token
 from app.listed_service import (
     get_all_listed, get_listed_product, save_listed_product,
-    delete_listed_product, get_dashboard_summary
+    delete_listed_product, get_dashboard_summary, update_listed_product_price
 )
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -130,6 +130,20 @@ def api_save_listed(req: AttachShopeeRequest, request: Request, authorization: O
         image_url=req.image_url or "",
         variation_name=req.variation_name or ""
     )
+    return {"success": True, "item": item}
+
+class UpdatePriceRequest(BaseModel):
+    sku: str
+    price: float
+
+@app.post("/api/listed/price")
+def api_update_listed_price(req: UpdatePriceRequest, request: Request, authorization: Optional[str] = Header(None)):
+    user = require_auth(request, authorization)
+    if not req.sku or req.price <= 0:
+        raise HTTPException(status_code=400, detail="กรุณาระบุ SKU และราคาที่ถูกต้อง")
+    item = update_listed_product_price(req.sku, req.price)
+    if not item:
+        raise HTTPException(status_code=404, detail="ไม่พบสินค้าในรายการที่ลงขาย")
     return {"success": True, "item": item}
 
 @app.delete("/api/listed/{sku}")
