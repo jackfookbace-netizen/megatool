@@ -103,23 +103,24 @@ def _get_bestsellers_all(final_query, exclude_spare_parts, in_stock_only):
     raw_items = []
     for p_idx in range(5):
         url = f"{API_BASE}/products/search?query={urllib.parse.quote(final_query)}&pageSize=100&currentPage={p_idx}"
-        try:
-            r = requests.get(url, headers=headers, timeout=15)
-            if r.status_code == 401:
-                refresh_token()
-                headers = get_headers()
+        batch = []
+        for attempt in range(2):
+            try:
                 r = requests.get(url, headers=headers, timeout=15)
-            if r.status_code == 200:
-                batch = r.json().get('products', [])
-                if not batch:
+                if r.status_code == 401:
+                    refresh_token()
+                    headers = get_headers()
+                    r = requests.get(url, headers=headers, timeout=15)
+                if r.status_code == 200:
+                    batch = r.json().get('products', [])
                     break
-                raw_items.extend(batch)
-                if len(batch) < 100:
-                    break
-            else:
-                break
-        except Exception as e:
-            print("Error fetching bestsellers batch:", e)
+            except Exception as e:
+                print(f"Error fetching bestsellers batch {p_idx} (attempt {attempt+1}):", e)
+                time.sleep(0.5)
+        if not batch:
+            break
+        raw_items.extend(batch)
+        if len(batch) < 100:
             break
 
     products = []
@@ -174,8 +175,9 @@ def _get_bestsellers_all(final_query, exclude_spare_parts, in_stock_only):
             "ktw_url": f"https://shop.ktw.co.th/p/{p_code}"
         })
 
-    _BESTSELLER_CACHE[cache_key] = products
-    _BESTSELLER_CACHE_EXPIRY[cache_key] = now + 300
+    if products:
+        _BESTSELLER_CACHE[cache_key] = products
+        _BESTSELLER_CACHE_EXPIRY[cache_key] = now + 900
     return products
 
 def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_parts=True, bestseller_only=False, page=0, page_size=20):

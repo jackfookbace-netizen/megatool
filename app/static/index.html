@@ -455,8 +455,12 @@
                         <!-- Bestseller toggle -->
                         <button type="button" 
                                 @click="toggleBestseller()" 
-                                :class="bestsellerOnly ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white border-orange-500 shadow-md font-bold ring-2 ring-orange-300' : 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100 font-semibold'"
-                                class="flex items-center space-x-1.5 px-3 py-2.5 rounded-xl border cursor-pointer select-none text-xs transition-all">
+                                :disabled="loading"
+                                :class="[
+                                    bestsellerOnly ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white border-orange-500 shadow-md font-bold ring-2 ring-orange-300' : 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100 font-semibold',
+                                    loading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                                ]"
+                                class="flex items-center space-x-1.5 px-3 py-2.5 rounded-xl border select-none text-xs transition-all">
                             <span>🔥</span>
                             <span>สินค้าขายดี (KTW Bestseller)</span>
                             <span class="text-[10px] opacity-80 font-normal">(146 รายการ)</span>
@@ -465,9 +469,10 @@
 
                         <!-- Search Button -->
                         <button @click="search()" 
-                                class="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-xl transition-all flex items-center justify-center space-x-2">
+                                :disabled="loading"
+                                class="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white text-sm font-medium rounded-xl transition-all flex items-center justify-center space-x-2">
                             <span x-show="!loading">ค้นหาสินค้า</span>
-                            <span x-show="loading" class="animate-spin">⏳</span>
+                            <span x-show="loading" class="animate-spin">⏳ กำลังค้นหา...</span>
                         </button>
                     </div>
 
@@ -520,7 +525,11 @@
                         <span class="text-xs font-medium text-slate-400 mr-1">แบรนด์ยอดนิยม:</span>
                         <!-- Bestseller Quick Pill -->
                         <button @click="toggleBestseller()" 
-                                :class="bestsellerOnly ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-sm ring-2 ring-orange-400 font-bold' : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 font-semibold'"
+                                :disabled="loading"
+                                :class="[
+                                    bestsellerOnly ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-sm ring-2 ring-orange-400 font-bold' : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 font-semibold',
+                                    loading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                                ]"
                                 class="px-3 py-1 rounded-lg text-xs transition-all flex items-center space-x-1">
                             <span>🔥</span>
                             <span>สินค้าขายดี</span>
@@ -683,6 +692,15 @@
                             </div>
                         </div>
                     </template>
+                </div>
+
+                <!-- Loading State in Catalog -->
+                <div x-show="loading" class="bg-white rounded-2xl p-12 text-center border border-slate-200 my-6 shadow-xs">
+                    <div class="inline-block animate-spin w-9 h-9 border-4 border-orange-500 border-t-transparent rounded-full mb-3"></div>
+                    <h3 class="text-sm font-bold text-slate-800">กำลังดึงข้อมูลสินค้าจาก KTW...</h3>
+                    <p class="text-xs text-slate-400 mt-1">
+                        ระบบกำลังตรวจสอบสต็อกและราคาสินค้า กรุณารอสักครู่ครับ
+                    </p>
                 </div>
 
                 <!-- Empty State -->
@@ -1755,6 +1773,7 @@
                 pageSize: 20,
                 jumpPageInput: '',
                 loading: false,
+                searchAbortController: null,
                 brands: [
                     { name: 'Makita', count: 17203 },
                     { name: 'POLO', count: 4890 },
@@ -2238,13 +2257,21 @@
 
                 async search() {
                     if (!this.currentUser) return;
+
+                    // Abort previous in-flight request if user clicked fast
+                    if (this.searchAbortController) {
+                        try { this.searchAbortController.abort(); } catch (e) {}
+                    }
+                    this.searchAbortController = new AbortController();
+                    const signal = this.searchAbortController.signal;
+
                     this.loading = true;
                     try {
                         let url = `/api/search?q=${encodeURIComponent(this.searchQuery)}&in_stock=${this.inStockOnly}&exclude_spares=${this.excludeSpares}&exclude_listed=${this.excludeListed}&bestseller_only=${this.bestsellerOnly}&page=${this.currentPage}&page_size=${this.pageSize}`;
                         if (this.activeBrand) {
                             url += `&brand=${encodeURIComponent(this.activeBrand)}`;
                         }
-                        const res = await fetch(url, { headers: this.getHeaders() });
+                        const res = await fetch(url, { headers: this.getHeaders(), signal });
                         if (res.status === 401) {
                             this.currentUser = null;
                             return;
@@ -2253,10 +2280,16 @@
                         this.products = data.products || [];
                         this.totalResults = data.total || 0;
                     } catch (e) {
-                        console.error(e);
+                        if (e.name === 'AbortError') {
+                            return; // A newer search was launched, ignore this aborted one
+                        }
+                        console.error('Search error:', e);
+                    } finally {
+                        if (!signal.aborted) {
+                            this.loading = false;
+                            this.$nextTick(() => lucide.createIcons());
+                        }
                     }
-                    this.loading = false;
-                    this.$nextTick(() => lucide.createIcons());
                 },
 
                 toggleBestseller() {
