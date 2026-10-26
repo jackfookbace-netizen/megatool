@@ -291,18 +291,52 @@ def upload_to_cdn(image_path, max_retries=1):
 # FEATURE 1: MULTI-IMAGE COLLAGE BUILDER ("อุปกรณ์ในกล่องครบชุด / What's in the box")
 # ==============================================================================
 
+BROWSER_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+    'Referer': 'https://shop.ktw.co.th/'
+}
+
 def fetch_image_safe(url_or_path):
     if not url_or_path:
         raise ValueError("Empty image path or url")
-    if url_or_path.startswith('/ktwcommercewebservices/v2'):
-        url_or_path = url_or_path.replace('/ktwcommercewebservices/v2', '')
-    if url_or_path.startswith('/'):
+    
+    # 1. Clean path prefixes
+    if str(url_or_path).startswith('/ktwcommercewebservices/v2'):
+        url_or_path = str(url_or_path).replace('/ktwcommercewebservices/v2', '')
+        
+    # 2. Local static files on disk
+    if str(url_or_path).startswith('/static/'):
+        disk_p = f"app{url_or_path}"
+        if os.path.exists(disk_p):
+            return Image.open(disk_p).convert('RGBA')
+    elif str(url_or_path).startswith('static/'):
+        disk_p = f"app/{url_or_path}"
+        if os.path.exists(disk_p):
+            return Image.open(disk_p).convert('RGBA')
+    elif os.path.exists(str(url_or_path)):
+        return Image.open(str(url_or_path)).convert('RGBA')
+
+    # 3. KTW root-relative URLs
+    if str(url_or_path).startswith('/'):
         url_or_path = f"https://shop.ktw.co.th{url_or_path}"
-    if url_or_path.startswith('http'):
-        resp = requests.get(url_or_path, timeout=12)
-        resp.raise_for_status()
-        return Image.open(io.BytesIO(resp.content)).convert('RGBA')
-    return Image.open(url_or_path).convert('RGBA')
+
+    # 4. Web URLs with robust headers and retries
+    if str(url_or_path).startswith('http'):
+        last_err = None
+        for attempt in range(2):
+            try:
+                resp = requests.get(url_or_path, headers=BROWSER_HEADERS, timeout=15)
+                if resp.status_code == 200 and len(resp.content) > 100:
+                    return Image.open(io.BytesIO(resp.content)).convert('RGBA')
+            except Exception as e:
+                last_err = e
+                time.sleep(0.5)
+        if last_err:
+            raise last_err
+
+    # Fallback to local open
+    return Image.open(str(url_or_path)).convert('RGBA')
 
 def trim_white_space(im, threshold=245):
     """Trims excess whitespace borders around product images to maximize fill"""
