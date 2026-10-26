@@ -571,6 +571,131 @@ def generate_collage(
 
 
 # ==============================================================================
+# PERSISTENT COLLAGE STORAGE PER SKU
+# ==============================================================================
+
+COLLAGES_DATA_FILE = "app/data/product_collages.json"
+
+def _load_collages_db() -> dict:
+    if os.path.exists(COLLAGES_DATA_FILE):
+        try:
+            with open(COLLAGES_DATA_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print("Error loading product_collages.json:", e)
+    return {}
+
+def _save_collages_db(data: dict):
+    os.makedirs(os.path.dirname(COLLAGES_DATA_FILE), exist_ok=True)
+    try:
+        with open(COLLAGES_DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print("Error saving product_collages.json:", e)
+
+def save_custom_product_image(sku: str, image_url: str, cdn_url: str = None):
+    """
+    Saves a generated collage or custom image record for a SKU permanently.
+    """
+    if not sku or not image_url:
+        return
+    db = _load_collages_db()
+    if sku not in db:
+        db[sku] = []
+    
+    target_fname = image_url.split('/')[-1].split('?')[0]
+    exists = False
+    for item in db[sku]:
+        if isinstance(item, dict):
+            u = item.get("url", "")
+            c = item.get("cdn_url", "")
+            if target_fname in u or (cdn_url and cdn_url == c):
+                exists = True
+                if cdn_url and not item.get("cdn_url"):
+                    item["cdn_url"] = cdn_url
+                break
+        elif isinstance(item, str) and (target_fname in item or item == image_url):
+            exists = True
+            break
+            
+    if not exists:
+        from datetime import datetime
+        entry = {
+            "url": image_url,
+            "cdn_url": cdn_url or image_url,
+            "created_at": datetime.now().isoformat()
+        }
+        db[sku].append(entry)
+        _save_collages_db(db)
+
+def get_custom_product_images(sku: str) -> list:
+    """
+    Returns list of all saved collage/custom image URLs for this SKU.
+    Merges records from product_collages.json and scans app/static/covers/collage_{sku}_*.jpg
+    """
+    if not sku:
+        return []
+    db = _load_collages_db()
+    urls = []
+    
+    # 1. From JSON db
+    if sku in db:
+        for item in db[sku]:
+            if isinstance(item, dict):
+                u = item.get("cdn_url") or item.get("url")
+            else:
+                u = str(item)
+            if u and u not in urls:
+                urls.append(u)
+                
+    # 2. From local disk scan (self-healing for any pre-generated collages)
+    covers_dir = "app/static/covers"
+    if os.path.exists(covers_dir):
+        prefix = f"collage_{sku}_"
+        for fname in os.listdir(covers_dir):
+            if fname.startswith(prefix) and fname.endswith(".jpg"):
+                local_rel = f"/static/covers/{fname}"
+                if not any(fname in u for u in urls):
+                    urls.append(local_rel)
+                    save_custom_product_image(sku, local_rel)
+                    
+    return urls
+
+def delete_custom_product_image(sku: str, image_url: str) -> bool:
+    """
+    Permanently deletes a custom collage image for a SKU from both JSON db and disk.
+    """
+    if not sku or not image_url:
+        return False
+    db = _load_collages_db()
+    removed = False
+    target_fname = image_url.split('/')[-1].split('?')[0]
+    
+    if sku in db:
+        new_list = []
+        for item in db[sku]:
+            u = (item.get("url") or item.get("cdn_url")) if isinstance(item, dict) else str(item)
+            if target_fname in u or image_url == u:
+                removed = True
+            else:
+                new_list.append(item)
+        db[sku] = new_list
+        _save_collages_db(db)
+        
+    # Delete physical file on disk
+    if target_fname.startswith("collage_") and target_fname.endswith(".jpg"):
+        disk_p = os.path.join("app/static/covers", target_fname)
+        if os.path.exists(disk_p):
+            try:
+                os.remove(disk_p)
+                removed = True
+            except Exception as e:
+                print("Error removing collage file:", e)
+                
+    return removed
+
+
+# ==============================================================================
 # FEATURE 2: AUTO SPEC COMPARISON MATRIX CARD
 # ==============================================================================
 

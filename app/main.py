@@ -12,7 +12,10 @@ except Exception:
     pass
 
 from app.ktw_service import search_products, get_product_detail, extract_product_images, detect_brand_from_sku
-from app.image_service import generate_cover, generate_collage, generate_comparison_card, upload_to_cdn
+from app.image_service import (
+    generate_cover, generate_collage, generate_comparison_card, upload_to_cdn,
+    save_custom_product_image, get_custom_product_images, delete_custom_product_image
+)
 from app.shopee_service import export_shopee_batch
 from app.auth_service import verify_user, create_token, verify_token
 from app.listed_service import (
@@ -202,15 +205,29 @@ def api_product(sku: str, request: Request, authorization: Optional[str] = Heade
         raise HTTPException(status_code=404, detail="Product not found")
     user = get_current_user(request, authorization)
     detail["is_cost_hidden"] = (user is None)
+    detail["custom_images"] = get_custom_product_images(sku)
         
     return detail
 
 @app.get("/api/product-images/{sku}")
 def api_product_images(sku: str):
     detail = get_product_detail(sku)
-    if not detail:
-        return {"sku": sku, "images": []}
-    return {"sku": sku, "images": extract_product_images(detail)}
+    images = extract_product_images(detail) if detail else []
+    custom_images = get_custom_product_images(sku)
+    for c_img in custom_images:
+        c_fname = c_img.split('/')[-1].split('?')[0]
+        if not any(c_fname in u for u in images):
+            images.append(c_img)
+    return {"sku": sku, "images": images, "custom_images": custom_images}
+
+class DeleteCustomImageRequest(BaseModel):
+    sku: str
+    image_url: str
+
+@app.post("/api/delete-custom-image")
+def api_delete_custom_image(req: DeleteCustomImageRequest):
+    removed = delete_custom_product_image(req.sku, req.image_url)
+    return {"status": "ok", "removed": removed}
 
 class PreviewRequest(BaseModel):
     sku: str
@@ -270,6 +287,9 @@ def api_generate_collage(req: CollageRequest):
         
         cdn_url = upload_to_cdn(local_path)
         public_url = cdn_url if (cdn_url and cdn_url.startswith('http')) else f"https://megatool-yrho.onrender.com/static/covers/{filename}"
+        
+        # Save to persistent storage permanently
+        save_custom_product_image(req.sku, f"/static/covers/{filename}", cdn_url=public_url)
         
         return {
             "collage_url": f"/static/covers/{filename}",
