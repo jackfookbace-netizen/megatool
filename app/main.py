@@ -249,6 +249,7 @@ class ExportItem(BaseModel):
     variation_name: Optional[str] = None
     selected_image: Optional[str] = None
     selected_images: Optional[List[str]] = None
+    use_template: Optional[bool] = True
 
 class ExportRequest(BaseModel):
     items: List[ExportItem]

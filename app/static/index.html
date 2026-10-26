@@ -1338,25 +1338,47 @@
                     <!-- Customization Controls -->
                     <div class="flex flex-col justify-between space-y-4">
                         <div class="space-y-4">
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">ข้อความบนป้าย Badge (จุดขาย):</label>
-                                <input type="text" x-model="customBadgeText" 
-                                       placeholder="เช่น มีสต็อกพร้อมส่งทันที, ของแท้ศูนย์ 100%"
-                                       class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 text-xs outline-none">
+                            <!-- Toggle: Template Frame vs Raw Image -->
+                            <div class="p-3.5 rounded-2xl border transition-all"
+                                 :class="customUseTemplate ? 'bg-orange-50/60 border-orange-200 shadow-xs' : 'bg-slate-100 border-slate-300'">
+                                <label class="flex items-start space-x-3 cursor-pointer select-none">
+                                    <input type="checkbox" x-model="customUseTemplate" @change="onTemplateToggleChange()"
+                                           class="mt-1 w-4 h-4 text-orange-600 rounded border-slate-300 focus:ring-orange-500 cursor-pointer">
+                                    <div class="flex-1">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-xs font-bold text-slate-800">ใส่กรอบรูปแบรนด์ MEGATOOL (Template)</span>
+                                            <span x-show="customUseTemplate" class="text-[10px] bg-orange-600 text-white font-bold px-2 py-0.5 rounded-md shadow-xs">เปิดใช้งาน</span>
+                                            <span x-show="!customUseTemplate" class="text-[10px] bg-slate-600 text-white font-bold px-2 py-0.5 rounded-md">ใช้รูปต้นฉบับ</span>
+                                        </div>
+                                        <p class="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                                            <span x-show="customUseTemplate">ใส่กรอบสีแดง โลโก้แบรนด์ และป้ายจุดขายลงบนภาพ</span>
+                                            <span x-show="!customUseTemplate" class="text-rose-600 font-semibold">ปิดกรอบ: ส่งรูปต้นฉบับเพียวๆ ไม่ครอบ template (เหมาะสำหรับสินค้าที่มีรูปแต่งโปรโมทสวยงามอยู่แล้ว)</span>
+                                        </p>
+                                    </div>
+                                </label>
                             </div>
 
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">ชื่อร้านบนรูปปก:</label>
-                                <input type="text" x-model="shopName" 
-                                       placeholder="เช่น MEGATOOL" 
-                                       class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 text-xs font-bold outline-none">
-                            </div>
+                            <div :class="{'opacity-40 pointer-events-none': !customUseTemplate}" class="space-y-3 transition-opacity">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1">ข้อความบนป้าย Badge (จุดขาย):</label>
+                                    <input type="text" x-model="customBadgeText" :disabled="!customUseTemplate"
+                                           placeholder="เช่น มีสต็อกพร้อมส่งทันที, ของแท้ศูนย์ 100%"
+                                           class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 text-xs outline-none">
+                                </div>
 
-                            <button @click="generatePreviewCover()" :disabled="generatingPreview"
-                                    class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow transition-all flex items-center justify-center space-x-2">
-                                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-                                <span>กดอัปเดตรูปแต่งใหม่</span>
-                            </button>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1">ชื่อร้านบนรูปปก:</label>
+                                    <input type="text" x-model="shopName" :disabled="!customUseTemplate"
+                                           placeholder="เช่น MEGATOOL" 
+                                           class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 text-xs font-bold outline-none">
+                                </div>
+
+                                <button @click="generatePreviewCover()" :disabled="generatingPreview || !customUseTemplate"
+                                        class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow transition-all flex items-center justify-center space-x-2">
+                                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                                    <span>กดอัปเดตรูปแต่งใหม่</span>
+                                </button>
+                            </div>
                         </div>
 
                         <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
@@ -1447,6 +1469,14 @@
                                         <span class="text-orange-600 font-sans font-bold" x-text="(item.selected_images?.length || 1) + ' รูป'"></span>
                                         <button @click="showQueueModal = false; openCoverPreview(item)" title="ปรับแต่งรูปปกและตัดรูปออก" class="text-blue-500 hover:text-blue-700 underline font-sans ml-1">
                                             (แก้ไขรูป)
+                                        </button>
+                                        <span>•</span>
+                                        <button type="button" 
+                                                @click="item.use_template = !(item.use_template !== false)"
+                                                title="คลิกเพื่อสลับระหว่างใส่กรอบ template หรือใช้รูปต้นฉบับ"
+                                                class="text-[10px] px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer font-sans"
+                                                :class="item.use_template !== false ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'">
+                                            <span x-text="item.use_template !== false ? '🎨 ใส่กรอบ' : '🖼️ รูปต้นฉบับ'"></span>
                                         </button>
                                     </div>
                                     <!-- Option Name input when in variations mode -->
@@ -1558,6 +1588,7 @@
                 renderedCoverUrl: null,
                 generatingPreview: false,
                 customBadgeText: 'มีสต็อกพร้อมส่งทันที',
+                customUseTemplate: true,
                 exporting: false,
                 downloadUrl: null,
 
@@ -2189,6 +2220,7 @@
                             price: this.getSuggestedPrice(p),
                             brand: p.brand || p.manufacturer,
                             image: p.image || (p.images && p.images[0]),
+                            use_template: true,
                             stock: p.stock?.stockLevel || p.stock || 0
                         });
                     }
@@ -2260,6 +2292,12 @@
                         this.excludedImageIndices = [];
                     }
 
+                    if (existingInQueue && existingInQueue.use_template !== undefined) {
+                        this.customUseTemplate = existingInQueue.use_template !== false;
+                    } else {
+                        this.customUseTemplate = true;
+                    }
+
                     try {
                         const res = await fetch(`/api/product-images/${sku}`, { headers: this.getHeaders() });
                         if (res.ok) {
@@ -2293,11 +2331,28 @@
                     this.generatePreviewCover();
                 },
 
+                onTemplateToggleChange() {
+                    if (!this.customUseTemplate) {
+                        const currentIdx = this.selectedImageIndex;
+                        this.renderedCoverUrl = (this.activePreviewItem?.all_images && this.activePreviewItem.all_images[currentIdx]) || this.activePreviewItem?.image;
+                        this.generatingPreview = false;
+                    } else {
+                        this.generatePreviewCover();
+                    }
+                },
+
                 async generatePreviewCover() {
                     if (!this.activePreviewItem) return;
-                    this.generatingPreview = true;
                     const currentIdx = this.selectedImageIndex;
                     const imgUrl = (this.activePreviewItem.all_images && this.activePreviewItem.all_images[currentIdx]) || this.activePreviewItem.image;
+
+                    if (!this.customUseTemplate) {
+                        this.renderedCoverUrl = imgUrl;
+                        this.generatingPreview = false;
+                        return;
+                    }
+
+                    this.generatingPreview = true;
                     const sku = this.activePreviewItem.sku || this.activePreviewItem.code;
                     const brand = this.activePreviewItem.brand || this.activePreviewItem.manufacturer;
 
@@ -2351,6 +2406,7 @@
                         this.selectedItems[existingIndex].selected_images = orderedImgs;
                         this.selectedItems[existingIndex].excluded_indices = [...this.excludedImageIndices];
                         this.selectedItems[existingIndex].badge = this.customBadgeText;
+                        this.selectedItems[existingIndex].use_template = (this.customUseTemplate !== false);
                     } else {
                         this.selectedItems.push({
                             sku: sku,
@@ -2362,6 +2418,7 @@
                             selected_images: orderedImgs,
                             excluded_indices: [...this.excludedImageIndices],
                             badge: this.customBadgeText,
+                            use_template: (this.customUseTemplate !== false),
                             stock: this.activePreviewItem.stock?.stockLevel || this.activePreviewItem.stock || 0
                         });
                     }
@@ -2384,7 +2441,8 @@
                                 selected_image: item.selected_image || item.image,
                                 selected_images: (item.selected_images && item.selected_images.length > 0)
                                     ? item.selected_images
-                                    : (item.selected_image ? [item.selected_image] : undefined)
+                                    : (item.selected_image ? [item.selected_image] : undefined),
+                                use_template: item.use_template !== false
                             })),
                             shop_name: this.shopName,
                             is_variation_group: isVar,

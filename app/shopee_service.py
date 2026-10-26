@@ -32,8 +32,38 @@ def clean_html(text):
     text = re.sub(r'<[^>]+>', '', text)
     return text.strip()
 
-def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_name):
+def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_name, use_template=True):
     import hashlib
+    import requests
+
+    if not use_template:
+        url_hash = hashlib.md5(raw_img_url.encode('utf-8')).hexdigest()[:10]
+        raw_filename = f"raw_{sku}_{url_hash}.jpg"
+        local_raw_path = f"app/static/covers/{raw_filename}"
+        try:
+            if not os.path.exists(local_raw_path):
+                resp = requests.get(raw_img_url, timeout=12)
+                if resp.status_code == 200:
+                    with open(local_raw_path, 'wb') as f:
+                        f.write(resp.content)
+
+            # Tier 1: Cloudflare CDN
+            if os.path.exists(local_raw_path):
+                uploaded_cdn = upload_to_cdn(local_raw_path)
+                if uploaded_cdn and uploaded_cdn.startswith('http'):
+                    return (img_idx, uploaded_cdn)
+
+                # Tier 2: Public Render server URL
+                render_url = f"https://megatool-yrho.onrender.com/static/covers/{raw_filename}"
+                return (img_idx, render_url)
+        except Exception as e:
+            print(f"Error processing raw image for {sku} {img_idx}:", e)
+
+        # Tier 3: Direct original KTW image URL
+        if raw_img_url and raw_img_url.startswith('http'):
+            return (img_idx, raw_img_url)
+        return (img_idx, None)
+
     url_hash = hashlib.md5(f"{raw_img_url}_{brand}_{badge_text}_{shop_name}".encode('utf-8')).hexdigest()[:10]
     local_img_path = f"app/static/covers/{sku}_{url_hash}.jpg"
     filename = f"{sku}_{url_hash}.jpg"
@@ -182,10 +212,11 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                 raw_images.insert(0, selected_cover)
             raw_images = raw_images[:9]
 
+            use_template = item_info.get('use_template', True)
             cdn_results = {}
             with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
                 future_to_idx = {
-                    executor.submit(_process_single_image, u, idx, sku, brand, badge_text, shop_name): idx
+                    executor.submit(_process_single_image, u, idx, sku, brand, badge_text, shop_name, use_template=use_template): idx
                     for idx, u in enumerate(raw_images)
                 }
                 for fut in concurrent.futures.as_completed(future_to_idx):
@@ -378,10 +409,11 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
             
             raw_images = raw_images[:9]
 
+            use_template = item_info.get('use_template', True)
             cdn_results = {}
             with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
                 future_to_idx = {
-                    executor.submit(_process_single_image, u, idx, sku, brand, badge_text, shop_name): idx
+                    executor.submit(_process_single_image, u, idx, sku, brand, badge_text, shop_name, use_template=use_template): idx
                     for idx, u in enumerate(raw_images)
                 }
                 for fut in concurrent.futures.as_completed(future_to_idx):
