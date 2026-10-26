@@ -669,9 +669,9 @@
                             <!-- Card Actions -->
                             <div class="p-4 pt-0 grid grid-cols-2 gap-2">
                                 <button @click="openCoverPreview(p)" 
-                                        class="px-2.5 py-2 rounded-xl text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all flex items-center justify-center space-x-1">
-                                    <i data-lucide="image" class="w-3.5 h-3.5"></i>
-                                    <span>ดูรูปที่แต่ง</span>
+                                        class="px-2.5 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all flex items-center justify-center space-x-1 shadow-xs cursor-pointer">
+                                    <i data-lucide="layout-grid" class="w-3.5 h-3.5 text-orange-600"></i>
+                                    <span>แต่งรูป / รวมรูป</span>
                                 </button>
                                 
                                 <button @click="toggleSelectItem(p)" 
@@ -1423,25 +1423,24 @@
                             </div>
 
                             <!-- FEATURE 1: AUTO MULTI-PHOTO COLLAGE TOOL -->
-                            <div class="mt-3.5 p-3.5 bg-slate-50 border border-slate-200/90 rounded-2xl">
+                            <div class="mt-4 p-4 bg-gradient-to-br from-amber-50/70 via-orange-50/50 to-white border-2 border-orange-200 rounded-2xl shadow-xs">
                                 <div class="flex items-center justify-between mb-1.5">
-                                    <div class="flex items-center space-x-1.5">
-                                        <span class="text-xs font-bold text-slate-800 flex items-center space-x-1">
-                                            <span>🖼️ รวมรูปเป็นภาพเดียว (อุปกรณ์ครบชุด / Collage)</span>
-                                        </span>
-                                        <span class="text-[10px] bg-orange-100 text-orange-700 font-bold px-1.5 py-0.2 rounded-md">ฟังก์ชันใหม่</span>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="w-6 h-6 rounded-lg bg-orange-600 text-white flex items-center justify-center text-xs font-bold">🖼️</span>
+                                        <span class="text-xs font-bold text-slate-900">รวมรูปเป็นภาพเดียว (อุปกรณ์ในกล่องครบชุด / Collage)</span>
                                     </div>
-                                    <span class="text-[11px] font-mono text-slate-400" x-text="'เลือก ' + collageSelectedIndices.length + ' / 4 รูป'"></span>
+                                    <span class="text-[11px] font-mono font-bold text-orange-600 bg-white px-2 py-0.5 rounded-full border border-orange-200 shadow-xs" 
+                                          x-text="'เลือก ' + collageSelectedIndices.length + ' / 4 รูป'"></span>
                                 </div>
-                                <p class="text-[11px] text-slate-500 mb-2 leading-relaxed">
-                                    คลิกเลือก 2 - 4 รูปด้านล่าง (เช่น ตัวเครื่อง + อุปกรณ์ + กล่อง) เพื่อรวมเป็น 1 รูปพร้อมหมายเลขชี้ชัดเจน
+                                <p class="text-[11px] text-slate-600 mb-2.5 leading-relaxed">
+                                    💡 <strong>วิธีใช้:</strong> คลิกเลือก 2 - 4 รูปด้านล่าง (เช่น ตัวเครื่อง + ของแถม + กล่อง) แล้วกดปุ่ม <strong>"⚡ รวมภาพทันที"</strong> ระบบจะรวมเป็น 1 ภาพพร้อมหมายเลขชี้ชัดเจน
                                 </p>
 
-                                <div class="flex items-center space-x-2 overflow-x-auto pb-1">
+                                <div class="flex items-center space-x-2 overflow-x-auto pb-1.5 pt-0.5">
                                     <template x-for="(img, idx) in activePreviewItem?.all_images || []" :key="'col-'+idx">
                                         <button type="button" @click="toggleCollageImage(idx)"
-                                                :class="collageSelectedIndices.includes(idx) ? 'border-orange-500 ring-2 ring-orange-400 bg-orange-50 scale-105' : 'border-slate-200 bg-white opacity-70 hover:opacity-100'"
-                                                class="w-11 h-11 rounded-xl border-2 p-1 flex items-center justify-center relative shrink-0 transition-all cursor-pointer">
+                                                :class="collageSelectedIndices.includes(idx) ? 'border-orange-500 ring-2 ring-orange-400 bg-orange-50 scale-105 shadow-sm' : 'border-slate-200 bg-white opacity-70 hover:opacity-100'"
+                                                class="w-12 h-12 rounded-xl border-2 p-1 flex items-center justify-center relative shrink-0 transition-all cursor-pointer">
                                             <img :src="img" class="max-h-full max-w-full object-contain pointer-events-none">
                                             <span x-show="collageSelectedIndices.includes(idx)" 
                                                   class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-orange-600 text-white font-bold text-[9px] flex items-center justify-center shadow-xs"
@@ -1451,13 +1450,13 @@
                                     </template>
                                 </div>
 
-                                <div class="mt-2.5 flex items-center space-x-2">
+                                <div class="mt-3 flex items-center space-x-2">
                                     <input type="text" x-model="collageTitle" placeholder="เช่น อุปกรณ์มาตรฐานในกล่องครบชุด"
-                                           class="flex-1 px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-xl outline-none focus:border-orange-500">
+                                           class="flex-1 px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-200">
                                     <button type="button" @click="generateCollageAction()" :disabled="collageSelectedIndices.length < 2 || generatingCollage"
-                                            class="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center space-x-1.5 shrink-0 cursor-pointer">
+                                            class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center space-x-1.5 shrink-0 cursor-pointer">
                                         <span x-show="!generatingCollage">⚡ รวมภาพทันที</span>
-                                        <span x-show="generatingCollage" class="animate-spin">⏳</span>
+                                        <span x-show="generatingCollage" class="animate-spin">⏳ กำลังรวมภาพ...</span>
                                     </button>
                                 </div>
                             </div>
@@ -1629,8 +1628,10 @@
                                         <span class="text-emerald-600 font-bold" x-text="'สต็อก: ' + item.stock"></span>
                                         <span>•</span>
                                         <span class="text-orange-600 font-sans font-bold" x-text="(item.selected_images?.length || 1) + ' รูป'"></span>
-                                        <button @click="showQueueModal = false; openCoverPreview(item)" title="ปรับแต่งรูปปกและตัดรูปออก" class="text-blue-500 hover:text-blue-700 underline font-sans ml-1">
-                                            (แก้ไขรูป)
+                                        <button type="button" @click="showQueueModal = false; openCoverPreview(item)" 
+                                                title="คลิกเพื่อแต่งรูปปก หรือรวมรูปเครื่อง+อุปกรณ์เป็นภาพเดียว" 
+                                                class="text-[10px] px-2 py-0.5 rounded-md font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-all font-sans ml-1 cursor-pointer">
+                                            🖼️ แต่งรูป / รวมรูปอุปกรณ์
                                         </button>
                                         <span>•</span>
                                         <button type="button" 

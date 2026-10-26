@@ -2,6 +2,7 @@ import os
 import io
 import json
 import time
+import re
 import requests
 from PIL import Image, ImageDraw, ImageFont
 
@@ -293,6 +294,8 @@ def upload_to_cdn(image_path, max_retries=1):
 def fetch_image_safe(url_or_path):
     if not url_or_path:
         raise ValueError("Empty image path or url")
+    if url_or_path.startswith('/ktwcommercewebservices/v2'):
+        url_or_path = url_or_path.replace('/ktwcommercewebservices/v2', '')
     if url_or_path.startswith('/'):
         url_or_path = f"https://shop.ktw.co.th{url_or_path}"
     if url_or_path.startswith('http'):
@@ -446,11 +449,43 @@ def generate_collage(
 # FEATURE 2: AUTO SPEC COMPARISON MATRIX CARD
 # ==============================================================================
 
+def extract_model_label(name, sku):
+    clean_name = re.sub(r'\[.*?\]', '', name).strip()
+    words = clean_name.split()
+    sku_code = sku.split('-')[-1] if '-' in sku else sku
+    model_code = words[0] if words else sku_code
+    
+    sub = ""
+    bar_m = re.search(r'(\d+\s*บาร์)', clean_name)
+    watt_m = re.search(r'(\d+\s*[wWวัตต์]+)', clean_name)
+    volt_m = re.search(r'(\d+\s*[vVโวลต์]+)', clean_name)
+    inch_m = re.search(r'(\d+\s*นิ้ว)', clean_name)
+    pack_m = re.search(r'(\d+\s*ม้วน)', clean_name)
+    
+    if bar_m:
+        sub = f"แรงดัน {bar_m.group(1)}"
+    elif watt_m:
+        sub = f"กำลังไฟ {watt_m.group(1)}"
+    elif volt_m:
+        sub = f"ระบบ {volt_m.group(1)}"
+    elif inch_m:
+        sub = f"ขนาด {inch_m.group(1)}"
+    elif pack_m:
+        sub = f"แพ็ค {pack_m.group(1)}"
+    elif len(words) > 1:
+        sub = " ".join(words[1:3])
+        if len(sub) > 14:
+            sub = sub[:12] + "..."
+            
+    return model_code, sub
+
 def extract_key_specs(detail):
     specs = {}
     if not detail:
         return specs
-    classifs = detail.get('classifications', [])
+        
+    # 1. From SAP Classifications (Makita & SAP items)
+    classifs = detail.get('classifications', []) or []
     for c in classifs:
         for f in c.get('features', []):
             name = f.get('name') or f.get('description') or ''
@@ -464,18 +499,55 @@ def extract_key_specs(detail):
                 elif 'เส้นผ่านศูนย์กลาง' in name or 'grinding_diameter' in f.get('code', ''):
                     specs['ขนาดใบตัด/เจียร์'] = val_str
                 elif 'น้ำหนัก' in name or 'weight' in f.get('code', ''):
-                    specs['น้ำหนักเครื่อง'] = val_str
+                    specs['น้ำหนักตัวเครื่อง'] = val_str
                 elif 'ขนาดแกน' in name or 'spindle' in f.get('code', ''):
                     specs['ขนาดแกนเกลียว'] = val_str
                 elif 'สายไฟ' in name or 'cord' in f.get('code', ''):
                     specs['ความยาวสายไฟ'] = val_str
+                elif 'แรงดัน' in name:
+                    specs['แรงดันสูงสุด'] = val_str
+                elif 'อัตราการไหล' in name or 'ปริมาณน้ำ' in name:
+                    specs['อัตราการไหลของน้ำ'] = val_str
 
-    if 'น้ำหนักเครื่อง' not in specs:
+    # 2. From Description bullet points (POLO, DongCheng, consumables, etc.)
+    desc = detail.get('description', '') or ''
+    clean_desc = re.sub(r'<br\s*/?>', '\n', desc, flags=re.IGNORECASE)
+    clean_desc = re.sub(r'</p>', '\n', clean_desc, flags=re.IGNORECASE)
+    clean_desc = re.sub(r'<[^>]+>', '', clean_desc)
+
+    for line in clean_desc.split('\n'):
+        line = line.strip().lstrip('•').lstrip('-').lstrip('*').strip()
+        if not line:
+            continue
+        if ':' in line or '：' in line:
+            parts = re.split(r'[:：]', line, maxsplit=1)
+            k = parts[0].strip()
+            v = parts[1].strip()
+            if k and v and len(k) < 30 and len(v) < 60:
+                if 'กำลังไฟ' in k and 'กำลังไฟฟ้า' not in specs:
+                    specs['กำลังไฟฟ้า'] = v
+                elif 'แรงดัน' in k and 'แรงดันสูงสุด' not in specs:
+                    specs['แรงดันสูงสุด'] = v
+                elif ('ปริมาณน้ำ' in k or 'อัตราการไหล' in k or 'อัตราการฉีด' in k) and 'อัตราการไหลของน้ำ' not in specs:
+                    specs['อัตราการไหลของน้ำ'] = v
+                elif 'สาย' in k and 'ความยาวสายฉีด' not in specs:
+                    specs['ความยาวสายฉีด'] = v
+                elif 'น้ำหนัก' in k and 'น้ำหนักตัวเครื่อง' not in specs:
+                    specs['น้ำหนักตัวเครื่อง'] = v
+                elif 'มอเตอร์' in k and 'ประเภทมอเตอร์' not in specs:
+                    specs['ประเภทมอเตอร์'] = v
+                elif 'ความเร็วรอบ' in k and 'ความเร็วรอบ' not in specs:
+                    specs['ความเร็วรอบ'] = v
+        elif 'Auto Stop' in line and 'ระบบตัดการทำงาน' not in specs:
+            specs['ระบบตัดการทำงาน'] = 'ระบบ Auto Stop'
+
+    # 3. Fallback from conversionUnits if weight missing
+    if 'น้ำหนักตัวเครื่อง' not in specs:
         units = detail.get('conversionUnits', [])
         if units:
             net_w = units[0].get('netWeight', 0)
             if net_w:
-                specs['น้ำหนักเครื่อง'] = f"{round(net_w / 1000.0, 2)} กก."
+                specs['น้ำหนักตัวเครื่อง'] = f"{round(net_w / 1000.0, 2)} กก."
                 
     return specs
 
@@ -485,11 +557,7 @@ def generate_comparison_card(
     parent_title="เปรียบเทียบสเปกและฟังก์ชันแต่ละรุ่น",
     shop_name="MEGATOOL"
 ):
-    """
-    items: list of dicts: [{'sku': '...', 'name': '...', 'price': 1550, 'image': '...', 'variation_name': '...'}]
-    Generates a crisp 1200x1200px comparison matrix card
-    """
-    from app.ktw_service import get_product_detail
+    from app.ktw_service import get_product_detail, extract_product_images
 
     CANVAS_SIZE = 1200
     canvas = Image.new("RGBA", (CANVAS_SIZE, CANVAS_SIZE), (255, 255, 255, 255))
@@ -500,13 +568,14 @@ def generate_comparison_card(
 
     font_title = load_font("leelawdb.ttf", 34)
     font_sub = load_font("leelawdb.ttf", 20)
-    font_model = load_font("leelawdb.ttf", 22)
+    font_model = load_font("leelawdb.ttf", 20)
+    font_model_sub = load_font("leelawdb.ttf", 16)
     font_price = load_font("tahomabd.ttf", 26)
     font_label = load_font("leelawdb.ttf", 20)
-    font_val = load_font("leelawdb.ttf", 19)
+    font_val = load_font("leelawdb.ttf", 18)
     font_footer = load_font("leelawdb.ttf", 19)
 
-    # 1. Header (y: 25 to 110)
+    # 1. Header (y: 30 to 115)
     header_box = [30, 30, CANVAS_SIZE - 30, 115]
     draw.rounded_rectangle(header_box, radius=18, fill=(15, 23, 42, 255))
 
@@ -520,43 +589,57 @@ def generate_comparison_card(
 
     processed_items = []
     all_spec_keys = []
-    default_keys = ['กำลังไฟฟ้า', 'ความเร็วรอบ', 'ขนาดใบตัด/เจียร์', 'น้ำหนักเครื่อง', 'ขนาดแกนเกลียว', 'ความยาวสายไฟ']
+    preferred_order = [
+        'แรงดันสูงสุด', 'กำลังไฟฟ้า', 'อัตราการไหลของน้ำ', 'ความเร็วรอบ',
+        'ขนาดใบตัด/เจียร์', 'ความยาวสายฉีด', 'ระบบตัดการทำงาน', 'น้ำหนักตัวเครื่อง'
+    ]
 
     for item in items[:4]:
         sku = item.get('sku')
         detail = get_product_detail(sku)
         specs = extract_key_specs(detail)
+        
         for k in specs.keys():
             if k not in all_spec_keys:
                 all_spec_keys.append(k)
         
+        # Reliable Image Fetching: use extract_product_images if available
         img_url = item.get('image') or item.get('selected_image')
-        if not img_url and detail:
-            imgs = detail.get('images', [])
+        if detail:
+            imgs = extract_product_images(detail)
             if imgs:
-                img_url = imgs[0].get('url')
-
+                img_url = imgs[0]
+        
         thumb_im = None
         if img_url:
             try:
                 raw_im = fetch_image_safe(img_url)
                 thumb_im = trim_white_space(raw_im)
             except Exception as e:
-                print("Error fetching thumb:", e)
+                print(f"Error fetching thumb for {sku}:", e)
+
+        raw_name = item.get('name') or sku
+        model_code, model_sub = extract_model_label(raw_name, sku)
 
         processed_items.append({
             'sku': sku,
-            'name': item.get('variation_name') or item.get('name') or sku,
+            'name': raw_name,
+            'model_code': model_code,
+            'model_sub': model_sub,
             'price': item.get('price', 0),
             'specs': specs,
             'thumb': thumb_im
         })
 
-    if not all_spec_keys:
-        all_spec_keys = ['รหัสสินค้า (SKU)', 'ราคาจำหน่าย', 'ความเหมาะสมในการใช้งาน', 'มาตรฐานการรับประกัน']
-    else:
-        all_spec_keys = [k for k in default_keys if k in all_spec_keys] + [k for k in all_spec_keys if k not in default_keys]
-        all_spec_keys = all_spec_keys[:6]
+    # Sort specs by preferred order
+    ordered_keys = [k for k in preferred_order if k in all_spec_keys]
+    for k in all_spec_keys:
+        if k not in ordered_keys:
+            ordered_keys.append(k)
+    ordered_keys = ordered_keys[:6]
+
+    if not ordered_keys:
+        ordered_keys = ['กำลังไฟฟ้า', 'ความเร็วรอบ / แรงดัน', 'ขนาด / ความจุ', 'น้ำหนักตัวเครื่อง']
 
     tbl_top = 135
     tbl_bottom = 1115
@@ -574,45 +657,52 @@ def generate_comparison_card(
     draw.rounded_rectangle([tbl_left, tbl_top, tbl_right, tbl_top + thumb_row_h], radius=16, fill=(248, 250, 252, 255))
     draw.line([tbl_left, tbl_top + thumb_row_h, tbl_right, tbl_top + thumb_row_h], fill=(226, 232, 240, 255), width=2)
 
-    draw.text((tbl_left + 25, tbl_top + 120), "เปรียบเทียบ", font=font_title, fill=(30, 41, 59, 255))
-    draw.text((tbl_left + 25, tbl_top + 165), "สเปกแต่ละรุ่น", font=font_model, fill=(100, 116, 139, 255))
+    draw.text((tbl_left + 25, tbl_top + 115), "เปรียบเทียบ", font=font_title, fill=(30, 41, 59, 255))
+    draw.text((tbl_left + 25, tbl_top + 160), "สเปกแต่ละรุ่น", font=font_label, fill=(100, 116, 139, 255))
 
     for idx, m in enumerate(processed_items):
         col_x = tbl_left + label_col_w + (idx * model_col_w)
         draw.line([col_x, tbl_top, col_x, tbl_bottom], fill=(226, 232, 240, 255), width=2)
 
+        # 1. Product Thumbnail
         if m['thumb']:
             tw, th = m['thumb'].size
-            max_th = 150
-            scale = min((model_col_w - 40) / tw, max_th / th)
+            max_th = 135
+            scale = min((model_col_w - 35) / tw, max_th / th)
             new_w = int(tw * scale)
             new_h = int(th * scale)
             r_im = m['thumb'].resize((new_w, new_h), Image.Resampling.LANCZOS)
             px = col_x + (model_col_w - new_w) // 2
-            py = tbl_top + 15 + (max_th - new_h) // 2
+            py = tbl_top + 12 + (max_th - new_h) // 2
             canvas.paste(r_im, (px, py), r_im)
 
-        m_name = m['name']
-        if len(m_name) > 22:
-            m_name = m_name[:20] + "..."
-        pill_w = min(model_col_w - 20, 260)
+        # 2. Model Code Tag (Line 1: Bold Model Name Pill)
+        m_code = m['model_code']
+        pill_w = min(model_col_w - 16, 220)
         pill_x1 = col_x + (model_col_w - pill_w) // 2
-        pill_y1 = tbl_top + 185
-        draw.rounded_rectangle([pill_x1, pill_y1, pill_x1 + pill_w, pill_y1 + 40], radius=10, fill=(234, 88, 12, 255))
-        nb = font_model.getbbox(m_name)
+        pill_y1 = tbl_top + 155
+        draw.rounded_rectangle([pill_x1, pill_y1, pill_x1 + pill_w, pill_y1 + 32], radius=8, fill=(234, 88, 12, 255))
+        nb = font_model.getbbox(m_code)
         nw = nb[2] - nb[0]
-        draw.text((pill_x1 + (pill_w - nw) // 2, pill_y1 + 7), m_name, font=font_model, fill=(255, 255, 255, 255))
+        draw.text((pill_x1 + (pill_w - nw) // 2, pill_y1 + 5), m_code, font=font_model, fill=(255, 255, 255, 255))
 
+        # Line 2: Subtitle / Spec tag (e.g. แรงดัน 90 บาร์)
+        if m['model_sub']:
+            sb = font_model_sub.getbbox(m['model_sub'])
+            sw = sb[2] - sb[0]
+            draw.text((col_x + (model_col_w - sw) // 2, tbl_top + 192), m['model_sub'], font=font_model_sub, fill=(100, 116, 139, 255))
+
+        # Price
         price_str = f"฿{m['price']:,.0f}" if m['price'] else "-"
         pb = font_price.getbbox(price_str)
         pw = pb[2] - pb[0]
-        draw.text((col_x + (model_col_w - pw) // 2, tbl_top + 238), price_str, font=font_price, fill=(239, 28, 37, 255))
+        draw.text((col_x + (model_col_w - pw) // 2, tbl_top + 235), price_str, font=font_price, fill=(239, 28, 37, 255))
 
     rows_h = (tbl_bottom - (tbl_top + thumb_row_h))
-    row_count = len(all_spec_keys) + 1
+    row_count = len(ordered_keys) + 1
     row_h = rows_h // row_count
 
-    for r_idx, key in enumerate(all_spec_keys):
+    for r_idx, key in enumerate(ordered_keys):
         ry1 = tbl_top + thumb_row_h + (r_idx * row_h)
         ry2 = ry1 + row_h
         
@@ -620,26 +710,26 @@ def generate_comparison_card(
         draw.rectangle([tbl_left + 2, ry1, tbl_right - 2, ry2], fill=bg_color)
         draw.line([tbl_left, ry2, tbl_right, ry2], fill=(226, 232, 240, 255), width=1)
 
-        draw.text((tbl_left + 25, ry1 + (row_h - 24) // 2), f"• {key}", font=font_label, fill=(51, 65, 85, 255))
+        draw.text((tbl_left + 25, ry1 + (row_h - 22) // 2), f"• {key}", font=font_label, fill=(51, 65, 85, 255))
 
         for idx, m in enumerate(processed_items):
             col_x = tbl_left + label_col_w + (idx * model_col_w)
             val = m['specs'].get(key, "-")
-            if len(val) > 28:
-                val = val[:26] + "..."
+            if len(val) > 26:
+                val = val[:24] + "..."
             vb = font_val.getbbox(val)
             vw = vb[2] - vb[0]
-            draw.text((col_x + (model_col_w - vw) // 2, ry1 + (row_h - 22) // 2), val, font=font_val, fill=(15, 23, 42, 255))
+            draw.text((col_x + (model_col_w - vw) // 2, ry1 + (row_h - 20) // 2), val, font=font_val, fill=(15, 23, 42, 255))
 
-    last_ry1 = tbl_top + thumb_row_h + (len(all_spec_keys) * row_h)
+    last_ry1 = tbl_top + thumb_row_h + (len(ordered_keys) * row_h)
     draw.rectangle([tbl_left + 2, last_ry1, tbl_right - 2, tbl_bottom - 2], fill=(241, 245, 249, 255))
-    draw.text((tbl_left + 25, last_ry1 + (row_h - 24) // 2), "• การรับประกันศูนย์", font=font_label, fill=(51, 65, 85, 255))
+    draw.text((tbl_left + 25, last_ry1 + (row_h - 22) // 2), "• การรับประกันศูนย์", font=font_label, fill=(51, 65, 85, 255))
     for idx, m in enumerate(processed_items):
         col_x = tbl_left + label_col_w + (idx * model_col_w)
         w_text = "ของแท้ 100% ประกันศูนย์"
         wb = font_val.getbbox(w_text)
         ww = wb[2] - wb[0]
-        draw.text((col_x + (model_col_w - ww) // 2, last_ry1 + (row_h - 22) // 2), w_text, font=font_val, fill=(16, 185, 129, 255))
+        draw.text((col_x + (model_col_w - ww) // 2, last_ry1 + (row_h - 20) // 2), w_text, font=font_val, fill=(16, 185, 129, 255))
 
     for idx in range(num_models):
         col_x = tbl_left + label_col_w + (idx * model_col_w)
