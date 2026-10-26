@@ -1705,7 +1705,7 @@
                                 const serverItem = serverMap.get(sku);
 
                                 if (!serverItem) {
-                                    // 1. Item missing on server (e.g. after container restart) -> Re-sync to server
+                                    // 1. Item completely missing on server -> Re-sync to server
                                     if (this.currentUser && localItem.shopee_url) {
                                         try {
                                             await fetch('/api/listed', {
@@ -1722,24 +1722,43 @@
                                         }
                                     }
                                 } else {
-                                    // 2. Item exists: Check if local edit has newer price
-                                    const localTime = new Date(localItem.updated_at || 0).getTime();
-                                    const serverTime = new Date(serverItem.updated_at || 0).getTime();
-                                    if (localTime > serverTime && localItem.price && localItem.price !== serverItem.price) {
-                                        serverItem.price = localItem.price;
-                                        serverItem.updated_at = localItem.updated_at;
-                                        if (this.currentUser) {
+                                    // 2. Both exist: Check if local has real URL vs server dummy placeholder
+                                    const isLocalRealUrl = localItem.shopee_url && localItem.shopee_url.length > 22 && localItem.shopee_url !== 'https://shopee.co.th' && localItem.shopee_url !== 'https://shopee.co.th/';
+                                    const isServerDummy = !serverItem.shopee_url || serverItem.shopee_url === 'https://shopee.co.th' || serverItem.shopee_url === 'https://shopee.co.th/';
+
+                                    const localTime = new Date(localItem.updated_at || 0).getTime() || 0;
+                                    const serverTime = new Date(serverItem.updated_at || 0).getTime() || 0;
+
+                                    // If local has real product URL and server only has dummy root domain, OR local edit is newer
+                                    const localHasNewerChanges = (localTime > serverTime) || (isLocalRealUrl && isServerDummy);
+
+                                    if (localHasNewerChanges) {
+                                        let itemChanged = false;
+                                        if (isLocalRealUrl && serverItem.shopee_url !== localItem.shopee_url) {
+                                            serverItem.shopee_url = localItem.shopee_url;
+                                            itemChanged = true;
+                                        }
+                                        if (localItem.price && localItem.price !== serverItem.price) {
+                                            serverItem.price = localItem.price;
+                                            itemChanged = true;
+                                        }
+                                        if (localItem.variation_name !== undefined && localItem.variation_name !== serverItem.variation_name) {
+                                            serverItem.variation_name = localItem.variation_name;
+                                            itemChanged = true;
+                                        }
+
+                                        if (itemChanged && this.currentUser) {
                                             try {
-                                                await fetch('/api/listed/price', {
+                                                await fetch('/api/listed', {
                                                     method: 'POST',
                                                     headers: {
                                                         'Content-Type': 'application/json',
                                                         ...this.getHeaders()
                                                     },
-                                                    body: JSON.stringify({ sku: sku, price: localItem.price })
+                                                    body: JSON.stringify(serverItem)
                                                 });
                                             } catch (err) {
-                                                console.error('Sync price to server error:', err);
+                                                console.error('Auto-sync repaired item to server error:', err);
                                             }
                                         }
                                     }
@@ -1877,9 +1896,15 @@
                         const cost = (product.price && product.price.value) ? product.price.value : (product.cost_price || 0);
                         const rawPrice = (typeof product.price === 'number' || (typeof product.price === 'string' && !isNaN(product.price) && product.price !== '')) ? parseFloat(product.price) : 0;
                         const initialPrice = rawPrice > 0 ? rawPrice : (this.getSuggestedPrice(product) || cost);
+                        
+                        let currentUrl = product.shopee_url || '';
+                        if (currentUrl === 'https://shopee.co.th' || currentUrl === 'https://shopee.co.th/') {
+                            currentUrl = '';
+                        }
+
                         this.attachForm = {
                             sku: product.sku || product.code || '',
-                            shopee_url: product.shopee_url || '',
+                            shopee_url: currentUrl,
                             variation_name: product.variation_name || '',
                             name: product.name || '',
                             brand: product.brand || product.manufacturer || '',

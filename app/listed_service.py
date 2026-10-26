@@ -95,7 +95,7 @@ def update_listed_product_price(sku: str, price: float) -> Optional[dict]:
     clean_sku = sku.strip()
     if clean_sku in all_items:
         all_items[clean_sku]["price"] = round(float(price), 2)
-        all_items[clean_sku]["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        all_items[clean_sku]["updated_at"] = datetime.now().isoformat()
         tmp_file = DATA_FILE + ".tmp"
         with open(tmp_file, "w", encoding="utf-8") as f:
             json.dump(all_items, f, ensure_ascii=False, indent=2)
@@ -137,7 +137,7 @@ def save_listed_product(sku: str, shopee_url: str, name: str = "", brand: str = 
         stock_val = 0
         
     all_items = get_all_listed(refresh_stock=False)
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = datetime.now().isoformat()
     
     item_data = {
         "sku": clean_sku,
