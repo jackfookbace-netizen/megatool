@@ -1421,6 +1421,47 @@
                                     </div>
                                 </template>
                             </div>
+
+                            <!-- FEATURE 1: AUTO MULTI-PHOTO COLLAGE TOOL -->
+                            <div class="mt-3.5 p-3.5 bg-slate-50 border border-slate-200/90 rounded-2xl">
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <div class="flex items-center space-x-1.5">
+                                        <span class="text-xs font-bold text-slate-800 flex items-center space-x-1">
+                                            <span>🖼️ รวมรูปเป็นภาพเดียว (อุปกรณ์ครบชุด / Collage)</span>
+                                        </span>
+                                        <span class="text-[10px] bg-orange-100 text-orange-700 font-bold px-1.5 py-0.2 rounded-md">ฟังก์ชันใหม่</span>
+                                    </div>
+                                    <span class="text-[11px] font-mono text-slate-400" x-text="'เลือก ' + collageSelectedIndices.length + ' / 4 รูป'"></span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 mb-2 leading-relaxed">
+                                    คลิกเลือก 2 - 4 รูปด้านล่าง (เช่น ตัวเครื่อง + อุปกรณ์ + กล่อง) เพื่อรวมเป็น 1 รูปพร้อมหมายเลขชี้ชัดเจน
+                                </p>
+
+                                <div class="flex items-center space-x-2 overflow-x-auto pb-1">
+                                    <template x-for="(img, idx) in activePreviewItem?.all_images || []" :key="'col-'+idx">
+                                        <button type="button" @click="toggleCollageImage(idx)"
+                                                :class="collageSelectedIndices.includes(idx) ? 'border-orange-500 ring-2 ring-orange-400 bg-orange-50 scale-105' : 'border-slate-200 bg-white opacity-70 hover:opacity-100'"
+                                                class="w-11 h-11 rounded-xl border-2 p-1 flex items-center justify-center relative shrink-0 transition-all cursor-pointer">
+                                            <img :src="img" class="max-h-full max-w-full object-contain pointer-events-none">
+                                            <span x-show="collageSelectedIndices.includes(idx)" 
+                                                  class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-orange-600 text-white font-bold text-[9px] flex items-center justify-center shadow-xs"
+                                                  x-text="collageSelectedIndices.indexOf(idx) + 1">
+                                            </span>
+                                        </button>
+                                    </template>
+                                </div>
+
+                                <div class="mt-2.5 flex items-center space-x-2">
+                                    <input type="text" x-model="collageTitle" placeholder="เช่น อุปกรณ์มาตรฐานในกล่องครบชุด"
+                                           class="flex-1 px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-xl outline-none focus:border-orange-500">
+                                    <button type="button" @click="generateCollageAction()" :disabled="collageSelectedIndices.length < 2 || generatingCollage"
+                                            class="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center space-x-1.5 shrink-0 cursor-pointer">
+                                        <span x-show="!generatingCollage">⚡ รวมภาพทันที</span>
+                                        <span x-show="generatingCollage" class="animate-spin">⏳</span>
+                                    </button>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
 
@@ -1538,6 +1579,38 @@
                             <input type="text" x-model="groupVariationTierName" placeholder="เช่น รุ่นสินค้า หรือ สี" maxlength="14"
                                    class="px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs outline-none focus:border-orange-500 w-44">
                             <span class="text-[11px] text-slate-400">ระบุชื่อตัวเลือกของแต่ละรุ่นด้านล่างได้เลยครับ</span>
+                        </div>
+
+                        <!-- FEATURE 2: AUTO COMPARISON MATRIX CARD TOOL -->
+                        <div class="pt-2 border-t border-slate-200/60">
+                            <div class="p-3 bg-white border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                                <div class="flex items-center space-x-2.5">
+                                    <div class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center text-sm font-bold shrink-0">
+                                        📊
+                                    </div>
+                                    <div>
+                                        <div class="flex items-center space-x-1.5">
+                                            <span class="font-bold text-slate-800 text-xs">รูปตารางเปรียบเทียบสเปก (แทรกเป็นรูปที่ 2 บน Shopee)</span>
+                                            <span class="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded">อัตโนมัติ</span>
+                                        </div>
+                                        <p class="text-[11px] text-slate-400 mt-0.5">
+                                            ดึงสเปกของทุกรุ่นในตะกร้ามาทำเป็นรูปตารางเปรียบเทียบ ช่วยให้ลูกค้าตัดสินใจซื้อง่ายขึ้น
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-2 shrink-0">
+                                    <template x-if="comparisonCardUrl">
+                                        <a :href="comparisonCardUrl" target="_blank" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all flex items-center space-x-1">
+                                            <span>👁️ ดูตาราง</span>
+                                        </a>
+                                    </template>
+                                    <button type="button" @click="generateComparisonAction()" :disabled="generatingComparison"
+                                            class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all flex items-center space-x-1 cursor-pointer">
+                                        <span x-show="!generatingComparison" x-text="comparisonCardUrl ? '🔄 อัปเดตตาราง' : '⚡ สร้างรูปตารางเปรียบเทียบ'"></span>
+                                        <span x-show="generatingComparison" class="animate-spin">⏳</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1680,6 +1753,11 @@
                 generatingPreview: false,
                 customBadgeText: 'มีสต็อกพร้อมส่งทันที',
                 customUseTemplate: true,
+                collageSelectedIndices: [],
+                collageTitle: 'อุปกรณ์มาตรฐานในกล่องครบชุด',
+                generatingCollage: false,
+                comparisonCardUrl: null,
+                generatingComparison: false,
                 exporting: false,
                 downloadUrl: null,
 
@@ -2564,6 +2642,102 @@
                     this.$nextTick(() => lucide.createIcons());
                 },
 
+                toggleCollageImage(idx) {
+                    const i = this.collageSelectedIndices.indexOf(idx);
+                    if (i > -1) {
+                        this.collageSelectedIndices.splice(i, 1);
+                    } else {
+                        if (this.collageSelectedIndices.length >= 4) {
+                            alert('สามารถเลือกได้สูงสุด 4 รูปเพื่อรวมเป็นภาพเดียวครับ');
+                            return;
+                        }
+                        this.collageSelectedIndices.push(idx);
+                    }
+                },
+
+                async generateCollageAction() {
+                    if (this.collageSelectedIndices.length < 2) {
+                        alert('กรุณาเลือกอย่างน้อย 2 รูปเพื่อรวมเป็นภาพเดียวครับ');
+                        return;
+                    }
+                    this.generatingCollage = true;
+                    try {
+                        const allImgs = this.activePreviewItem?.all_images || [this.activePreviewItem?.image];
+                        const selectedUrls = this.collageSelectedIndices.map(idx => allImgs[idx]).filter(Boolean);
+                        const sku = this.activePreviewItem.sku || this.activePreviewItem.code;
+                        
+                        const res = await fetch('/api/generate-collage', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', ...this.getHeaders() },
+                            body: JSON.stringify({
+                                sku: sku,
+                                image_urls: selectedUrls,
+                                title: this.collageTitle || 'อุปกรณ์มาตรฐานในชุดครบเซ็ต',
+                                shop_name: this.shopName
+                            })
+                        });
+                        
+                        if (res.ok) {
+                            const data = await res.json();
+                            const newUrl = data.cdn_url || data.collage_url;
+                            if (!this.activePreviewItem.all_images) {
+                                this.activePreviewItem.all_images = [...allImgs];
+                            }
+                            this.activePreviewItem.all_images.push(newUrl);
+                            this.selectedImageIndex = this.activePreviewItem.all_images.length - 1;
+                            this.renderedCoverUrl = newUrl;
+                            this.collageSelectedIndices = [];
+                            alert('✅ รวมภาพอุปกรณ์ครบชุดสำเร็จแล้ว! ระบบเพิ่มเข้าไปในรายการรูปของสินค้านี้เรียบร้อยครับ');
+                        } else {
+                            const err = await res.json();
+                            alert('เกิดข้อผิดพลาด: ' + (err.detail || 'ไม่สามารถสร้างรูปได้'));
+                        }
+                    } catch (e) {
+                        alert('เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + e);
+                    }
+                    this.generatingCollage = false;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                async generateComparisonAction() {
+                    if (this.selectedItems.length < 2) {
+                        alert('จำเป็นต้องมีสินค้าในตะกร้าอย่างน้อย 2 รุ่นเพื่อสร้างตารางเปรียบเทียบครับ');
+                        return;
+                    }
+                    this.generatingComparison = true;
+                    try {
+                        const payloadItems = this.selectedItems.map(item => ({
+                            sku: item.sku,
+                            name: item.variation_name || item.name,
+                            price: item.price,
+                            image: item.selected_image || item.image
+                        }));
+                        
+                        const res = await fetch('/api/generate-comparison', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', ...this.getHeaders() },
+                            body: JSON.stringify({
+                                items: payloadItems,
+                                parent_title: this.groupParentTitle || 'ตารางเปรียบเทียบสเปกแต่ละรุ่น',
+                                shop_name: this.shopName
+                            })
+                        });
+                        
+                        if (res.ok) {
+                            const data = await res.json();
+                            this.comparisonCardUrl = data.cdn_url || data.card_url;
+                            alert('✅ สร้างรูปตารางเปรียบเทียบสเปกสำเร็จแล้ว! ระบบจะแทรกเป็นรูปที่ 2 บน Shopee ให้อัตโนมัติครับ');
+                        } else {
+                            const err = await res.json();
+                            alert('เกิดข้อผิดพลาด: ' + (err.detail || 'ไม่สามารถสร้างรูปได้'));
+                        }
+                    } catch (e) {
+                        alert('เกิดข้อผิดพลาด: ' + e);
+                    }
+                    this.generatingComparison = false;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
                 addToQueueFromPreview() {
                     if (!this.activePreviewItem) return;
                     const sku = this.activePreviewItem.sku || this.activePreviewItem.code;
@@ -2629,6 +2803,7 @@
                             is_variation_group: isVar,
                             parent_title: this.groupParentTitle || undefined,
                             variation_group_name: this.groupVariationTierName || "รุ่น / ตัวเลือกสินค้า",
+                            comparison_card_url: isVar ? (this.comparisonCardUrl || undefined) : undefined,
                             filename: isVar ? `Shopee_Variations_Group_${Date.now()}.xlsx` : `Shopee_Mass_Upload_${Date.now()}.xlsx`
                         };
 

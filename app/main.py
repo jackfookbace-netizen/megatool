@@ -12,7 +12,7 @@ except Exception:
     pass
 
 from app.ktw_service import search_products, get_product_detail, extract_product_images, detect_brand_from_sku
-from app.image_service import generate_cover
+from app.image_service import generate_cover, generate_collage, generate_comparison_card, upload_to_cdn
 from app.shopee_service import export_shopee_batch
 from app.auth_service import verify_user, create_token, verify_token
 from app.listed_service import (
@@ -242,6 +242,76 @@ def api_preview_cover(req: PreviewRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class CollageRequest(BaseModel):
+    sku: str
+    image_urls: List[str]
+    title: Optional[str] = "อุปกรณ์มาตรฐานในชุดครบเซ็ต"
+    shop_name: Optional[str] = "MEGATOOL"
+
+@app.post("/api/generate-collage")
+def api_generate_collage(req: CollageRequest):
+    import hashlib
+    if not req.image_urls or len(req.image_urls) < 2:
+        raise HTTPException(status_code=400, detail="กรุณาเลือกรูปภาพอย่างน้อย 2 รูปเพื่อรวมเป็นภาพเดียว")
+    
+    url_hash = hashlib.md5("_".join(req.image_urls[:4]).encode('utf-8')).hexdigest()[:8]
+    filename = f"collage_{req.sku}_{url_hash}.jpg"
+    local_path = f"app/static/covers/{filename}"
+    
+    try:
+        generate_collage(
+            req.image_urls[:4],
+            local_path,
+            title=req.title or "อุปกรณ์มาตรฐานในชุดครบเซ็ต",
+            shop_name=req.shop_name or "MEGATOOL"
+        )
+        
+        cdn_url = upload_to_cdn(local_path)
+        public_url = cdn_url if (cdn_url and cdn_url.startswith('http')) else f"https://megatool-yrho.onrender.com/static/covers/{filename}"
+        
+        return {
+            "collage_url": f"/static/covers/{filename}",
+            "cdn_url": public_url,
+            "filename": filename
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ComparisonCardRequest(BaseModel):
+    items: List[dict]
+    parent_title: Optional[str] = "เปรียบเทียบสเปกและฟังก์ชันแต่ละรุ่น"
+    shop_name: Optional[str] = "MEGATOOL"
+
+@app.post("/api/generate-comparison")
+def api_generate_comparison(req: ComparisonCardRequest):
+    import hashlib
+    if not req.items or len(req.items) < 2:
+        raise HTTPException(status_code=400, detail="จำเป็นต้องมีสินค้าอย่างน้อย 2 รุ่นเพื่อสร้างตารางเปรียบเทียบ")
+    
+    skus_str = "_".join([item.get('sku', '') for item in req.items])
+    url_hash = hashlib.md5(f"{skus_str}_{req.parent_title}".encode('utf-8')).hexdigest()[:8]
+    filename = f"comparison_{url_hash}.jpg"
+    local_path = f"app/static/covers/{filename}"
+    
+    try:
+        generate_comparison_card(
+            req.items,
+            local_path,
+            parent_title=req.parent_title or "เปรียบเทียบสเปกและฟังก์ชันแต่ละรุ่น",
+            shop_name=req.shop_name or "MEGATOOL"
+        )
+        
+        cdn_url = upload_to_cdn(local_path)
+        public_url = cdn_url if (cdn_url and cdn_url.startswith('http')) else f"https://megatool-yrho.onrender.com/static/covers/{filename}"
+        
+        return {
+            "card_url": f"/static/covers/{filename}",
+            "cdn_url": public_url,
+            "filename": filename
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 class ExportItem(BaseModel):
     sku: str
     price: Optional[float] = None
@@ -258,6 +328,7 @@ class ExportRequest(BaseModel):
     is_variation_group: Optional[bool] = False
     parent_title: Optional[str] = None
     variation_group_name: Optional[str] = "รุ่นสินค้า"
+    comparison_card_url: Optional[str] = None
 
 @app.post("/api/export")
 def api_export(req: ExportRequest, request: Request, authorization: Optional[str] = Header(None)):
@@ -273,7 +344,8 @@ def api_export(req: ExportRequest, request: Request, authorization: Optional[str
             shop_name=req.shop_name or "MEGATOOL",
             is_variation_group=req.is_variation_group or False,
             parent_title=req.parent_title,
-            variation_group_name=req.variation_group_name or "รุ่นสินค้า"
+            variation_group_name=req.variation_group_name or "รุ่นสินค้า",
+            comparison_card_url=req.comparison_card_url
         )
         return {"download_url": file_url}
     except Exception as e:
