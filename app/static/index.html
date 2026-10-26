@@ -459,6 +459,7 @@
                                 class="flex items-center space-x-1.5 px-3 py-2.5 rounded-xl border cursor-pointer select-none text-xs transition-all">
                             <span>🔥</span>
                             <span>สินค้าขายดี (KTW Bestseller)</span>
+                            <span class="text-[10px] opacity-80 font-normal">(146 รายการ)</span>
                             <span x-show="bestsellerOnly" class="ml-1 bg-white text-orange-600 text-[10px] px-1.5 py-0.5 rounded-full font-black shadow-sm">ON</span>
                         </button>
 
@@ -523,6 +524,7 @@
                                 class="px-3 py-1 rounded-lg text-xs transition-all flex items-center space-x-1">
                             <span>🔥</span>
                             <span>สินค้าขายดี</span>
+                            <span class="text-[10px] opacity-80">(146)</span>
                         </button>
                         <template x-for="b in brands" :key="b.name">
                             <button @click="selectBrand(b.name)" 
@@ -545,9 +547,9 @@
                         <span class="text-xs font-medium text-slate-500" 
                               x-show="totalResults > 0"
                               x-text="'• หน้า ' + (currentPage + 1) + ' / ' + totalPages.toLocaleString() + ' (รายการที่ ' + itemStart.toLocaleString() + ' - ' + itemEnd.toLocaleString() + ')'"></span>
-                        <span x-show="bestsellerOnly" class="bg-amber-100 text-amber-800 text-[11px] px-2.5 py-0.5 rounded-full font-bold flex items-center space-x-1 border border-amber-200">
+                        <span x-show="bestsellerOnly" class="bg-amber-100 text-amber-900 text-xs px-2.5 py-0.5 rounded-full font-bold flex items-center space-x-1 border border-amber-300">
                             <span>🔥</span>
-                            <span>หมวดสินค้าขายดี KTW</span>
+                            <span x-text="'หมวดสินค้าขายดี KTW (' + totalResults + ' รายการ • มีทั้งหมด ' + totalPages + ' หน้า)'"></span>
                         </span>
                     </h2>
                     <div class="text-xs text-slate-400">
