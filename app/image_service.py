@@ -457,17 +457,29 @@ def generate_collage(
         draw.text((bx + badge_r - nw // 2, by + badge_r - nh // 2 - 2), num_str, font=font_num, fill=WHITE)
 
     # 4. Top-Left Title Badge Pill (Opposite MEGATOOL Logo)
-    f_title = load_font("leelawdb.ttf", 32)
-    clean_title = f"📦 {title.strip()}"
+    f_title = load_font("leelawdb.ttf", 30)
+    # Strip emojis and leading symbols that cause square tofu boxes
+    clean_title = re.sub(r'[\U00010000-\U0010ffff]|[\u2600-\u27bf]', '', str(title)).strip()
+    if not clean_title:
+        clean_title = "อุปกรณ์มาตรฐานในกล่องครบชุด"
+
+    # Ensure text fits comfortably within safe zone before logo
+    max_text_w = 540
+    while len(clean_title) > 5:
+        b = f_title.getbbox(clean_title)
+        if (b[2] - b[0]) <= max_text_w:
+            break
+        clean_title = clean_title[:-1]
+
     tb = f_title.getbbox(clean_title)
     tw = tb[2] - tb[0]
     
     pill_x1 = 45
     pill_y1 = 42
-    pill_x2 = min(620, pill_x1 + tw + 32)
-    pill_y2 = pill_y1 + 52
+    pill_x2 = min(620, pill_x1 + tw + 36)
+    pill_y2 = pill_y1 + 54
     draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=14, fill=(15, 23, 42, 255))
-    draw.text((pill_x1 + 16, pill_y1 + 8), clean_title[:28], font=f_title, fill=WHITE)
+    draw.text((pill_x1 + 18, pill_y1 + 8), clean_title, font=f_title, fill=WHITE)
 
     # 5. Top-Right: Official MEGATOOL Red Logo (Exact shop template)
     border_w = 22
