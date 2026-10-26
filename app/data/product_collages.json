@@ -1,14 +1,21 @@
 {
+  "M011-M9513B": [
+    {
+      "url": "https://iili.io/nk4dDmJ.jpg",
+      "cdn_url": "https://iili.io/nk4dDmJ.jpg",
+      "created_at": "2026-10-26T16:35:11"
+    }
+  ],
   "P171-WARRIOR90": [
     {
-      "url": "/static/covers/collage_P171-WARRIOR90_9a530ffb.jpg",
-      "cdn_url": "/static/covers/collage_P171-WARRIOR90_9a530ffb.jpg",
-      "created_at": "2026-10-26T16:35:11.013929"
+      "url": "https://iili.io/nk4sYRS.jpg",
+      "cdn_url": "https://iili.io/nk4sYRS.jpg",
+      "created_at": "2026-10-26T16:35:11"
     },
     {
-      "url": "/static/covers/collage_P171-WARRIOR90_f0e716ef.jpg",
-      "cdn_url": "/static/covers/collage_P171-WARRIOR90_f0e716ef.jpg",
-      "created_at": "2026-10-26T16:35:11.022772"
+      "url": "https://iili.io/nk6R6an.jpg",
+      "cdn_url": "https://iili.io/nk6R6an.jpg",
+      "created_at": "2026-10-26T16:35:11"
     }
   ]
 }

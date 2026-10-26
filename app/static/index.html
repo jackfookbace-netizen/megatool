@@ -1413,7 +1413,7 @@
                                                     isImageExcluded(idx) ? 'opacity-30 grayscale border-rose-300 bg-rose-50/50' : 'bg-white'
                                                 ]"
                                                 class="w-14 h-14 rounded-xl border-2 p-1 flex items-center justify-center transition-all cursor-pointer relative overflow-hidden">
-                                            <img :src="img" class="max-h-full max-w-full object-contain pointer-events-none">
+                                            <img :src="img" @error="onImageLoadError(idx, img)" class="max-h-full max-w-full object-contain pointer-events-none">
                                             
                                             <!-- Cover Badge -->
                                             <span x-show="selectedImageIndex === idx && !isImageExcluded(idx)" 
@@ -1480,7 +1480,7 @@
                                         <button type="button" @click="toggleCollageImage(idx)"
                                                 :class="collageSelectedIndices.includes(idx) ? 'border-orange-500 ring-2 ring-orange-400 bg-orange-50 scale-105 shadow-sm' : 'border-slate-200 bg-white opacity-70 hover:opacity-100'"
                                                 class="w-12 h-12 rounded-xl border-2 p-1 flex items-center justify-center relative shrink-0 transition-all cursor-pointer">
-                                            <img :src="img" class="max-h-full max-w-full object-contain pointer-events-none">
+                                            <img :src="img" @error="onImageLoadError(idx, img)" class="max-h-full max-w-full object-contain pointer-events-none">
                                             <span x-show="collageSelectedIndices.includes(idx)" 
                                                   class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-orange-600 text-white font-bold text-[9px] flex items-center justify-center shadow-xs"
                                                   x-text="collageSelectedIndices.indexOf(idx) + 1">
@@ -2767,9 +2767,26 @@
                 getCollagesFromLocal(sku) {
                     try {
                         let saved = JSON.parse(localStorage.getItem('megatool_collages') || '{}');
-                        return saved[sku] || [];
+                        let list = saved[sku] || [];
+                        // Filter out old dead local relative paths that return 404 on Render cloud server
+                        return list.filter(u => typeof u === 'string' && u.startsWith('http'));
                     } catch (e) {
                         return [];
+                    }
+                },
+
+                onImageLoadError(idx, img) {
+                    console.warn('Image failed to load at index', idx, img);
+                    if (img && (img.includes('/static/covers/collage_') || (img.includes('collage_') && !img.startsWith('http')))) {
+                        const sku = this.activePreviewItem?.sku || this.activePreviewItem?.code;
+                        this.removeCollageFromLocal(sku, img);
+                        if (this.activePreviewItem?.all_images) {
+                            this.activePreviewItem.all_images = this.activePreviewItem.all_images.filter((_, i) => i !== idx);
+                            if (this.selectedImageIndex >= this.activePreviewItem.all_images.length) {
+                                this.selectedImageIndex = 0;
+                            }
+                            this.generatePreviewCover();
+                        }
                     }
                 },
 

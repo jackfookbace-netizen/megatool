@@ -632,6 +632,7 @@ def get_custom_product_images(sku: str) -> list:
     """
     Returns list of all saved collage/custom image URLs for this SKU.
     Merges records from product_collages.json and scans app/static/covers/collage_{sku}_*.jpg
+    Guarantees valid permanent CDN URLs or verified existing disk files.
     """
     if not sku:
         return []
@@ -642,7 +643,9 @@ def get_custom_product_images(sku: str) -> list:
     if sku in db:
         for item in db[sku]:
             if isinstance(item, dict):
-                u = item.get("cdn_url") or item.get("url")
+                cdn_u = item.get("cdn_url")
+                local_u = item.get("url")
+                u = cdn_u if (cdn_u and cdn_u.startswith('http')) else local_u
             else:
                 u = str(item)
             if u and u not in urls:
@@ -654,12 +657,25 @@ def get_custom_product_images(sku: str) -> list:
         prefix = f"collage_{sku}_"
         for fname in os.listdir(covers_dir):
             if fname.startswith(prefix) and fname.endswith(".jpg"):
-                local_rel = f"/static/covers/{fname}"
+                disk_p = os.path.join(covers_dir, fname)
                 if not any(fname in u for u in urls):
-                    urls.append(local_rel)
-                    save_custom_product_image(sku, local_rel)
-                    
-    return urls
+                    cdn = upload_to_cdn(disk_p)
+                    chosen_u = cdn if (cdn and cdn.startswith('http')) else f"/static/covers/{fname}"
+                    urls.append(chosen_u)
+                    save_custom_product_image(sku, chosen_u, cdn_url=chosen_u)
+
+    # 3. Filter out duplicates and dead relative paths
+    valid_urls = []
+    for u in urls:
+        if not u or u in valid_urls:
+            continue
+        if u.startswith('/static/covers/'):
+            fname = u.split('/static/covers/')[-1].split('?')[0]
+            if not os.path.exists(os.path.join("app/static/covers", fname)):
+                continue
+        valid_urls.append(u)
+
+    return valid_urls
 
 def delete_custom_product_image(sku: str, image_url: str) -> bool:
     """
