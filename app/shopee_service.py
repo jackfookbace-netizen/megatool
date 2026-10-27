@@ -116,7 +116,7 @@ def col_to_idx(col_str):
         num = num * 26 + (ord(ch.upper()) - ord('A') + 1)
     return num
 
-def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx', shop_name='MEGATOOL', is_variation_group=False, parent_title=None, variation_group_name='รุ่นสินค้า', comparison_card_url=None):
+def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx', shop_name='MEGATOOL', is_variation_group=False, parent_title=None, variation_group_name='รุ่นสินค้า', comparison_card_url=None, include_comparison=True):
     """
     Takes product_items: [{'sku': '...', 'price': 145, 'badge': '...'}]
     Generates branded template images for ALL angles, uploads to CDN, and injects into official Shopee template.
@@ -295,32 +295,33 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
 • สินค้าทุกชิ้นตรวจสอบและแพ็คห่ออย่างดีก่อนจัดส่งทุกวันครับ"""
 
             final_gallery = all_gallery_images[:9]
-            # Inject Comparison Card as Image 2 if provided or auto-generated for variation groups
-            if comparison_card_url and str(comparison_card_url).startswith('http'):
-                if comparison_card_url in final_gallery:
-                    final_gallery.remove(comparison_card_url)
-                if len(final_gallery) > 0:
-                    final_gallery.insert(1, comparison_card_url)
-                else:
-                    final_gallery.append(comparison_card_url)
-            elif is_variation_group and len(processed_items) > 1:
-                try:
-                    import hashlib
-                    var_skus = "_".join([p['sku'] for p in processed_items])
-                    comp_hash = hashlib.md5(f"comp_{var_skus}_v2".encode('utf-8')).hexdigest()[:8]
-                    comp_file = f"comparison_{comp_hash}.jpg"
-                    comp_local = f"app/static/covers/{comp_file}"
-                    from app.image_service import generate_comparison_card
-                    generate_comparison_card(processed_items, comp_local, parent_title=final_parent_title, shop_name=shop_name)
-                    uploaded_comp = upload_to_cdn(comp_local, force=True)
-                    comp_url = uploaded_comp if (uploaded_comp and uploaded_comp.startswith('http')) else f"https://megatool-yrho.onrender.com/static/covers/{comp_file}"
-                    if comp_url:
-                        if len(final_gallery) > 0:
-                            final_gallery.insert(1, comp_url)
-                        else:
-                            final_gallery.append(comp_url)
-                except Exception as comp_err:
-                    print("Auto comparison card generation in batch:", comp_err)
+            # Inject Comparison Card as Image 2 if enabled and provided/auto-generated
+            if include_comparison:
+                if comparison_card_url and str(comparison_card_url).startswith('http'):
+                    if comparison_card_url in final_gallery:
+                        final_gallery.remove(comparison_card_url)
+                    if len(final_gallery) > 0:
+                        final_gallery.insert(1, comparison_card_url)
+                    else:
+                        final_gallery.append(comparison_card_url)
+                elif is_variation_group and len(processed_items) > 1:
+                    try:
+                        import hashlib
+                        var_skus = "_".join([p['sku'] for p in processed_items])
+                        comp_hash = hashlib.md5(f"comp_{var_skus}_v2".encode('utf-8')).hexdigest()[:8]
+                        comp_file = f"comparison_{comp_hash}.jpg"
+                        comp_local = f"app/static/covers/{comp_file}"
+                        from app.image_service import generate_comparison_card
+                        generate_comparison_card(processed_items, comp_local, parent_title=final_parent_title, shop_name=shop_name)
+                        uploaded_comp = upload_to_cdn(comp_local, force=True)
+                        comp_url = uploaded_comp if (uploaded_comp and uploaded_comp.startswith('http')) else f"https://megatool-yrho.onrender.com/static/covers/{comp_file}"
+                        if comp_url:
+                            if len(final_gallery) > 0:
+                                final_gallery.insert(1, comp_url)
+                            else:
+                                final_gallery.append(comp_url)
+                    except Exception as comp_err:
+                        print("Auto comparison card generation in batch:", comp_err)
 
             if len(final_gallery) < 9:
                 for p in processed_items:

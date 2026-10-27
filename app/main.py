@@ -374,6 +374,7 @@ class ExportRequest(BaseModel):
     parent_title: Optional[str] = None
     variation_group_name: Optional[str] = "รุ่นสินค้า"
     comparison_card_url: Optional[str] = None
+    include_comparison: Optional[bool] = True
 
 @app.post("/api/export")
 def api_export(req: ExportRequest, request: Request, authorization: Optional[str] = Header(None)):
@@ -390,7 +391,8 @@ def api_export(req: ExportRequest, request: Request, authorization: Optional[str
             is_variation_group=req.is_variation_group or False,
             parent_title=req.parent_title,
             variation_group_name=req.variation_group_name or "รุ่นสินค้า",
-            comparison_card_url=req.comparison_card_url
+            comparison_card_url=req.comparison_card_url,
+            include_comparison=req.include_comparison if req.include_comparison is not None else True
         )
         return {"download_url": file_url}
     except Exception as e:

@@ -1720,22 +1720,30 @@
 
                         <!-- FEATURE 2: AUTO COMPARISON MATRIX CARD TOOL -->
                         <div class="pt-2 border-t border-slate-200/60">
-                            <div class="p-3 bg-white border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                                <div class="flex items-center space-x-2.5">
-                                    <div class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center text-sm font-bold shrink-0">
-                                        📊
-                                    </div>
-                                    <div>
-                                        <div class="flex items-center space-x-1.5">
-                                            <span class="font-bold text-slate-800 text-xs">รูปตารางเปรียบเทียบสเปก (แทรกเป็นรูปที่ 2 บน Shopee)</span>
-                                            <span class="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded">อัตโนมัติ</span>
+                            <div class="p-3 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                                 :class="includeComparisonCard ? 'bg-white border-slate-200 shadow-2xs' : 'bg-slate-50/70 border-dashed border-slate-300'">
+                                <div class="flex items-start sm:items-center space-x-3">
+                                    <input type="checkbox" id="toggleComparisonCheck" x-model="includeComparisonCard"
+                                           class="mt-0.5 sm:mt-0 rounded text-orange-600 focus:ring-orange-500 w-4 h-4 cursor-pointer shrink-0">
+                                    <label for="toggleComparisonCheck" class="cursor-pointer select-none">
+                                        <div class="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                                            <span class="font-bold text-slate-800 text-xs">ใส่รูปตารางเปรียบเทียบสเปก (แทรกเป็นรูปที่ 2 บน Shopee)</span>
+                                            <span x-show="includeComparisonCard" class="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded flex items-center space-x-0.5">
+                                                <span>✓ เปิดใช้งาน</span>
+                                            </span>
+                                            <span x-show="!includeComparisonCard" class="text-[9px] bg-slate-200 text-slate-600 font-bold px-1.5 py-0.2 rounded">
+                                                ✕ ปิด (ไม่เอาตาราง)
+                                            </span>
                                         </div>
-                                        <p class="text-[11px] text-slate-400 mt-0.5">
+                                        <p class="text-[11px] text-slate-400 mt-0.5" x-show="includeComparisonCard">
                                             ดึงสเปกของทุกรุ่นในตะกร้ามาทำเป็นรูปตารางเปรียบเทียบ ช่วยให้ลูกค้าตัดสินใจซื้อง่ายขึ้น
                                         </p>
-                                    </div>
+                                        <p class="text-[11px] text-slate-400 mt-0.5" x-show="!includeComparisonCard">
+                                            ระบบจะไม่สร้างหรือแทรกรูปตารางเปรียบเทียบในรูปที่ 2 สินค้าจะใช้เฉพาะรูปสินค้าปกติเท่านั้น
+                                        </p>
+                                    </label>
                                 </div>
-                                <div class="flex items-center space-x-2 shrink-0">
+                                <div class="flex items-center space-x-2 shrink-0 self-end sm:self-auto" x-show="includeComparisonCard">
                                     <template x-if="comparisonCardUrl">
                                         <a :href="comparisonCardUrl" target="_blank" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all flex items-center space-x-1">
                                             <span>👁️ ดูตาราง</span>
@@ -1911,6 +1919,7 @@
                 collagePosition: 'top-left',
                 generatingCollage: false,
                 comparisonCardUrl: null,
+                includeComparisonCard: true,
                 generatingComparison: false,
                 exporting: false,
                 downloadUrl: null,
@@ -3278,7 +3287,8 @@
                             is_variation_group: isVar,
                             parent_title: this.groupParentTitle || undefined,
                             variation_group_name: this.groupVariationTierName || "รุ่น / ตัวเลือกสินค้า",
-                            comparison_card_url: isVar ? (this.comparisonCardUrl || undefined) : undefined,
+                            comparison_card_url: (isVar && this.includeComparisonCard) ? (this.comparisonCardUrl || undefined) : undefined,
+                            include_comparison: isVar ? this.includeComparisonCard : false,
                             filename: isVar ? `Shopee_Variations_Group_${Date.now()}.xlsx` : `Shopee_Mass_Upload_${Date.now()}.xlsx`
                         };
 
