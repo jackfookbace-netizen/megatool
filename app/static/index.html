@@ -1500,7 +1500,7 @@
                                     </template>
                                 </div>
 
-                                <div class="mt-3 pt-2.5 border-t border-orange-200/60">
+                                <div class="mt-3 pt-2.5 border-t border-orange-200/60 space-y-2.5">
                                     <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
                                         <!-- ช่อง 1: รุ่น / สเปกเน้น (ตัวใหญ่เด่นชัด) -->
                                         <div class="sm:col-span-4">
@@ -1529,9 +1529,60 @@
                                             </button>
                                         </div>
                                     </div>
-                                    <p class="mt-1.5 text-[10px] text-slate-500">
-                                        ✨ ช่องซ้ายข้อความจะถูกขยายให้<strong>ตัวใหญ่เด่นชัด</strong>บนป้ายสีแดง / ช่องขวาคือป้ายสีดำ
-                                    </p>
+
+                                    <!-- แถบปรับขนาดตัวอักษร และ ตำแหน่งป้ายข้อความ -->
+                                    <div class="p-2.5 bg-white/90 rounded-xl border border-orange-200/70 flex flex-wrap items-center justify-between gap-3 text-xs shadow-2xs">
+                                        <!-- ขนาดตัวอักษร -->
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-[11px] font-bold text-slate-700 flex items-center space-x-1">
+                                                <span>🔤 ขนาด:</span>
+                                                <span class="text-orange-600 font-mono font-bold" x-text="collageFontSize + 'px'"></span>
+                                            </span>
+                                            <input type="range" min="26" max="48" step="2" x-model.number="collageFontSize" 
+                                                   class="w-20 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-orange-600">
+                                            <div class="flex items-center space-x-1">
+                                                <button type="button" @click="collageFontSize = 28" 
+                                                        :class="collageFontSize === 28 ? 'bg-orange-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                                                        class="px-1.5 py-0.5 text-[10px] rounded-md transition-all cursor-pointer">เล็ก (28)</button>
+                                                <button type="button" @click="collageFontSize = 34" 
+                                                        :class="collageFontSize === 34 ? 'bg-orange-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                                                        class="px-1.5 py-0.5 text-[10px] rounded-md transition-all cursor-pointer">ปกติ (34)</button>
+                                                <button type="button" @click="collageFontSize = 40" 
+                                                        :class="collageFontSize === 40 ? 'bg-orange-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                                                        class="px-1.5 py-0.5 text-[10px] rounded-md transition-all cursor-pointer">ใหญ่ (40)</button>
+                                                <button type="button" @click="collageFontSize = 46" 
+                                                        :class="collageFontSize === 46 ? 'bg-orange-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                                                        class="px-1.5 py-0.5 text-[10px] rounded-md transition-all cursor-pointer">ใหญ่พิเศษ (46)</button>
+                                            </div>
+                                        </div>
+
+                                        <!-- ตำแหน่งป้ายข้อความ -->
+                                        <div class="flex items-center space-x-1.5">
+                                            <span class="text-[11px] font-bold text-slate-700">📍 ตำแหน่ง:</span>
+                                            <div class="flex items-center space-x-1">
+                                                <button type="button" @click="collagePosition = 'top-left'"
+                                                        :class="collagePosition === 'top-left' ? 'bg-slate-900 text-white font-bold shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                                                        class="px-2 py-0.5 text-[10px] rounded-lg transition-all flex items-center space-x-1 cursor-pointer">
+                                                    <span>↖ บนซ้าย</span>
+                                                </button>
+                                                <button type="button" @click="collagePosition = 'top-right'"
+                                                        :class="collagePosition === 'top-right' ? 'bg-slate-900 text-white font-bold shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                                                        class="px-2 py-0.5 text-[10px] rounded-lg transition-all flex items-center space-x-1 cursor-pointer">
+                                                    <span>↗ บนขวา</span>
+                                                </button>
+                                                <button type="button" @click="collagePosition = 'bottom-left'"
+                                                        :class="collagePosition === 'bottom-left' ? 'bg-slate-900 text-white font-bold shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                                                        class="px-2 py-0.5 text-[10px] rounded-lg transition-all flex items-center space-x-1 cursor-pointer">
+                                                    <span>↙ ล่างซ้าย</span>
+                                                </button>
+                                                <button type="button" @click="collagePosition = 'center'"
+                                                        :class="collagePosition === 'center' ? 'bg-slate-900 text-white font-bold shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                                                        class="px-2 py-0.5 text-[10px] rounded-lg transition-all flex items-center space-x-1 cursor-pointer">
+                                                    <span>🎯 กลางภาพ</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1833,6 +1884,8 @@
                 collageSelectedIndices: [],
                 collageModel: '',
                 collageTitle: 'อุปกรณ์มาตรฐานในกล่องครบชุด',
+                collageFontSize: 34,
+                collagePosition: 'top-left',
                 generatingCollage: false,
                 comparisonCardUrl: null,
                 generatingComparison: false,
@@ -2904,7 +2957,9 @@
                                 model_text: this.collageModel || '',
                                 title: this.collageTitle || 'อุปกรณ์มาตรฐานในกล่องครบชุด',
                                 badge_text: this.customBadgeText || 'มีสต็อกพร้อมส่งทันที',
-                                shop_name: this.shopName
+                                shop_name: this.shopName,
+                                font_size: this.collageFontSize || 34,
+                                position: this.collagePosition || 'top-left'
                             })
                         });
                         

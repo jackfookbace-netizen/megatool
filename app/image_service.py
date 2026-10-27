@@ -363,7 +363,9 @@ def generate_collage(
     title="อุปกรณ์มาตรฐานในกล่องครบชุด",
     badge_text="มีสต็อกพร้อมส่งทันที",
     shop_name="MEGATOOL",
-    model_text=""
+    model_text="",
+    font_size=34,
+    position="top-left"
 ):
     """
     Combines 2 to 4 product images directly inside the official MEGATOOL shop template:
@@ -459,7 +461,7 @@ def generate_collage(
         nh = nb[3] - nb[1]
         draw.text((bx + badge_r - nw // 2, by + badge_r - nh // 2 - 2), num_str, font=font_num, fill=WHITE)
 
-    # 4. Top-Left Title Badge Pill (Opposite MEGATOOL Logo)
+    # 4. Collage Title Badge Pill
     # Strip emojis and leading symbols that cause square tofu boxes
     clean_model = re.sub(r'[\U00010000-\U0010ffff]|[\u2600-\u27bf]', '', str(model_text or '')).strip()
     clean_title = re.sub(r'[\U00010000-\U0010ffff]|[\u2600-\u27bf]', '', str(title or '')).strip()
@@ -474,38 +476,62 @@ def generate_collage(
     if not clean_title:
         clean_title = "อุปกรณ์มาตรฐานในกล่องครบชุด"
 
-    pill_x1 = 45
-    pill_y1 = 39
-    pill_h = 56
-    pill_y2 = pill_y1 + pill_h
-    max_total_w = 570
+    pos = (position or "top-left").lower().strip()
+    if pos not in ("top-left", "top-right", "bottom-left", "center"):
+        pos = "top-left"
+
+    base_sz = int(font_size or 34)
+    base_sz = max(24, min(50, base_sz))
+
+    max_total_w = 575 if pos in ("top-left", "top-right") else (540 if pos == "bottom-left" else 760)
     SLATE = (15, 23, 42, 255)
 
     if clean_model:
         # Dual Badge: prominent Red model tag + Slate title tag
-        sz_m = 35
-        sz_t = 23
+        sz_m = base_sz
+        sz_t = max(18, int(base_sz * 0.68))
         f_m = load_font("leelawdb.ttf", sz_m)
         f_t = load_font("leelawdb.ttf", sz_t)
 
-        for _ in range(6):
+        for _ in range(7):
             bm = f_m.getbbox(clean_model)
             bt = f_t.getbbox(clean_title)
             wm = bm[2] - bm[0]
             wt = bt[2] - bt[0]
-            pad_m = 20
-            pad_t = 18
+            pad_m = max(16, int(sz_m * 0.55))
+            pad_t = max(14, int(sz_t * 0.65))
             w_left = wm + (pad_m * 2)
             w_right = wt + (pad_t * 2)
             total_w = w_left + w_right
             if total_w <= max_total_w:
                 break
-            sz_m = max(24, sz_m - 2)
-            sz_t = max(18, sz_t - 1)
+            sz_m = max(22, sz_m - 2)
+            sz_t = max(16, int(sz_m * 0.68))
             f_m = load_font("leelawdb.ttf", sz_m)
             f_t = load_font("leelawdb.ttf", sz_t)
 
+        pill_h = max(50, int(sz_m * 1.55))
+
+        if pos == "top-left":
+            pill_x1 = 45
+            pill_y1 = 39
+        elif pos == "top-right":
+            pill_x1 = CANVAS_SIZE - 45 - total_w
+            pill_y1 = 39
+        elif pos == "bottom-left":
+            pill_x1 = 45
+            pill_y1 = CANVAS_SIZE - 42 - pill_h
+        elif pos == "center":
+            pill_x1 = (CANVAS_SIZE - total_w) // 2
+            pill_y1 = (CANVAS_SIZE - pill_h) // 2
+
         pill_x2 = pill_x1 + total_w
+        pill_y2 = pill_y1 + pill_h
+
+        # Shadow for floating badges (especially center and bottom-left)
+        if pos in ("center", "bottom-left"):
+            draw.rounded_rectangle([pill_x1 + 3, pill_y1 + 4, pill_x2 + 3, pill_y2 + 4], radius=14, fill=(0, 0, 0, 70))
+
         # Main dark slate pill container
         draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=14, fill=SLATE)
 
@@ -530,18 +556,44 @@ def generate_collage(
         draw.text((tx_t, ty_t), clean_title, font=f_t, fill=WHITE)
     else:
         # Single pill with title
-        sz_t = 28
+        sz_t = max(20, int(base_sz * 0.82))
         f_t = load_font("leelawdb.ttf", sz_t)
-        bt = f_t.getbbox(clean_title)
-        wt = bt[2] - bt[0]
-        pill_w = min(max_total_w, wt + 36)
+        for _ in range(7):
+            bt = f_t.getbbox(clean_title)
+            wt = bt[2] - bt[0]
+            pill_w = wt + 38
+            if pill_w <= max_total_w:
+                break
+            sz_t = max(18, sz_t - 2)
+            f_t = load_font("leelawdb.ttf", sz_t)
+
+        pill_h = max(48, int(sz_t * 1.7))
+
+        if pos == "top-left":
+            pill_x1 = 45
+            pill_y1 = 39
+        elif pos == "top-right":
+            pill_x1 = CANVAS_SIZE - 45 - pill_w
+            pill_y1 = 39
+        elif pos == "bottom-left":
+            pill_x1 = 45
+            pill_y1 = CANVAS_SIZE - 42 - pill_h
+        elif pos == "center":
+            pill_x1 = (CANVAS_SIZE - pill_w) // 2
+            pill_y1 = (CANVAS_SIZE - pill_h) // 2
+
         pill_x2 = pill_x1 + pill_w
+        pill_y2 = pill_y1 + pill_h
+
+        if pos in ("center", "bottom-left"):
+            draw.rounded_rectangle([pill_x1 + 3, pill_y1 + 4, pill_x2 + 3, pill_y2 + 4], radius=14, fill=(0, 0, 0, 70))
+
         draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=14, fill=SLATE)
         ht = bt[3] - bt[1]
         ty_t = pill_y1 + (pill_h - ht) // 2 - bt[1]
-        draw.text((pill_x1 + 18, ty_t), clean_title, font=f_t, fill=WHITE)
+        draw.text((pill_x1 + 19, ty_t), clean_title, font=f_t, fill=WHITE)
 
-    # 5. Top-Right: Official MEGATOOL Red Logo (Exact shop template)
+    # 5. Official MEGATOOL Red Logo (Exact shop template)
     border_w = 22
     f_prefix = load_font('arialbd.ttf', 84)
     f_tool = load_font('ariblk.ttf', 84)
@@ -556,10 +608,14 @@ def generate_collage(
     w_l = draw.textbbox((0, 0), char_l, font=f_tool)[2]
 
     total_w = w_prefix + w_t + w_o1 + w_o2 + w_l
-    margin_right = 50
     margin_top = 38
 
-    x_start = CANVAS_SIZE - margin_right - total_w
+    if pos == "top-right":
+        x_start = 50
+    else:
+        margin_right = 50
+        x_start = CANVAS_SIZE - margin_right - total_w
+
     y_text = margin_top
 
     draw.text((x_start, y_text), part_prefix, fill=RED, font=f_prefix)
