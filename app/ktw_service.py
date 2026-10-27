@@ -180,7 +180,7 @@ def _get_bestsellers_all(final_query, exclude_spare_parts, in_stock_only):
         _BESTSELLER_CACHE_EXPIRY[cache_key] = now + 900
     return products
 
-def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_parts=True, bestseller_only=False, page=0, page_size=20):
+def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_parts=True, bestseller_only=False, page=0, page_size=20, exclude_listed_skus=None):
     headers = get_headers()
     
     clean_q = query.strip() if query and query.strip() != "*" else ""
@@ -200,6 +200,8 @@ def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_pa
         if in_stock_only:
             final_query += ":inStockFlag_boolean:true"
         all_bestsellers = _get_bestsellers_all(final_query, exclude_spare_parts, in_stock_only)
+        if exclude_listed_skus:
+            all_bestsellers = [p for p in all_bestsellers if p.get('sku') not in exclude_listed_skus]
         total_count = len(all_bestsellers)
         start_idx = page * page_size
         end_idx = start_idx + page_size
@@ -235,6 +237,10 @@ def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_pa
             data = r.json()
             products = []
             for item in data.get('products', []):
+                p_code = item.get('code')
+                if exclude_listed_skus and p_code in exclude_listed_skus:
+                    continue
+
                 # 1. Spare parts filter
                 if exclude_spare_parts and is_spare_part(item):
                     continue

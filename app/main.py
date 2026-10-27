@@ -173,10 +173,20 @@ def api_search(
     page_size: int = Query(20, description="Page size")
 ):
     user = get_current_user(request, authorization)
-    # Perform search
-    data = search_products(query=q, brand=brand, in_stock_only=in_stock, exclude_spare_parts=exclude_spares, bestseller_only=bestseller_only, page=page, page_size=page_size)
-    
     listed_map = get_all_listed()
+    exclude_skus = set(listed_map.keys()) if exclude_listed else None
+
+    # Perform search with pre-filtered listed items
+    data = search_products(
+        query=q,
+        brand=brand,
+        in_stock_only=in_stock,
+        exclude_spare_parts=exclude_spares,
+        bestseller_only=bestseller_only,
+        page=page,
+        page_size=page_size,
+        exclude_listed_skus=exclude_skus
+    )
     
     # Cost is visible when logged in, hidden otherwise
     is_hidden = (user is None)
