@@ -1919,6 +1919,13 @@
                 selectedDetailImageIndex: 0,
 
                 async init() {
+                    // Clean up known deleted collages for WARRIOR90 on client side
+                    const staleDeleted = ['nk4sYRS.jpg', 'nk6R6an.jpg', 'collage_P171-WARRIOR90_f0e716ef.jpg'];
+                    for (const s of staleDeleted) {
+                        this.addDeletedCollage(s);
+                        this.removeCollageFromLocal('P171-WARRIOR90', s);
+                        this.removeCollageFromLocal('WARRIOR-90', s);
+                    }
                     this.loadCartFromStorage();
                     this.authToken = localStorage.getItem('megatool_token') || sessionStorage.getItem('megatool_token');
                     await this.checkAuth();
@@ -1942,6 +1949,17 @@
                         if (raw) {
                             const parsed = JSON.parse(raw);
                             if (Array.isArray(parsed)) {
+                                for (const item of parsed) {
+                                    if (item.selected_images) {
+                                        item.selected_images = item.selected_images.filter(u => !this.isCollageDeleted(u));
+                                    }
+                                    if (this.isCollageDeleted(item.image)) {
+                                        item.image = item.selected_images?.[0] || '';
+                                    }
+                                    if (this.isCollageDeleted(item.selected_image)) {
+                                        item.selected_image = item.selected_images?.[0] || '';
+                                    }
+                                }
                                 this.selectedItems = parsed;
                             }
                         }
@@ -2745,18 +2763,18 @@
                         const res = await fetch(`/api/product-images/${sku}`, { headers: this.getHeaders() });
                         if (res.ok) {
                             const data = await res.json();
-                            this.activeCustomImages = data.custom_images || [];
-                            let imgs = data.images || [];
+                            this.activeCustomImages = (data.custom_images || []).filter(u => !this.isCollageDeleted(u));
+                            let imgs = (data.images || []).filter(u => !this.isCollageDeleted(u));
                             // Merge with client-side localStorage fallback for resilience
                             const localSaved = this.getCollagesFromLocal(sku);
                             for (const lu of localSaved) {
                                 const l_fname = lu.split('/').pop().split('?')[0];
-                                if (!imgs.some(u => u.includes(l_fname))) {
+                                if (!imgs.some(u => u.includes(l_fname)) && !this.isCollageDeleted(lu)) {
                                     imgs.push(lu);
                                 }
                             }
                             if (imgs.length > 0) {
-                                this.activePreviewItem.all_images = imgs;
+                                this.activePreviewItem.all_images = imgs.filter(u => !this.isCollageDeleted(u));
                             }
                         }
                     } catch (e) {
@@ -2866,12 +2884,34 @@
                     } catch (e) {}
                 },
 
+                addDeletedCollage(url) {
+                    try {
+                        if (!url) return;
+                        const fname = url.split('/').pop().split('?')[0];
+                        let deleted = JSON.parse(localStorage.getItem('megatool_deleted_collages') || '[]');
+                        if (!deleted.includes(fname)) deleted.push(fname);
+                        if (!deleted.includes(url)) deleted.push(url);
+                        localStorage.setItem('megatool_deleted_collages', JSON.stringify(deleted));
+                    } catch (e) {}
+                },
+
+                isCollageDeleted(url) {
+                    try {
+                        if (!url || typeof url !== 'string') return false;
+                        const fname = url.split('/').pop().split('?')[0];
+                        let deleted = JSON.parse(localStorage.getItem('megatool_deleted_collages') || '[]');
+                        return deleted.includes(url) || deleted.includes(fname);
+                    } catch (e) {
+                        return false;
+                    }
+                },
+
                 getCollagesFromLocal(sku) {
                     try {
                         let saved = JSON.parse(localStorage.getItem('megatool_collages') || '{}');
                         let list = saved[sku] || [];
-                        // Filter out old dead local relative paths that return 404 on Render cloud server
-                        return list.filter(u => typeof u === 'string' && u.startsWith('http'));
+                        // Filter out old dead local relative paths and permanently deleted collages
+                        return list.filter(u => typeof u === 'string' && u.startsWith('http') && !this.isCollageDeleted(u));
                     } catch (e) {
                         return [];
                     }
@@ -2895,16 +2935,19 @@
                 removeCollageFromLocal(sku, url) {
                     try {
                         let saved = JSON.parse(localStorage.getItem('megatool_collages') || '{}');
-                        if (saved[sku]) {
-                            const fname = url.split('/').pop().split('?')[0];
-                            saved[sku] = saved[sku].filter(u => !u.includes(fname));
-                            localStorage.setItem('megatool_collages', JSON.stringify(saved));
+                        const fname = url.split('/').pop().split('?')[0];
+                        for (const k of Object.keys(saved)) {
+                            if (Array.isArray(saved[k])) {
+                                saved[k] = saved[k].filter(u => !u.includes(fname) && u !== url);
+                            }
                         }
+                        localStorage.setItem('megatool_collages', JSON.stringify(saved));
                     } catch (e) {}
                 },
 
                 isCollageImage(img) {
                     if (!img || typeof img !== 'string') return false;
+                    if (this.isCollageDeleted(img)) return false;
                     if (img.includes('collage_')) return true;
                     if (this.activeCustomImages && this.activeCustomImages.includes(img)) return true;
                     const sku = this.activePreviewItem?.sku || this.activePreviewItem?.code;
@@ -2920,6 +2963,7 @@
                             headers: { 'Content-Type': 'application/json', ...this.getHeaders() },
                             body: JSON.stringify({ sku: sku, image_url: imgUrl })
                         });
+                        this.addDeletedCollage(imgUrl);
                         this.removeCollageFromLocal(sku, imgUrl);
                         if (this.activeCustomImages) {
                             this.activeCustomImages = this.activeCustomImages.filter(u => u !== imgUrl);
@@ -2929,6 +2973,22 @@
                             this.selectedImageIndex = 0;
                             this.customUseTemplate = true;
                             this.generatePreviewCover();
+                        }
+                        // Purge permanently from this.selectedItems in cart/queue
+                        if (Array.isArray(this.selectedItems)) {
+                            const fname = imgUrl.split('/').pop().split('?')[0];
+                            for (const item of this.selectedItems) {
+                                if (item.selected_images) {
+                                    item.selected_images = item.selected_images.filter(u => u !== imgUrl && !u.includes(fname));
+                                }
+                                if (item.image === imgUrl || (item.image && item.image.includes(fname))) {
+                                    item.image = item.selected_images?.[0] || '';
+                                }
+                                if (item.selected_image === imgUrl || (item.selected_image && item.selected_image.includes(fname))) {
+                                    item.selected_image = item.selected_images?.[0] || '';
+                                }
+                            }
+                            this.saveCartToStorage();
                         }
                         alert('ลบรูปภาพที่รวมเรียบร้อยแล้วครับ');
                     } catch (e) {

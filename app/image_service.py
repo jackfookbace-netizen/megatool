@@ -766,21 +766,8 @@ def get_custom_product_images(sku: str) -> list:
                 u = str(item)
             if u and u not in urls:
                 urls.append(u)
-                
-    # 2. From local disk scan (self-healing for any pre-generated collages)
-    covers_dir = "app/static/covers"
-    if os.path.exists(covers_dir):
-        prefix = f"collage_{sku}_"
-        for fname in os.listdir(covers_dir):
-            if fname.startswith(prefix) and fname.endswith(".jpg"):
-                disk_p = os.path.join(covers_dir, fname)
-                if not any(fname in u for u in urls):
-                    cdn = upload_to_cdn(disk_p)
-                    chosen_u = cdn if (cdn and cdn.startswith('http')) else f"/static/covers/{fname}"
-                    urls.append(chosen_u)
-                    save_custom_product_image(sku, chosen_u, cdn_url=chosen_u)
 
-    # 3. Filter out duplicates and dead relative paths
+    # 2. Filter out duplicates and dead relative paths
     valid_urls = []
     for u in urls:
         if not u or u in valid_urls:
@@ -795,27 +782,29 @@ def get_custom_product_images(sku: str) -> list:
 
 def delete_custom_product_image(sku: str, image_url: str) -> bool:
     """
-    Permanently deletes a custom collage image for a SKU from JSON db, disk, and cache.
+    Permanently deletes a custom collage image across all SKUs from JSON db, disk, and cache.
     """
-    if not sku or not image_url:
+    if not image_url:
         return False
     db = _load_collages_db()
     removed = False
     target_clean = image_url.strip()
     target_fname = target_clean.split('/')[-1].split('?')[0]
     
-    # 1. Remove from product_collages.json
-    if sku in db:
+    # 1. Remove from product_collages.json across ALL SKUs
+    for k in list(db.keys()):
         new_list = []
-        for item in db[sku]:
+        for item in db[k]:
             u = item.get("url", "") if isinstance(item, dict) else str(item)
             c = item.get("cdn_url", "") if isinstance(item, dict) else ""
             if (target_clean == u) or (target_clean == c) or (target_fname in u) or (target_fname in c):
                 removed = True
             else:
                 new_list.append(item)
-        db[sku] = new_list
-        _save_collages_db(db)
+        if len(new_list) != len(db[k]):
+            db[k] = new_list
+            removed = True
+    _save_collages_db(db)
         
     # 2. Find associated local filenames (e.g. from cdn_cache.json)
     local_fnames_to_delete = []
@@ -839,7 +828,14 @@ def delete_custom_product_image(sku: str, image_url: str) -> bool:
         except Exception as e:
             print("Error cleaning cdn_cache.json:", e)
 
-    # 3. Delete physical file from disk
+    # 3. Clean memory cache
+    with _CACHE_LOCK:
+        for k in list(_MEM_CACHE.keys()):
+            v = _MEM_CACHE.get(k, "")
+            if (target_clean == v) or (target_fname in v) or (target_fname == k):
+                del _MEM_CACHE[k]
+
+    # 4. Delete physical file from disk
     covers_dir = "app/static/covers"
     for l_fname in set(local_fnames_to_delete):
         disk_p = os.path.join(covers_dir, l_fname)
