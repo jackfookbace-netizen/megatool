@@ -357,6 +357,56 @@ def trim_white_space(im, threshold=245):
         return im.crop((x1, y1, x2, y2))
     return im
 
+def smart_split_title(title: str) -> list:
+    """
+    Intelligently splits long Thai text into 2 balanced lines:
+    1. Explicit \n or | delimiter
+    2. Space near middle
+    3. Natural Thai phrase/keyword boundary
+    4. Middle character split fallback
+    """
+    title = str(title or "").strip()
+    if not title:
+        return []
+    if "\n" in title:
+        return [l.strip() for l in title.split("\n") if l.strip()][:2]
+    if "|" in title:
+        return [l.strip() for l in title.split("|") if l.strip()][:2]
+    if " " in title:
+        words = title.split(" ")
+        mid = len(title) / 2
+        best_diff = 999
+        best_idx = 1
+        curr_len = 0
+        for i in range(len(words) - 1):
+            curr_len += len(words[i]) + 1
+            diff = abs(curr_len - mid)
+            if diff < best_diff:
+                best_diff = diff
+                best_idx = i + 1
+        l1 = " ".join(words[:best_idx]).strip()
+        l2 = " ".join(words[best_idx:]).strip()
+        return [l1, l2]
+    keywords = ["ครบชุด", "พร้อมใช้งาน", "ในกล่อง", "พร้อม", "อุปกรณ์", "แถมฟรี", "ของแท้", "ประกัน", "รับประกัน", "ชุด", "กล่อง"]
+    candidates = []
+    for kw in keywords:
+        pos = 0
+        while True:
+            idx = title.find(kw, pos)
+            if idx == -1:
+                break
+            if 5 <= idx <= len(title) - 4:
+                candidates.append(idx)
+            pos = idx + len(kw)
+    if candidates:
+        mid = len(title) / 2
+        candidates.sort(key=lambda x: abs(x - mid))
+        split_pt = candidates[0]
+        return [title[:split_pt].strip(), title[split_pt:].strip()]
+    mid = len(title) // 2
+    return [title[:mid].strip(), title[mid:].strip()]
+
+
 def generate_collage(
     image_urls,
     output_path,
@@ -364,7 +414,7 @@ def generate_collage(
     badge_text="มีสต็อกพร้อมส่งทันที",
     shop_name="MEGATOOL",
     model_text="",
-    font_size=34,
+    font_size=38,
     position="top-left"
 ):
     """
@@ -480,44 +530,62 @@ def generate_collage(
     if pos not in ("top-left", "top-right", "bottom-left", "center"):
         pos = "top-left"
 
-    base_sz = int(font_size or 34)
-    base_sz = max(24, min(50, base_sz))
+    base_sz = int(font_size or 38)
+    base_sz = max(26, min(56, base_sz))
 
-    max_total_w = 575 if pos in ("top-left", "top-right") else (540 if pos == "bottom-left" else 760)
+    max_total_w = 585 if pos in ("top-left", "top-right") else (540 if pos == "bottom-left" else 780)
     SLATE = (15, 23, 42, 255)
 
     if clean_model:
-        # Dual Badge: prominent Red model tag + Slate title tag
+        # Check if single line fits comfortably at a clear, large font size
+        f_t_check = load_font("leelawdb.ttf", max(22, int(base_sz * 0.72)))
+        f_m_check = load_font("leelawdb.ttf", base_sz)
+        wm_check = (f_m_check.getbbox(clean_model)[2] - f_m_check.getbbox(clean_model)[0]) + 44
+        wt_check = (f_t_check.getbbox(clean_title)[2] - f_t_check.getbbox(clean_title)[0]) + 40
+
+        if ("\n" in clean_title) or ("|" in clean_title) or (wm_check + wt_check > max_total_w):
+            lines = smart_split_title(clean_title)
+        else:
+            lines = [clean_title]
+
+        is_multiline = len(lines) > 1
+
         sz_m = base_sz
-        sz_t = max(18, int(base_sz * 0.68))
+        sz_t = max(20, int(base_sz * (0.68 if is_multiline else 0.75)))
         f_m = load_font("leelawdb.ttf", sz_m)
         f_t = load_font("leelawdb.ttf", sz_t)
 
-        for _ in range(7):
+        for _ in range(8):
             bm = f_m.getbbox(clean_model)
-            bt = f_t.getbbox(clean_title)
             wm = bm[2] - bm[0]
-            wt = bt[2] - bt[0]
-            pad_m = max(16, int(sz_m * 0.55))
-            pad_t = max(14, int(sz_t * 0.65))
+            pad_m = max(18, int(sz_m * 0.52))
             w_left = wm + (pad_m * 2)
+
+            line_boxes = [f_t.getbbox(l) for l in lines]
+            wt = max((b[2] - b[0]) for b in line_boxes) if line_boxes else 0
+            pad_t = max(18, int(sz_t * 0.65))
             w_right = wt + (pad_t * 2)
+
             total_w = w_left + w_right
             if total_w <= max_total_w:
                 break
-            sz_m = max(22, sz_m - 2)
-            sz_t = max(16, int(sz_m * 0.68))
+            sz_m = max(24, sz_m - 2)
+            sz_t = max(18, int(sz_m * (0.68 if is_multiline else 0.75)))
             f_m = load_font("leelawdb.ttf", sz_m)
             f_t = load_font("leelawdb.ttf", sz_t)
 
-        pill_h = max(50, int(sz_m * 1.55))
+        ht_line = max((b[3] - b[1]) for b in line_boxes) if line_boxes else 20
+        line_gap = max(4, int(sz_t * 0.2))
+        total_lines_h = (ht_line * len(lines)) + (line_gap * (len(lines) - 1))
+
+        pill_h = max(78, total_lines_h + 30) if is_multiline else max(52, int(sz_m * 1.55))
 
         if pos == "top-left":
             pill_x1 = 45
-            pill_y1 = 39
+            pill_y1 = 36 if is_multiline else 39
         elif pos == "top-right":
             pill_x1 = CANVAS_SIZE - 45 - total_w
-            pill_y1 = 39
+            pill_y1 = 36 if is_multiline else 39
         elif pos == "bottom-left":
             pill_x1 = 45
             pill_y1 = CANVAS_SIZE - 42 - pill_h
@@ -530,51 +598,65 @@ def generate_collage(
 
         # Shadow for floating badges (especially center and bottom-left)
         if pos in ("center", "bottom-left"):
-            draw.rounded_rectangle([pill_x1 + 3, pill_y1 + 4, pill_x2 + 3, pill_y2 + 4], radius=14, fill=(0, 0, 0, 70))
+            draw.rounded_rectangle([pill_x1 + 3, pill_y1 + 4, pill_x2 + 3, pill_y2 + 4], radius=16, fill=(0, 0, 0, 70))
 
         # Main dark slate pill container
-        draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=14, fill=SLATE)
+        draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=16, fill=SLATE)
 
         # Red accent block on left for model
-        draw.rounded_rectangle([pill_x1, pill_y1, pill_x1 + w_left, pill_y2], radius=14, fill=RED)
-        draw.rectangle([pill_x1 + w_left - 14, pill_y1, pill_x1 + w_left, pill_y2], fill=RED)
+        draw.rounded_rectangle([pill_x1, pill_y1, pill_x1 + w_left, pill_y2], radius=16, fill=RED)
+        draw.rectangle([pill_x1 + w_left - 16, pill_y1, pill_x1 + w_left, pill_y2], fill=RED)
 
         # Center model text in red block
-        bm = f_m.getbbox(clean_model)
-        wm = bm[2] - bm[0]
         hm = bm[3] - bm[1]
         tx_m = pill_x1 + (w_left - wm) // 2
         ty_m = pill_y1 + (pill_h - hm) // 2 - bm[1]
         draw.text((tx_m, ty_m), clean_model, font=f_m, fill=WHITE)
 
-        # Center title text in slate block
-        bt = f_t.getbbox(clean_title)
-        wt = bt[2] - bt[0]
-        ht = bt[3] - bt[1]
-        tx_t = pill_x1 + w_left + (w_right - wt) // 2
-        ty_t = pill_y1 + (pill_h - ht) // 2 - bt[1]
-        draw.text((tx_t, ty_t), clean_title, font=f_t, fill=WHITE)
+        # Center title text in slate block (multiline supported)
+        start_ty = pill_y1 + (pill_h - total_lines_h) // 2
+        curr_y = start_ty
+        for i, l in enumerate(lines):
+            b = line_boxes[i]
+            lw = b[2] - b[0]
+            lx = pill_x1 + w_left + (w_right - lw) // 2
+            draw.text((lx, curr_y - b[1]), l, font=f_t, fill=WHITE)
+            curr_y += ht_line + line_gap
     else:
         # Single pill with title
-        sz_t = max(20, int(base_sz * 0.82))
+        f_t_check = load_font("leelawdb.ttf", max(22, int(base_sz * 0.82)))
+        wt_check = (f_t_check.getbbox(clean_title)[2] - f_t_check.getbbox(clean_title)[0]) + 44
+        if ("\n" in clean_title) or ("|" in clean_title) or (wt_check > max_total_w):
+            lines = smart_split_title(clean_title)
+        else:
+            lines = [clean_title]
+
+        is_multiline = len(lines) > 1
+        sz_t = max(20, int(base_sz * (0.70 if is_multiline else 0.82)))
         f_t = load_font("leelawdb.ttf", sz_t)
-        for _ in range(7):
-            bt = f_t.getbbox(clean_title)
-            wt = bt[2] - bt[0]
-            pill_w = wt + 38
+
+        for _ in range(8):
+            line_boxes = [f_t.getbbox(l) for l in lines]
+            wt = max((b[2] - b[0]) for b in line_boxes) if line_boxes else 0
+            pad_t = max(20, int(sz_t * 0.68))
+            pill_w = wt + (pad_t * 2)
             if pill_w <= max_total_w:
                 break
             sz_t = max(18, sz_t - 2)
             f_t = load_font("leelawdb.ttf", sz_t)
 
-        pill_h = max(48, int(sz_t * 1.7))
+        ht_line = max((b[3] - b[1]) for b in line_boxes) if line_boxes else 20
+        line_gap = max(4, int(sz_t * 0.2))
+        total_lines_h = (ht_line * len(lines)) + (line_gap * (len(lines) - 1))
+
+        pill_h = max(74, total_lines_h + 28) if is_multiline else max(50, int(sz_t * 1.65))
 
         if pos == "top-left":
             pill_x1 = 45
-            pill_y1 = 39
+            pill_y1 = 36 if is_multiline else 39
         elif pos == "top-right":
             pill_x1 = CANVAS_SIZE - 45 - pill_w
-            pill_y1 = 39
+            pill_y1 = 36 if is_multiline else 39
         elif pos == "bottom-left":
             pill_x1 = 45
             pill_y1 = CANVAS_SIZE - 42 - pill_h
@@ -588,10 +670,15 @@ def generate_collage(
         if pos in ("center", "bottom-left"):
             draw.rounded_rectangle([pill_x1 + 3, pill_y1 + 4, pill_x2 + 3, pill_y2 + 4], radius=14, fill=(0, 0, 0, 70))
 
-        draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=14, fill=SLATE)
-        ht = bt[3] - bt[1]
-        ty_t = pill_y1 + (pill_h - ht) // 2 - bt[1]
-        draw.text((pill_x1 + 19, ty_t), clean_title, font=f_t, fill=WHITE)
+        draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=16, fill=SLATE)
+        start_ty = pill_y1 + (pill_h - total_lines_h) // 2
+        curr_y = start_ty
+        for i, l in enumerate(lines):
+            b = line_boxes[i]
+            lw = b[2] - b[0]
+            lx = pill_x1 + (pill_w - lw) // 2
+            draw.text((lx, curr_y - b[1]), l, font=f_t, fill=WHITE)
+            curr_y += ht_line + line_gap
 
     # 5. Official MEGATOOL Red Logo (Exact shop template)
     border_w = 22

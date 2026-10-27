@@ -278,7 +278,7 @@ def api_generate_collage(req: CollageRequest):
     clean_model = (req.model_text or "").strip()
     clean_title = (req.title or "อุปกรณ์มาตรฐานในกล่องครบชุด").strip()
     clean_badge = (req.badge_text or "มีสต็อกพร้อมส่งทันที").strip()
-    font_sz = int(req.font_size or 34)
+    font_sz = int(req.font_size or 38)
     pos = (req.position or "top-left").lower().strip()
     raw_hash_str = f"{req.sku}_{'_'.join(req.image_urls[:4])}_{clean_model}_{clean_title}_{clean_badge}_{font_sz}_{pos}"
     url_hash = hashlib.md5(raw_hash_str.encode('utf-8')).hexdigest()[:8]
