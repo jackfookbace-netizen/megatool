@@ -1508,7 +1508,7 @@
                                                 <span class="w-2 h-2 rounded-full bg-red-600 inline-block"></span>
                                                 <span>รุ่น / บาร์ (ตัวใหญ่เด่น)</span>
                                             </label>
-                                            <input type="text" x-model="collageModel" placeholder="เช่น 100 บาร์, 135 บาร์"
+                                            <input type="text" x-model="collageModel" @input="saveCollageSettingsToLocal()" placeholder="เช่น 100 บาร์, 135 บาร์"
                                                    class="w-full px-3 py-2 text-xs font-bold text-red-600 bg-white border border-red-300 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 shadow-2xs placeholder:font-normal placeholder:text-slate-400">
                                         </div>
                                         <!-- ช่อง 2: ข้อความคำอธิบาย / อุปกรณ์ในกล่อง -->
@@ -1520,7 +1520,7 @@
                                                 </span>
                                                 <span class="text-[10px] text-slate-400 font-normal">ยาวได้ / ตัด 2 บรรทัดอัตโนมัติ (หรือพิมพ์ |)</span>
                                             </label>
-                                            <input type="text" x-model="collageTitle" placeholder="เช่น อุปกรณ์มาตรฐานในกล่องครบชุดพร้อมใช้งาน"
+                                            <input type="text" x-model="collageTitle" @input="saveCollageSettingsToLocal()" placeholder="เช่น อุปกรณ์มาตรฐานในกล่องครบชุดพร้อมใช้งาน"
                                                    class="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 shadow-2xs">
                                         </div>
                                         <!-- ปุ่ม รวมภาพทันที -->
@@ -1541,19 +1541,19 @@
                                                 <span>🔤 ขนาด:</span>
                                                 <span class="text-orange-600 font-mono font-bold" x-text="collageFontSize + 'px'"></span>
                                             </span>
-                                            <input type="range" min="28" max="54" step="2" x-model.number="collageFontSize" 
+                                            <input type="range" min="28" max="54" step="2" x-model.number="collageFontSize" @input="saveCollageSettingsToLocal()"
                                                    class="w-20 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-orange-600">
                                             <div class="flex items-center space-x-1">
-                                                <button type="button" @click="collageFontSize = 30" 
+                                                <button type="button" @click="collageFontSize = 30; saveCollageSettingsToLocal()" 
                                                         :class="collageFontSize === 30 ? 'bg-orange-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
                                                         class="px-1.5 py-0.5 text-[10px] rounded-md transition-all cursor-pointer">เล็ก (30)</button>
-                                                <button type="button" @click="collageFontSize = 38" 
+                                                <button type="button" @click="collageFontSize = 38; saveCollageSettingsToLocal()" 
                                                         :class="collageFontSize === 38 ? 'bg-orange-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
                                                         class="px-1.5 py-0.5 text-[10px] rounded-md transition-all cursor-pointer">ปกติ (38)</button>
-                                                <button type="button" @click="collageFontSize = 44" 
+                                                <button type="button" @click="collageFontSize = 44; saveCollageSettingsToLocal()" 
                                                         :class="collageFontSize === 44 ? 'bg-orange-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
                                                         class="px-1.5 py-0.5 text-[10px] rounded-md transition-all cursor-pointer">ใหญ่ (44)</button>
-                                                <button type="button" @click="collageFontSize = 50" 
+                                                <button type="button" @click="collageFontSize = 50; saveCollageSettingsToLocal()" 
                                                         :class="collageFontSize === 50 ? 'bg-orange-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
                                                         class="px-1.5 py-0.5 text-[10px] rounded-md transition-all cursor-pointer">ใหญ่พิเศษ (50)</button>
                                             </div>
@@ -1563,22 +1563,22 @@
                                         <div class="flex items-center space-x-1.5">
                                             <span class="text-[11px] font-bold text-slate-700">📍 ตำแหน่ง:</span>
                                             <div class="flex items-center space-x-1">
-                                                <button type="button" @click="collagePosition = 'top-left'"
+                                                <button type="button" @click="collagePosition = 'top-left'; saveCollageSettingsToLocal()"
                                                         :class="collagePosition === 'top-left' ? 'bg-slate-900 text-white font-bold shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
                                                         class="px-2 py-0.5 text-[10px] rounded-lg transition-all flex items-center space-x-1 cursor-pointer">
                                                     <span>↖ บนซ้าย</span>
                                                 </button>
-                                                <button type="button" @click="collagePosition = 'top-right'"
+                                                <button type="button" @click="collagePosition = 'top-right'; saveCollageSettingsToLocal()"
                                                         :class="collagePosition === 'top-right' ? 'bg-slate-900 text-white font-bold shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
                                                         class="px-2 py-0.5 text-[10px] rounded-lg transition-all flex items-center space-x-1 cursor-pointer">
                                                     <span>↗ บนขวา</span>
                                                 </button>
-                                                <button type="button" @click="collagePosition = 'bottom-left'"
+                                                <button type="button" @click="collagePosition = 'bottom-left'; saveCollageSettingsToLocal()"
                                                         :class="collagePosition === 'bottom-left' ? 'bg-slate-900 text-white font-bold shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
                                                         class="px-2 py-0.5 text-[10px] rounded-lg transition-all flex items-center space-x-1 cursor-pointer">
                                                     <span>↙ ล่างซ้าย</span>
                                                 </button>
-                                                <button type="button" @click="collagePosition = 'center'"
+                                                <button type="button" @click="collagePosition = 'center'; saveCollageSettingsToLocal()"
                                                         :class="collagePosition === 'center' ? 'bg-slate-900 text-white font-bold shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
                                                         class="px-2 py-0.5 text-[10px] rounded-lg transition-all flex items-center space-x-1 cursor-pointer">
                                                     <span>🎯 กลางภาพ</span>
@@ -2746,18 +2746,56 @@
                     this.showPreviewModal = true;
                     this.customBadgeText = 'มีสต็อกพร้อมส่งทันที';
 
-                    // Auto prefill collage model & title
-                    const pName = p.name || '';
-                    const barMatch = pName.match(/(\d+\s*บาร์)/i);
-                    if (barMatch) {
-                        this.collageModel = barMatch[1].trim();
-                    } else {
-                        const modelMatch = pName.match(/\b([A-Z0-9]+-\d+[A-Z0-9]*)\b/i);
-                        this.collageModel = modelMatch ? modelMatch[1] : '';
-                    }
-                    this.collageTitle = 'อุปกรณ์มาตรฐานในกล่องครบชุด';
-                    
                     const sku = p.sku || p.code;
+                    let savedSettings = null;
+                    let lastUsed = {};
+                    try {
+                        const allSettings = JSON.parse(localStorage.getItem('megatool_collage_settings') || '{}');
+                        savedSettings = (sku && allSettings[sku]) || null;
+                        lastUsed = allSettings['__last_used__'] || {};
+                    } catch (e) {}
+
+                    // 1. Model: Restore saved custom model for this SKU if present; otherwise auto prefill from product name
+                    if (savedSettings && savedSettings.model !== undefined && savedSettings.model !== '') {
+                        this.collageModel = savedSettings.model;
+                    } else {
+                        const pName = p.name || '';
+                        const barMatch = pName.match(/(\d+\s*บาร์)/i);
+                        if (barMatch) {
+                            this.collageModel = barMatch[1].trim();
+                        } else {
+                            const modelMatch = pName.match(/\b([A-Z0-9]+-\d+[A-Z0-9]*)\b/i);
+                            this.collageModel = modelMatch ? modelMatch[1] : '';
+                        }
+                    }
+
+                    // 2. Title: Restore saved custom title for this SKU if present; otherwise last used title or default
+                    if (savedSettings && savedSettings.title !== undefined && savedSettings.title !== '') {
+                        this.collageTitle = savedSettings.title;
+                    } else if (lastUsed && lastUsed.title) {
+                        this.collageTitle = lastUsed.title;
+                    } else {
+                        this.collageTitle = 'อุปกรณ์มาตรฐานในกล่องครบชุด';
+                    }
+
+                    // 3. Font Size: Restore per SKU or last used
+                    if (savedSettings && savedSettings.fontSize) {
+                        this.collageFontSize = savedSettings.fontSize;
+                    } else if (lastUsed && lastUsed.fontSize) {
+                        this.collageFontSize = lastUsed.fontSize;
+                    } else {
+                        this.collageFontSize = 38;
+                    }
+
+                    // 4. Position: Restore per SKU or last used
+                    if (savedSettings && savedSettings.position) {
+                        this.collagePosition = savedSettings.position;
+                    } else if (lastUsed && lastUsed.position) {
+                        this.collagePosition = lastUsed.position;
+                    } else {
+                        this.collagePosition = 'top-left';
+                    }
+                    
                     const existingInQueue = this.selectedItems.find(i => i.sku === sku);
                     if (existingInQueue && existingInQueue.excluded_indices) {
                         this.excludedImageIndices = [...existingInQueue.excluded_indices];
@@ -2883,6 +2921,25 @@
                         }
                         this.collageSelectedIndices.push(idx);
                     }
+                },
+
+                saveCollageSettingsToLocal(sku) {
+                    try {
+                        const targetSku = sku || this.activePreviewItem?.sku || this.activePreviewItem?.code;
+                        let allSettings = JSON.parse(localStorage.getItem('megatool_collage_settings') || '{}');
+                        const data = {
+                            model: this.collageModel,
+                            title: this.collageTitle,
+                            fontSize: this.collageFontSize,
+                            position: this.collagePosition,
+                            updated_at: Date.now()
+                        };
+                        if (targetSku) {
+                            allSettings[targetSku] = data;
+                        }
+                        allSettings['__last_used__'] = data;
+                        localStorage.setItem('megatool_collage_settings', JSON.stringify(allSettings));
+                    } catch (e) {}
                 },
 
                 saveCollageToLocal(sku, url) {
@@ -3014,6 +3071,8 @@
                         alert('กรุณาเลือกอย่างน้อย 2 รูปเพื่อรวมเป็นภาพเดียวครับ');
                         return;
                     }
+                    const sku = this.activePreviewItem?.sku || this.activePreviewItem?.code;
+                    this.saveCollageSettingsToLocal(sku);
                     this.generatingCollage = true;
                     try {
                         const allImgs = this.activePreviewItem?.all_images || [this.activePreviewItem?.image];
