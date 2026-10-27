@@ -533,7 +533,7 @@ def generate_collage(
     base_sz = int(font_size or 38)
     base_sz = max(26, min(56, base_sz))
 
-    max_total_w = 585 if pos in ("top-left", "top-right") else (540 if pos == "bottom-left" else 780)
+    max_total_w = 555 if pos in ("top-left", "top-right") else (540 if pos == "bottom-left" else 780)
     SLATE = (15, 23, 42, 255)
 
     if clean_model:
@@ -551,28 +551,37 @@ def generate_collage(
         is_multiline = len(lines) > 1
 
         sz_m = base_sz
-        sz_t = max(20, int(base_sz * (0.68 if is_multiline else 0.75)))
+        sz_t = max(18, int(base_sz * (0.68 if is_multiline else 0.75)))
         f_m = load_font("leelawdb.ttf", sz_m)
         f_t = load_font("leelawdb.ttf", sz_t)
 
-        for _ in range(8):
+        while True:
             bm = f_m.getbbox(clean_model)
             wm = bm[2] - bm[0]
-            pad_m = max(18, int(sz_m * 0.52))
+            pad_m = max(16, int(sz_m * 0.48))
             w_left = wm + (pad_m * 2)
 
             line_boxes = [f_t.getbbox(l) for l in lines]
             wt = max((b[2] - b[0]) for b in line_boxes) if line_boxes else 0
-            pad_t = max(18, int(sz_t * 0.65))
+            pad_t = max(16, int(sz_t * 0.55))
             w_right = wt + (pad_t * 2)
 
             total_w = w_left + w_right
-            if total_w <= max_total_w:
+            if total_w <= max_total_w or (sz_m <= 22 and sz_t <= 15):
                 break
-            sz_m = max(24, sz_m - 2)
-            sz_t = max(18, int(sz_m * (0.68 if is_multiline else 0.75)))
+            if sz_m > 22:
+                sz_m -= 1
+            if sz_t > 15:
+                sz_t -= 1
             f_m = load_font("leelawdb.ttf", sz_m)
             f_t = load_font("leelawdb.ttf", sz_t)
+
+        # Mathematical hard cap on total_w so it can NEVER breach max_total_w
+        if total_w > max_total_w:
+            ratio = max_total_w / total_w
+            w_left = int(w_left * ratio)
+            w_right = max_total_w - w_left
+            total_w = max_total_w
 
         ht_line = max((b[3] - b[1]) for b in line_boxes) if line_boxes else 20
         line_gap = max(4, int(sz_t * 0.2))
@@ -583,17 +592,25 @@ def generate_collage(
         if pos == "top-left":
             pill_x1 = 45
             pill_y1 = 36 if is_multiline else 39
+            pill_x2 = min(pill_x1 + total_w, 600)  # Absolute safeguard: keeps >= 41px gap before MEGATOOL logo (x=641)
+            total_w = pill_x2 - pill_x1
+            w_right = total_w - w_left
         elif pos == "top-right":
-            pill_x1 = CANVAS_SIZE - 45 - total_w
+            total_w = min(total_w, max_total_w)
+            pill_x1 = max(600, CANVAS_SIZE - 45 - total_w)
             pill_y1 = 36 if is_multiline else 39
+            pill_x2 = CANVAS_SIZE - 45
+            total_w = pill_x2 - pill_x1
+            w_right = total_w - w_left
         elif pos == "bottom-left":
             pill_x1 = 45
             pill_y1 = CANVAS_SIZE - 42 - pill_h
+            pill_x2 = pill_x1 + total_w
         elif pos == "center":
             pill_x1 = (CANVAS_SIZE - total_w) // 2
             pill_y1 = (CANVAS_SIZE - pill_h) // 2
+            pill_x2 = pill_x1 + total_w
 
-        pill_x2 = pill_x1 + total_w
         pill_y2 = pill_y1 + pill_h
 
         # Shadow for floating badges (especially center and bottom-left)
@@ -635,15 +652,18 @@ def generate_collage(
         sz_t = max(20, int(base_sz * (0.70 if is_multiline else 0.82)))
         f_t = load_font("leelawdb.ttf", sz_t)
 
-        for _ in range(8):
+        while True:
             line_boxes = [f_t.getbbox(l) for l in lines]
             wt = max((b[2] - b[0]) for b in line_boxes) if line_boxes else 0
-            pad_t = max(20, int(sz_t * 0.68))
+            pad_t = max(18, int(sz_t * 0.58))
             pill_w = wt + (pad_t * 2)
-            if pill_w <= max_total_w:
+            if pill_w <= max_total_w or sz_t <= 16:
                 break
-            sz_t = max(18, sz_t - 2)
+            sz_t -= 1
             f_t = load_font("leelawdb.ttf", sz_t)
+
+        if pill_w > max_total_w:
+            pill_w = max_total_w
 
         ht_line = max((b[3] - b[1]) for b in line_boxes) if line_boxes else 20
         line_gap = max(4, int(sz_t * 0.2))
@@ -654,17 +674,23 @@ def generate_collage(
         if pos == "top-left":
             pill_x1 = 45
             pill_y1 = 36 if is_multiline else 39
+            pill_x2 = min(pill_x1 + pill_w, 600)  # Absolute safeguard: keeps >= 41px gap before MEGATOOL logo (x=641)
+            pill_w = pill_x2 - pill_x1
         elif pos == "top-right":
-            pill_x1 = CANVAS_SIZE - 45 - pill_w
+            pill_w = min(pill_w, max_total_w)
+            pill_x1 = max(600, CANVAS_SIZE - 45 - pill_w)
             pill_y1 = 36 if is_multiline else 39
+            pill_x2 = CANVAS_SIZE - 45
+            pill_w = pill_x2 - pill_x1
         elif pos == "bottom-left":
             pill_x1 = 45
             pill_y1 = CANVAS_SIZE - 42 - pill_h
+            pill_x2 = pill_x1 + pill_w
         elif pos == "center":
             pill_x1 = (CANVAS_SIZE - pill_w) // 2
             pill_y1 = (CANVAS_SIZE - pill_h) // 2
+            pill_x2 = pill_x1 + pill_w
 
-        pill_x2 = pill_x1 + pill_w
         pill_y2 = pill_y1 + pill_h
 
         if pos in ("center", "bottom-left"):
