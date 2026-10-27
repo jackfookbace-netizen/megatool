@@ -1167,12 +1167,18 @@ def generate_comparison_card(
         raw_name = item.get('name') or sku
         model_code, model_sub = extract_model_label(raw_name, sku)
 
+        raw_price = item.get('price', 0)
+        try:
+            parsed_price = float(str(raw_price).replace(',', '').replace('฿', '').strip())
+        except Exception:
+            parsed_price = 0.0
+
         processed_items.append({
             'sku': sku,
             'name': raw_name,
             'model_code': model_code,
             'model_sub': model_sub,
-            'price': item.get('price', 0),
+            'price': parsed_price,
             'specs': specs,
             'warranty': cleaned_w,
             'thumb': thumb_im
@@ -1240,7 +1246,10 @@ def generate_comparison_card(
             draw.text((col_x + (model_col_w - sw) // 2, tbl_top + 192), m['model_sub'], font=font_model_sub, fill=(100, 116, 139, 255))
 
         # Price
-        price_str = f"฿{m['price']:,.0f}" if m['price'] else "-"
+        if m['price'] and m['price'] > 0:
+            price_str = f"฿{m['price']:,.0f}"
+        else:
+            price_str = "-"
         pb = font_price.getbbox(price_str)
         pw = pb[2] - pb[0]
         draw.text((col_x + (model_col_w - pw) // 2, tbl_top + 235), price_str, font=font_price, fill=(239, 28, 37, 255))
@@ -1289,6 +1298,8 @@ def generate_comparison_card(
     ft_w = ft_b[2] - ft_b[0]
     draw.text(((CANVAS_SIZE - ft_w) // 2, 1142), footer_text, font=font_footer, fill=(71, 85, 105, 255))
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    out_dir = os.path.dirname(output_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
     canvas.convert('RGB').save(output_path, "JPEG", quality=92)
     return output_path

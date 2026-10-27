@@ -319,11 +319,12 @@ class ComparisonCardRequest(BaseModel):
 @app.post("/api/generate-comparison")
 def api_generate_comparison(req: ComparisonCardRequest):
     import hashlib
+    import time
     if not req.items or len(req.items) < 2:
         raise HTTPException(status_code=400, detail="จำเป็นต้องมีสินค้าอย่างน้อย 2 รุ่นเพื่อสร้างตารางเปรียบเทียบ")
     
-    skus_str = "_".join([item.get('sku', '') for item in req.items])
-    url_hash = hashlib.md5(f"{skus_str}_{req.parent_title}_v2".encode('utf-8')).hexdigest()[:8]
+    items_sig = "_".join([f"{item.get('sku', '')}:{item.get('price', '')}:{item.get('name', '')}" for item in req.items])
+    url_hash = hashlib.md5(f"{items_sig}_{req.parent_title}_{time.time()}".encode('utf-8')).hexdigest()[:8]
     filename = f"comparison_{url_hash}.jpg"
     local_path = f"app/static/covers/{filename}"
     
