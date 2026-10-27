@@ -360,9 +360,10 @@ def trim_white_space(im, threshold=245):
 def generate_collage(
     image_urls,
     output_path,
-    title="อุปกรณ์มาตรฐานในชุดครบเซ็ต",
+    title="อุปกรณ์มาตรฐานในกล่องครบชุด",
     badge_text="มีสต็อกพร้อมส่งทันที",
-    shop_name="MEGATOOL"
+    shop_name="MEGATOOL",
+    model_text=""
 ):
     """
     Combines 2 to 4 product images directly inside the official MEGATOOL shop template:
@@ -460,38 +461,85 @@ def generate_collage(
 
     # 4. Top-Left Title Badge Pill (Opposite MEGATOOL Logo)
     # Strip emojis and leading symbols that cause square tofu boxes
-    clean_title = re.sub(r'[\U00010000-\U0010ffff]|[\u2600-\u27bf]', '', str(title)).strip()
+    clean_model = re.sub(r'[\U00010000-\U0010ffff]|[\u2600-\u27bf]', '', str(model_text or '')).strip()
+    clean_title = re.sub(r'[\U00010000-\U0010ffff]|[\u2600-\u27bf]', '', str(title or '')).strip()
+
+    # Intelligent auto-split if user typed bar pattern in title without filling model box
+    if not clean_model and clean_title:
+        bar_m = re.match(r'^(\d+\s*บาร์)\s*(.*)$', clean_title)
+        if bar_m:
+            clean_model = bar_m.group(1).strip()
+            clean_title = bar_m.group(2).strip()
+
     if not clean_title:
         clean_title = "อุปกรณ์มาตรฐานในกล่องครบชุด"
 
-    # Dynamic font scaling so user's custom titles fit cleanly without truncation
-    font_size = 28
-    f_title = load_font("leelawdb.ttf", 28)
-    for sz in [28, 26, 24, 22, 20]:
-        test_f = load_font("leelawdb.ttf", sz)
-        tb_test = test_f.getbbox(clean_title)
-        if (tb_test[2] - tb_test[0]) <= 550:
-            font_size = sz
-            f_title = test_f
-            break
-    else:
-        font_size = 20
-        f_title = load_font("leelawdb.ttf", 20)
-        while len(clean_title) > 5:
-            b = f_title.getbbox(clean_title)
-            if (b[2] - b[0]) <= 550:
-                break
-            clean_title = clean_title[:-1]
-
-    tb = f_title.getbbox(clean_title)
-    tw = tb[2] - tb[0]
-    
     pill_x1 = 45
-    pill_y1 = 42
-    pill_x2 = min(625, pill_x1 + tw + 36)
-    pill_y2 = pill_y1 + 54
-    draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=14, fill=(15, 23, 42, 255))
-    draw.text((pill_x1 + 18, pill_y1 + 9), clean_title, font=f_title, fill=WHITE)
+    pill_y1 = 39
+    pill_h = 56
+    pill_y2 = pill_y1 + pill_h
+    max_total_w = 570
+    SLATE = (15, 23, 42, 255)
+
+    if clean_model:
+        # Dual Badge: prominent Red model tag + Slate title tag
+        sz_m = 35
+        sz_t = 23
+        f_m = load_font("leelawdb.ttf", sz_m)
+        f_t = load_font("leelawdb.ttf", sz_t)
+
+        for _ in range(6):
+            bm = f_m.getbbox(clean_model)
+            bt = f_t.getbbox(clean_title)
+            wm = bm[2] - bm[0]
+            wt = bt[2] - bt[0]
+            pad_m = 20
+            pad_t = 18
+            w_left = wm + (pad_m * 2)
+            w_right = wt + (pad_t * 2)
+            total_w = w_left + w_right
+            if total_w <= max_total_w:
+                break
+            sz_m = max(24, sz_m - 2)
+            sz_t = max(18, sz_t - 1)
+            f_m = load_font("leelawdb.ttf", sz_m)
+            f_t = load_font("leelawdb.ttf", sz_t)
+
+        pill_x2 = pill_x1 + total_w
+        # Main dark slate pill container
+        draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=14, fill=SLATE)
+
+        # Red accent block on left for model
+        draw.rounded_rectangle([pill_x1, pill_y1, pill_x1 + w_left, pill_y2], radius=14, fill=RED)
+        draw.rectangle([pill_x1 + w_left - 14, pill_y1, pill_x1 + w_left, pill_y2], fill=RED)
+
+        # Center model text in red block
+        bm = f_m.getbbox(clean_model)
+        wm = bm[2] - bm[0]
+        hm = bm[3] - bm[1]
+        tx_m = pill_x1 + (w_left - wm) // 2
+        ty_m = pill_y1 + (pill_h - hm) // 2 - bm[1]
+        draw.text((tx_m, ty_m), clean_model, font=f_m, fill=WHITE)
+
+        # Center title text in slate block
+        bt = f_t.getbbox(clean_title)
+        wt = bt[2] - bt[0]
+        ht = bt[3] - bt[1]
+        tx_t = pill_x1 + w_left + (w_right - wt) // 2
+        ty_t = pill_y1 + (pill_h - ht) // 2 - bt[1]
+        draw.text((tx_t, ty_t), clean_title, font=f_t, fill=WHITE)
+    else:
+        # Single pill with title
+        sz_t = 28
+        f_t = load_font("leelawdb.ttf", sz_t)
+        bt = f_t.getbbox(clean_title)
+        wt = bt[2] - bt[0]
+        pill_w = min(max_total_w, wt + 36)
+        pill_x2 = pill_x1 + pill_w
+        draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=14, fill=SLATE)
+        ht = bt[3] - bt[1]
+        ty_t = pill_y1 + (pill_h - ht) // 2 - bt[1]
+        draw.text((pill_x1 + 18, ty_t), clean_title, font=f_t, fill=WHITE)
 
     # 5. Top-Right: Official MEGATOOL Red Logo (Exact shop template)
     border_w = 22

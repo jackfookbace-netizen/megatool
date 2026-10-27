@@ -262,7 +262,8 @@ def api_preview_cover(req: PreviewRequest):
 class CollageRequest(BaseModel):
     sku: str
     image_urls: List[str]
-    title: Optional[str] = "อุปกรณ์มาตรฐานในชุดครบเซ็ต"
+    model_text: Optional[str] = ""
+    title: Optional[str] = "อุปกรณ์มาตรฐานในกล่องครบชุด"
     badge_text: Optional[str] = "มีสต็อกพร้อมส่งทันที"
     shop_name: Optional[str] = "MEGATOOL"
 
@@ -272,9 +273,10 @@ def api_generate_collage(req: CollageRequest):
     if not req.image_urls or len(req.image_urls) < 2:
         raise HTTPException(status_code=400, detail="กรุณาเลือกรูปภาพอย่างน้อย 2 รูปเพื่อรวมเป็นภาพเดียว")
     
+    clean_model = (req.model_text or "").strip()
     clean_title = (req.title or "อุปกรณ์มาตรฐานในกล่องครบชุด").strip()
     clean_badge = (req.badge_text or "มีสต็อกพร้อมส่งทันที").strip()
-    raw_hash_str = f"{req.sku}_{'_'.join(req.image_urls[:4])}_{clean_title}_{clean_badge}"
+    raw_hash_str = f"{req.sku}_{'_'.join(req.image_urls[:4])}_{clean_model}_{clean_title}_{clean_badge}"
     url_hash = hashlib.md5(raw_hash_str.encode('utf-8')).hexdigest()[:8]
     filename = f"collage_{req.sku}_{url_hash}.jpg"
     local_path = f"app/static/covers/{filename}"
@@ -283,6 +285,7 @@ def api_generate_collage(req: CollageRequest):
         generate_collage(
             req.image_urls[:4],
             local_path,
+            model_text=clean_model,
             title=clean_title,
             badge_text=clean_badge,
             shop_name=req.shop_name or "MEGATOOL"
