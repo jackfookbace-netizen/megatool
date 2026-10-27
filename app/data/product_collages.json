@@ -5,5 +5,29 @@
       "cdn_url": "https://iili.io/nk4dDmJ.jpg",
       "created_at": "2026-10-26T16:35:11"
     }
+  ],
+  "M011-M0900B": [
+    {
+      "url": "/static/covers/collage_makita_m0900_m0910.jpg",
+      "cdn_url": "https://iili.io/nvEbRF1.jpg",
+      "created_at": "2026-10-27T19:48:25.227740"
+    },
+    {
+      "url": "/static/covers/comparison_makita_m0900_m0910.jpg",
+      "cdn_url": "https://iili.io/nvEba9a.jpg",
+      "created_at": "2026-10-27T19:48:25.237284"
+    }
+  ],
+  "M011-M0910B": [
+    {
+      "url": "/static/covers/collage_makita_m0900_m0910.jpg",
+      "cdn_url": "https://iili.io/nvEbRF1.jpg",
+      "created_at": "2026-10-27T19:48:25.246780"
+    },
+    {
+      "url": "/static/covers/comparison_makita_m0900_m0910.jpg",
+      "cdn_url": "https://iili.io/nvEba9a.jpg",
+      "created_at": "2026-10-27T19:48:25.256566"
+    }
   ]
 }
