@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv='Cache-Control' content='no-cache, no-store, must-revalidate'>
     <title>MEGATOOL Hub - Shopee Store Management</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -1437,132 +1438,258 @@
             </div>
         </div>
 
-        <!-- MODAL: SHOP SETTINGS & EDIT (EDIT ALL DETAILS) -->
-        <div x-show="showShopModal" 
-             class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto"
-             x-cloak>
-            <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-xl w-full p-6 relative max-h-[92vh] overflow-y-auto"
-                 @click.away="showShopModal = false">
-                
-                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-                    <div class="flex items-center space-x-2.5">
-                        <div class="w-9 h-9 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center">
-                            <i data-lucide="store" class="w-4 h-4"></i>
-                        </div>
-                        <div>
-                            <h3 class="text-sm font-bold text-slate-800" x-text="editingShopId ? 'แก้ไขข้อมูลร้านค้า: ' + shopForm.name : 'เพิ่มร้านค้า Shopee ใหม่'"></h3>
-                            <p class="text-[11px] text-slate-400">เปลี่ยนชื่อร้าน สูตรราคา และคีย์เวิร์ดที่ใช้บน Shopee ทั้งหมดได้ตามใจชอบ</p>
-                        </div>
-                    </div>
-                    <button @click="showShopModal = false" class="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
-                        <i data-lucide="x" class="w-5 h-5"></i>
-                    </button>
-                </div>
-
-                <form @submit.prevent="saveShopSettings()" class="space-y-4 pt-4 text-xs">
-                    <!-- Shop Name & Code -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label class="font-bold text-slate-700 block mb-1">ชื่อร้านค้า (แสดงบนเว็บ):</label>
-                            <input type="text" x-model="shopForm.name" required placeholder="เช่น MEGATOOL Store 2 หรือ TOOL CITY"
-                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 outline-none font-semibold">
-                        </div>
-                        <div>
-                            <label class="font-bold text-slate-700 block mb-1">รหัสร้าน (ตัวย่อ):</label>
-                            <input type="text" x-model="shopForm.code" required placeholder="เช่น SHOP2, TOOLCITY"
-                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 outline-none uppercase font-mono">
-                        </div>
-                    </div>
-
-                    <!-- Brand Display on Covers & Tag -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label class="font-bold text-slate-700 block mb-1">แบรนด์/โลโก้ที่แสดงบนรูปปก:</label>
-                            <input type="text" x-model="shopForm.brand_display" required placeholder="เช่น MEGATOOL หรือ MEGATOOL ECO"
-                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 outline-none">
-                        </div>
-                        <div>
-                            <label class="font-bold text-slate-700 block mb-1">แท็กประเภทสาขา:</label>
-                            <input type="text" x-model="shopForm.tag" placeholder="เช่น สาขา 2 / Eco Outlet"
-                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 outline-none">
-                        </div>
-                    </div>
-
-                    <!-- Profit Formula Settings -->
-                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-3">
-                        <div class="font-bold text-slate-800 flex items-center space-x-1.5">
-                            <i data-lucide="calculator" class="w-3.5 h-3.5 text-orange-600"></i>
-                            <span>สูตรคำนวณราคาขายและกำไรของร้านนี้:</span>
-                        </div>
-                        <div class="grid grid-cols-3 gap-2.5">
-                            <div>
-                                <label class="text-[11px] text-slate-500 block mb-1">กำไรที่ต้องการ (%):</label>
-                                <div class="relative">
-                                    <input type="number" step="0.1" x-model="shopForm.profit_margin_pct" required
-                                           class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-center font-bold text-emerald-600 outline-none">
-                                    <span class="absolute right-2 top-1.5 text-slate-400">%</span>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="text-[11px] text-slate-500 block mb-1">ค่าธรรมเนียม Shopee (%):</label>
-                                <div class="relative">
-                                    <input type="number" step="0.1" x-model="shopForm.fee_rate_pct" required
-                                           class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-center font-bold text-rose-600 outline-none">
-                                    <span class="absolute right-2 top-1.5 text-slate-400">%</span>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="text-[11px] text-slate-500 block mb-1">กำไรขั้นต่ำ (บาท):</label>
-                                <div class="relative">
-                                    <input type="number" step="1" x-model="shopForm.min_profit" required
-                                           class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-center font-bold text-slate-800 outline-none">
-                                    <span class="absolute right-2 top-1.5 text-slate-400">฿</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- SEO Title Prefix & Suffix (Anti-Duplicate Listing) -->
-                    <div class="space-y-3">
-                        <div class="font-bold text-slate-800 flex items-center space-x-1.5">
-                            <i data-lucide="type" class="w-3.5 h-3.5 text-blue-600"></i>
-                            <span>คำนำหน้าและคำต่อท้ายชื่อสินค้าบน Shopee (ป้องกันสินค้าซ้ำซ้อน):</span>
-                        </div>
-                        <div>
-                            <label class="text-[11px] text-slate-500 block mb-1">คำนำหน้าชื่อสินค้า:</label>
-                            <input type="text" x-model="shopForm.title_prefix" placeholder="เช่น [ส่งด่วนแท้ศูนย์] หรือ [{brand} แท้ 100%]"
-                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-blue-500 outline-none font-mono">
-                        </div>
-                        <div>
-                            <label class="text-[11px] text-slate-500 block mb-1">คำต่อท้ายชื่อสินค้า:</label>
-                            <input type="text" x-model="shopForm.title_suffix" placeholder="เช่น ของแท้มาตรฐานโรงงาน หรือ พร้อมส่งทันที ออกใบกำกับภาษีได้"
-                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-blue-500 outline-none">
-                        </div>
-                    </div>
-
-                    <!-- Description / Notes -->
-                    <div>
-                        <label class="font-bold text-slate-700 block mb-1">คำอธิบาย/บันทึกเกี่ยวกับร้านนี้:</label>
-                        <textarea x-model="shopForm.description" rows="2" placeholder="เช่น ร้านเน้นตัดราคาดึงยอด หรือ ร้านทางการประกันศูนย์"
-                                  class="w-full px-3 py-2 rounded-xl border border-slate-200 outline-none"></textarea>
-                    </div>
-
-                    <!-- Action Buttons -->
-                    <div class="pt-3 flex items-center justify-end space-x-2 border-t border-slate-100">
-                        <button type="button" @click="showShopModal = false"
-                                class="px-4 py-2 rounded-xl border border-slate-200 font-semibold hover:bg-slate-50 transition-colors cursor-pointer">
-                            ยกเลิก
-                        </button>
-                        <button type="submit" :disabled="savingShop"
-                                class="px-6 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold shadow-md shadow-orange-500/25 transition-all flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer">
-                            <span x-show="!savingShop">💾 บันทึกการเปลี่ยนแปลง</span>
-                            <span x-show="savingShop" class="animate-spin">⏳ บันทึก...</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
+        <!-- MODAL: SHOP SETTINGS & EDIT (EDIT ALL DETAILS) -->
+
+        <div x-show="showShopModal" 
+
+             class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto"
+
+             x-cloak>
+
+            <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-xl w-full p-6 relative max-h-[92vh] overflow-y-auto"
+
+                 @click.away="showShopModal = false">
+
+                
+
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+
+                    <div class="flex items-center space-x-2.5">
+
+                        <div class="w-9 h-9 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center">
+
+                            <i data-lucide="store" class="w-4 h-4"></i>
+
+                        </div>
+
+                        <div>
+
+                            <h3 class="text-sm font-bold text-slate-800" x-text="editingShopId ? 'แก้ไขข้อมูลร้านค้า: ' + shopForm.name : 'เพิ่มร้านค้า Shopee ใหม่'"></h3>
+
+                            <p class="text-[11px] text-slate-400">เปลี่ยนชื่อร้าน สูตรราคา และคีย์เวิร์ดที่ใช้บน Shopee ทั้งหมดได้ตามใจชอบ</p>
+
+                        </div>
+
+                    </div>
+
+                    <button @click="showShopModal = false" class="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
+
+                        <i data-lucide="x" class="w-5 h-5"></i>
+
+                    </button>
+
+                </div>
+
+
+
+                <form @submit.prevent="saveShopSettings()" class="space-y-4 pt-4 text-xs">
+
+                    <!-- Shop Name & Code -->
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                        <div>
+
+                            <label class="font-bold text-slate-700 block mb-1">ชื่อร้านค้า (แสดงบนเว็บ):</label>
+
+                            <input type="text" x-model="shopForm.name" required placeholder="เช่น MEGATOOL Store 2 หรือ TOOL CITY"
+
+                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 outline-none font-semibold">
+
+                        </div>
+
+                        <div>
+
+                            <label class="font-bold text-slate-700 block mb-1">รหัสร้าน (ตัวย่อ):</label>
+
+                            <input type="text" x-model="shopForm.code" required placeholder="เช่น SHOP2, TOOLCITY"
+
+                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 outline-none uppercase font-mono">
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- Brand Display on Covers & Tag -->
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                        <div>
+
+                            <label class="font-bold text-slate-700 block mb-1">แบรนด์/โลโก้ที่แสดงบนรูปปก:</label>
+
+                            <input type="text" x-model="shopForm.brand_display" required placeholder="เช่น MEGATOOL หรือ MEGATOOL ECO"
+
+                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 outline-none">
+
+                        </div>
+
+                        <div>
+
+                            <label class="font-bold text-slate-700 block mb-1">แท็กประเภทสาขา:</label>
+
+                            <input type="text" x-model="shopForm.tag" placeholder="เช่น สาขา 2 / Eco Outlet"
+
+                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 outline-none">
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- Profit Formula Settings -->
+
+                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-3">
+
+                        <div class="font-bold text-slate-800 flex items-center space-x-1.5">
+
+                            <i data-lucide="calculator" class="w-3.5 h-3.5 text-orange-600"></i>
+
+                            <span>สูตรคำนวณราคาขายและกำไรของร้านนี้:</span>
+
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2.5">
+
+                            <div>
+
+                                <label class="text-[11px] text-slate-500 block mb-1">กำไรที่ต้องการ (%):</label>
+
+                                <div class="relative">
+
+                                    <input type="number" step="0.1" x-model="shopForm.profit_margin_pct" required
+
+                                           class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-center font-bold text-emerald-600 outline-none">
+
+                                    <span class="absolute right-2 top-1.5 text-slate-400">%</span>
+
+                                </div>
+
+                            </div>
+
+                            <div>
+
+                                <label class="text-[11px] text-slate-500 block mb-1">ค่าธรรมเนียม Shopee (%):</label>
+
+                                <div class="relative">
+
+                                    <input type="number" step="0.1" x-model="shopForm.fee_rate_pct" required
+
+                                           class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-center font-bold text-rose-600 outline-none">
+
+                                    <span class="absolute right-2 top-1.5 text-slate-400">%</span>
+
+                                </div>
+
+                            </div>
+
+                            <div>
+
+                                <label class="text-[11px] text-slate-500 block mb-1">กำไรขั้นต่ำ (บาท):</label>
+
+                                <div class="relative">
+
+                                    <input type="number" step="1" x-model="shopForm.min_profit" required
+
+                                           class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-center font-bold text-slate-800 outline-none">
+
+                                    <span class="absolute right-2 top-1.5 text-slate-400">฿</span>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- SEO Title Prefix & Suffix (Anti-Duplicate Listing) -->
+
+                    <div class="space-y-3">
+
+                        <div class="font-bold text-slate-800 flex items-center space-x-1.5">
+
+                            <i data-lucide="type" class="w-3.5 h-3.5 text-blue-600"></i>
+
+                            <span>คำนำหน้าและคำต่อท้ายชื่อสินค้าบน Shopee (ป้องกันสินค้าซ้ำซ้อน):</span>
+
+                        </div>
+
+                        <div>
+
+                            <label class="text-[11px] text-slate-500 block mb-1">คำนำหน้าชื่อสินค้า:</label>
+
+                            <input type="text" x-model="shopForm.title_prefix" placeholder="เช่น [ส่งด่วนแท้ศูนย์] หรือ [{brand} แท้ 100%]"
+
+                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-blue-500 outline-none font-mono">
+
+                        </div>
+
+                        <div>
+
+                            <label class="text-[11px] text-slate-500 block mb-1">คำต่อท้ายชื่อสินค้า:</label>
+
+                            <input type="text" x-model="shopForm.title_suffix" placeholder="เช่น ของแท้มาตรฐานโรงงาน หรือ พร้อมส่งทันที ออกใบกำกับภาษีได้"
+
+                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-blue-500 outline-none">
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- Description / Notes -->
+
+                    <div>
+
+                        <label class="font-bold text-slate-700 block mb-1">คำอธิบาย/บันทึกเกี่ยวกับร้านนี้:</label>
+
+                        <textarea x-model="shopForm.description" rows="2" placeholder="เช่น ร้านเน้นตัดราคาดึงยอด หรือ ร้านทางการประกันศูนย์"
+
+                                  class="w-full px-3 py-2 rounded-xl border border-slate-200 outline-none"></textarea>
+
+                    </div>
+
+
+
+                    <!-- Action Buttons -->
+
+                    <div class="pt-3 flex items-center justify-end space-x-2 border-t border-slate-100">
+
+                        <button type="button" @click="showShopModal = false"
+
+                                class="px-4 py-2 rounded-xl border border-slate-200 font-semibold hover:bg-slate-50 transition-colors cursor-pointer">
+
+                            ยกเลิก
+
+                        </button>
+
+                        <button type="submit" :disabled="savingShop"
+
+                                class="px-6 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold shadow-md shadow-orange-500/25 transition-all flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer">
+
+                            <span x-show="!savingShop">💾 บันทึกการเปลี่ยนแปลง</span>
+
+                            <span x-show="savingShop" class="animate-spin">⏳ บันทึก...</span>
+
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+
+
         <!-- MODAL: SHOP SETTINGS & EDIT (EDIT ALL DETAILS) -->
         <div x-show="showShopModal" 
              class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto"
@@ -1885,132 +2012,258 @@
 
 
 
-        <!-- MODAL: SHOP SETTINGS & EDIT (EDIT ALL DETAILS) -->
-        <div x-show="showShopModal" 
-             class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto"
-             x-cloak>
-            <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-xl w-full p-6 relative max-h-[92vh] overflow-y-auto"
-                 @click.away="showShopModal = false">
-                
-                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-                    <div class="flex items-center space-x-2.5">
-                        <div class="w-9 h-9 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center">
-                            <i data-lucide="store" class="w-4 h-4"></i>
-                        </div>
-                        <div>
-                            <h3 class="text-sm font-bold text-slate-800" x-text="editingShopId ? 'แก้ไขข้อมูลร้านค้า: ' + shopForm.name : 'เพิ่มร้านค้า Shopee ใหม่'"></h3>
-                            <p class="text-[11px] text-slate-400">เปลี่ยนชื่อร้าน สูตรราคา และคีย์เวิร์ดที่ใช้บน Shopee ทั้งหมดได้ตามใจชอบ</p>
-                        </div>
-                    </div>
-                    <button @click="showShopModal = false" class="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
-                        <i data-lucide="x" class="w-5 h-5"></i>
-                    </button>
-                </div>
-
-                <form @submit.prevent="saveShopSettings()" class="space-y-4 pt-4 text-xs">
-                    <!-- Shop Name & Code -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label class="font-bold text-slate-700 block mb-1">ชื่อร้านค้า (แสดงบนเว็บ):</label>
-                            <input type="text" x-model="shopForm.name" required placeholder="เช่น MEGATOOL Store 2 หรือ TOOL CITY"
-                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 outline-none font-semibold">
-                        </div>
-                        <div>
-                            <label class="font-bold text-slate-700 block mb-1">รหัสร้าน (ตัวย่อ):</label>
-                            <input type="text" x-model="shopForm.code" required placeholder="เช่น SHOP2, TOOLCITY"
-                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 outline-none uppercase font-mono">
-                        </div>
-                    </div>
-
-                    <!-- Brand Display on Covers & Tag -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label class="font-bold text-slate-700 block mb-1">แบรนด์/โลโก้ที่แสดงบนรูปปก:</label>
-                            <input type="text" x-model="shopForm.brand_display" required placeholder="เช่น MEGATOOL หรือ MEGATOOL ECO"
-                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 outline-none">
-                        </div>
-                        <div>
-                            <label class="font-bold text-slate-700 block mb-1">แท็กประเภทสาขา:</label>
-                            <input type="text" x-model="shopForm.tag" placeholder="เช่น สาขา 2 / Eco Outlet"
-                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 outline-none">
-                        </div>
-                    </div>
-
-                    <!-- Profit Formula Settings -->
-                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-3">
-                        <div class="font-bold text-slate-800 flex items-center space-x-1.5">
-                            <i data-lucide="calculator" class="w-3.5 h-3.5 text-orange-600"></i>
-                            <span>สูตรคำนวณราคาขายและกำไรของร้านนี้:</span>
-                        </div>
-                        <div class="grid grid-cols-3 gap-2.5">
-                            <div>
-                                <label class="text-[11px] text-slate-500 block mb-1">กำไรที่ต้องการ (%):</label>
-                                <div class="relative">
-                                    <input type="number" step="0.1" x-model="shopForm.profit_margin_pct" required
-                                           class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-center font-bold text-emerald-600 outline-none">
-                                    <span class="absolute right-2 top-1.5 text-slate-400">%</span>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="text-[11px] text-slate-500 block mb-1">ค่าธรรมเนียม Shopee (%):</label>
-                                <div class="relative">
-                                    <input type="number" step="0.1" x-model="shopForm.fee_rate_pct" required
-                                           class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-center font-bold text-rose-600 outline-none">
-                                    <span class="absolute right-2 top-1.5 text-slate-400">%</span>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="text-[11px] text-slate-500 block mb-1">กำไรขั้นต่ำ (บาท):</label>
-                                <div class="relative">
-                                    <input type="number" step="1" x-model="shopForm.min_profit" required
-                                           class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-center font-bold text-slate-800 outline-none">
-                                    <span class="absolute right-2 top-1.5 text-slate-400">฿</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- SEO Title Prefix & Suffix (Anti-Duplicate Listing) -->
-                    <div class="space-y-3">
-                        <div class="font-bold text-slate-800 flex items-center space-x-1.5">
-                            <i data-lucide="type" class="w-3.5 h-3.5 text-blue-600"></i>
-                            <span>คำนำหน้าและคำต่อท้ายชื่อสินค้าบน Shopee (ป้องกันสินค้าซ้ำซ้อน):</span>
-                        </div>
-                        <div>
-                            <label class="text-[11px] text-slate-500 block mb-1">คำนำหน้าชื่อสินค้า:</label>
-                            <input type="text" x-model="shopForm.title_prefix" placeholder="เช่น [ส่งด่วนแท้ศูนย์] หรือ [{brand} แท้ 100%]"
-                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-blue-500 outline-none font-mono">
-                        </div>
-                        <div>
-                            <label class="text-[11px] text-slate-500 block mb-1">คำต่อท้ายชื่อสินค้า:</label>
-                            <input type="text" x-model="shopForm.title_suffix" placeholder="เช่น ของแท้มาตรฐานโรงงาน หรือ พร้อมส่งทันที ออกใบกำกับภาษีได้"
-                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-blue-500 outline-none">
-                        </div>
-                    </div>
-
-                    <!-- Description / Notes -->
-                    <div>
-                        <label class="font-bold text-slate-700 block mb-1">คำอธิบาย/บันทึกเกี่ยวกับร้านนี้:</label>
-                        <textarea x-model="shopForm.description" rows="2" placeholder="เช่น ร้านเน้นตัดราคาดึงยอด หรือ ร้านทางการประกันศูนย์"
-                                  class="w-full px-3 py-2 rounded-xl border border-slate-200 outline-none"></textarea>
-                    </div>
-
-                    <!-- Action Buttons -->
-                    <div class="pt-3 flex items-center justify-end space-x-2 border-t border-slate-100">
-                        <button type="button" @click="showShopModal = false"
-                                class="px-4 py-2 rounded-xl border border-slate-200 font-semibold hover:bg-slate-50 transition-colors cursor-pointer">
-                            ยกเลิก
-                        </button>
-                        <button type="submit" :disabled="savingShop"
-                                class="px-6 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold shadow-md shadow-orange-500/25 transition-all flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer">
-                            <span x-show="!savingShop">💾 บันทึกการเปลี่ยนแปลง</span>
-                            <span x-show="savingShop" class="animate-spin">⏳ บันทึก...</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
+        <!-- MODAL: SHOP SETTINGS & EDIT (EDIT ALL DETAILS) -->
+
+        <div x-show="showShopModal" 
+
+             class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto"
+
+             x-cloak>
+
+            <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-xl w-full p-6 relative max-h-[92vh] overflow-y-auto"
+
+                 @click.away="showShopModal = false">
+
+                
+
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+
+                    <div class="flex items-center space-x-2.5">
+
+                        <div class="w-9 h-9 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center">
+
+                            <i data-lucide="store" class="w-4 h-4"></i>
+
+                        </div>
+
+                        <div>
+
+                            <h3 class="text-sm font-bold text-slate-800" x-text="editingShopId ? 'แก้ไขข้อมูลร้านค้า: ' + shopForm.name : 'เพิ่มร้านค้า Shopee ใหม่'"></h3>
+
+                            <p class="text-[11px] text-slate-400">เปลี่ยนชื่อร้าน สูตรราคา และคีย์เวิร์ดที่ใช้บน Shopee ทั้งหมดได้ตามใจชอบ</p>
+
+                        </div>
+
+                    </div>
+
+                    <button @click="showShopModal = false" class="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
+
+                        <i data-lucide="x" class="w-5 h-5"></i>
+
+                    </button>
+
+                </div>
+
+
+
+                <form @submit.prevent="saveShopSettings()" class="space-y-4 pt-4 text-xs">
+
+                    <!-- Shop Name & Code -->
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                        <div>
+
+                            <label class="font-bold text-slate-700 block mb-1">ชื่อร้านค้า (แสดงบนเว็บ):</label>
+
+                            <input type="text" x-model="shopForm.name" required placeholder="เช่น MEGATOOL Store 2 หรือ TOOL CITY"
+
+                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 outline-none font-semibold">
+
+                        </div>
+
+                        <div>
+
+                            <label class="font-bold text-slate-700 block mb-1">รหัสร้าน (ตัวย่อ):</label>
+
+                            <input type="text" x-model="shopForm.code" required placeholder="เช่น SHOP2, TOOLCITY"
+
+                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 outline-none uppercase font-mono">
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- Brand Display on Covers & Tag -->
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                        <div>
+
+                            <label class="font-bold text-slate-700 block mb-1">แบรนด์/โลโก้ที่แสดงบนรูปปก:</label>
+
+                            <input type="text" x-model="shopForm.brand_display" required placeholder="เช่น MEGATOOL หรือ MEGATOOL ECO"
+
+                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 outline-none">
+
+                        </div>
+
+                        <div>
+
+                            <label class="font-bold text-slate-700 block mb-1">แท็กประเภทสาขา:</label>
+
+                            <input type="text" x-model="shopForm.tag" placeholder="เช่น สาขา 2 / Eco Outlet"
+
+                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-orange-500 outline-none">
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- Profit Formula Settings -->
+
+                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-3">
+
+                        <div class="font-bold text-slate-800 flex items-center space-x-1.5">
+
+                            <i data-lucide="calculator" class="w-3.5 h-3.5 text-orange-600"></i>
+
+                            <span>สูตรคำนวณราคาขายและกำไรของร้านนี้:</span>
+
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2.5">
+
+                            <div>
+
+                                <label class="text-[11px] text-slate-500 block mb-1">กำไรที่ต้องการ (%):</label>
+
+                                <div class="relative">
+
+                                    <input type="number" step="0.1" x-model="shopForm.profit_margin_pct" required
+
+                                           class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-center font-bold text-emerald-600 outline-none">
+
+                                    <span class="absolute right-2 top-1.5 text-slate-400">%</span>
+
+                                </div>
+
+                            </div>
+
+                            <div>
+
+                                <label class="text-[11px] text-slate-500 block mb-1">ค่าธรรมเนียม Shopee (%):</label>
+
+                                <div class="relative">
+
+                                    <input type="number" step="0.1" x-model="shopForm.fee_rate_pct" required
+
+                                           class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-center font-bold text-rose-600 outline-none">
+
+                                    <span class="absolute right-2 top-1.5 text-slate-400">%</span>
+
+                                </div>
+
+                            </div>
+
+                            <div>
+
+                                <label class="text-[11px] text-slate-500 block mb-1">กำไรขั้นต่ำ (บาท):</label>
+
+                                <div class="relative">
+
+                                    <input type="number" step="1" x-model="shopForm.min_profit" required
+
+                                           class="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-center font-bold text-slate-800 outline-none">
+
+                                    <span class="absolute right-2 top-1.5 text-slate-400">฿</span>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- SEO Title Prefix & Suffix (Anti-Duplicate Listing) -->
+
+                    <div class="space-y-3">
+
+                        <div class="font-bold text-slate-800 flex items-center space-x-1.5">
+
+                            <i data-lucide="type" class="w-3.5 h-3.5 text-blue-600"></i>
+
+                            <span>คำนำหน้าและคำต่อท้ายชื่อสินค้าบน Shopee (ป้องกันสินค้าซ้ำซ้อน):</span>
+
+                        </div>
+
+                        <div>
+
+                            <label class="text-[11px] text-slate-500 block mb-1">คำนำหน้าชื่อสินค้า:</label>
+
+                            <input type="text" x-model="shopForm.title_prefix" placeholder="เช่น [ส่งด่วนแท้ศูนย์] หรือ [{brand} แท้ 100%]"
+
+                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-blue-500 outline-none font-mono">
+
+                        </div>
+
+                        <div>
+
+                            <label class="text-[11px] text-slate-500 block mb-1">คำต่อท้ายชื่อสินค้า:</label>
+
+                            <input type="text" x-model="shopForm.title_suffix" placeholder="เช่น ของแท้มาตรฐานโรงงาน หรือ พร้อมส่งทันที ออกใบกำกับภาษีได้"
+
+                                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-blue-500 outline-none">
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- Description / Notes -->
+
+                    <div>
+
+                        <label class="font-bold text-slate-700 block mb-1">คำอธิบาย/บันทึกเกี่ยวกับร้านนี้:</label>
+
+                        <textarea x-model="shopForm.description" rows="2" placeholder="เช่น ร้านเน้นตัดราคาดึงยอด หรือ ร้านทางการประกันศูนย์"
+
+                                  class="w-full px-3 py-2 rounded-xl border border-slate-200 outline-none"></textarea>
+
+                    </div>
+
+
+
+                    <!-- Action Buttons -->
+
+                    <div class="pt-3 flex items-center justify-end space-x-2 border-t border-slate-100">
+
+                        <button type="button" @click="showShopModal = false"
+
+                                class="px-4 py-2 rounded-xl border border-slate-200 font-semibold hover:bg-slate-50 transition-colors cursor-pointer">
+
+                            ยกเลิก
+
+                        </button>
+
+                        <button type="submit" :disabled="savingShop"
+
+                                class="px-6 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold shadow-md shadow-orange-500/25 transition-all flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer">
+
+                            <span x-show="!savingShop">💾 บันทึกการเปลี่ยนแปลง</span>
+
+                            <span x-show="savingShop" class="animate-spin">⏳ บันทึก...</span>
+
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+
+
         <!-- MODAL: SHOP SETTINGS & EDIT (EDIT ALL DETAILS) -->
         <div x-show="showShopModal" 
              class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto"
