@@ -297,8 +297,12 @@ def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_pa
                 if len(products) >= page_size:
                     break
                 
+            total_count = data.get('pagination', {}).get('totalResults', 0)
+            if (in_stock_only or exclude_spare_parts) and page == 0 and len(products) == 0:
+                total_count = 0
+                
             return {
-                "total": data.get('pagination', {}).get('totalResults', 0),
+                "total": total_count,
                 "page": page,
                 "page_size": page_size,
                 "products": products
