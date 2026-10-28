@@ -64,10 +64,18 @@ def get_shop(shop_id: str) -> dict:
     return shops.get("shop_1", DEFAULT_SHOPS["shop_1"])
 
 def save_shop(shop_data: dict) -> dict:
+    import time
     shop_id = shop_data.get("id")
     if not shop_id:
-        raise ValueError("Shop ID is required")
+        shop_id = f"shop_{int(time.time())}"
+        shop_data["id"] = shop_id
     shops = get_all_shops()
+    if "profit_margin" in shop_data:
+        shop_data["profit_margin"] = round(float(shop_data["profit_margin"]), 4)
+    if "fee_rate" in shop_data:
+        shop_data["fee_rate"] = round(float(shop_data["fee_rate"]), 4)
+    if "min_profit" in shop_data:
+        shop_data["min_profit"] = round(float(shop_data["min_profit"]), 2)
     shops[shop_id] = shop_data
     with open(SHOPS_FILE, "w", encoding="utf-8") as f:
         json.dump(shops, f, ensure_ascii=False, indent=2)
