@@ -1183,9 +1183,11 @@
         <!-- MODAL: FULL PRODUCT DETAIL (CLICK ANY ITEM TO VIEW ALL WAREHOUSE DETAILS) -->
         <div x-show="showDetailModal" 
              class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-2 sm:p-4 overflow-hidden"
+             @mousedown="handleBackdropMouseDown($event)"
+             @mouseup="handleBackdropMouseUp($event, () => showDetailModal = false)"
              x-cloak>
             <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-4xl w-full max-h-[94vh] flex flex-col p-5 sm:p-7 relative overflow-hidden"
-                 @click.away="showDetailModal = false">
+                 @click.stop>
                 
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
                     <div class="flex items-center space-x-3">
@@ -1293,9 +1295,11 @@
         <!-- MODAL: STREAMLINED ATTACH SHOPEE LINK (JUST PASTE LINK!) -->
         <div x-show="showAttachModal" 
              class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto"
+             @mousedown="handleBackdropMouseDown($event)"
+             @mouseup="handleBackdropMouseUp($event, () => showAttachModal = false)"
              x-cloak>
             <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 relative my-8"
-                 @click.away="showAttachModal = false">
+                 @click.stop>
                 
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                     <div class="flex items-center space-x-2">
@@ -1441,7 +1445,8 @@
         <!-- MODAL: SHOP SETTINGS & EDIT (EDIT ALL DETAILS) -->
         <div x-show="showShopModal" 
              class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto"
-             @click.self="showShopModal = false"
+             @mousedown="handleBackdropMouseDown($event)"
+             @mouseup="handleBackdropMouseUp($event, () => showShopModal = false)"
              x-cloak>
             <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-xl w-full p-6 relative max-h-[92vh] overflow-y-auto"
                  @click.stop>
@@ -1568,7 +1573,8 @@
         <!-- MODAL: CLONE TO ANOTHER SHOP (MULTI-SHOP) -->
         <div x-show="showCloneModal" 
              class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto"
-             @click.self="showCloneModal = false"
+             @mousedown="handleBackdropMouseDown($event)"
+             @mouseup="handleBackdropMouseUp($event, () => showCloneModal = false)"
              x-cloak>
             <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 relative"
                  @click.stop>
@@ -1668,9 +1674,11 @@
         <!-- MODAL: COVER PREVIEW & COLLAGE MAKER -->
         <div x-show="showPreviewModal" 
              class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-2 sm:p-4 md:p-6 overflow-hidden"
+             @mousedown="handleBackdropMouseDown($event)"
+             @mouseup="handleBackdropMouseUp($event, () => showPreviewModal = false)"
              x-cloak>
             <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-5xl w-full max-h-[95vh] flex flex-col p-4 sm:p-6 relative overflow-hidden"
-                 @click.away="showPreviewModal = false">
+                 @click.stop>
                 
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
                     <div>
@@ -1978,9 +1986,11 @@
         <!-- MODAL: QUEUE & SHOPEE EXPORT -->
         <div x-show="showQueueModal" 
              class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-2 sm:p-4 overflow-hidden"
+             @mousedown="handleBackdropMouseDown($event)"
+             @mouseup="handleBackdropMouseUp($event, () => showQueueModal = false)"
              x-cloak>
             <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[94vh] flex flex-col p-4 sm:p-6 relative overflow-hidden"
-                 @click.away="showQueueModal = false">
+                 @click.stop>
                 
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
                     <div class="flex items-center space-x-2">
@@ -2440,7 +2450,20 @@
                     return headers;
                 },
 
-                                // Multi-Shop Management
+                                modalBackdropMouseDown: false,
+
+                handleBackdropMouseDown(e) {
+                    this.modalBackdropMouseDown = (e.target === e.currentTarget);
+                },
+
+                handleBackdropMouseUp(e, closeFn) {
+                    if (this.modalBackdropMouseDown && e.target === e.currentTarget) {
+                        if (typeof closeFn === 'function') closeFn();
+                    }
+                    this.modalBackdropMouseDown = false;
+                },
+
+                // Multi-Shop Management
                 openEditShopModal(shop) {
                     this.editingShopId = shop.id;
                     this.shopForm = {
