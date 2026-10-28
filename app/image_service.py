@@ -1152,7 +1152,7 @@ def generate_comparison_card(
     draw.text((60, 42), clean_parent_title[:45], font=font_title, fill=(255, 255, 255, 255))
     draw.text((60, 82), "ตารางเปรียบเทียบสเปกเพื่อให้คุณเลือกรุ่นที่ตอบโจทย์งานที่สุด", font=font_sub, fill=(203, 213, 225, 255))
 
-    shop_str = f"{shop_name} OFFICIAL"
+    shop_str = f"{shop_name} STORE"
     sb = font_sub.getbbox(shop_str)
     sw = sb[2] - sb[0]
     draw.text((CANVAS_SIZE - 70 - sw, 60), shop_str, font=font_sub, fill=(249, 115, 22, 255))
@@ -1319,7 +1319,7 @@ def generate_comparison_card(
 
     footer_box = [30, 1130, CANVAS_SIZE - 30, 1175]
     draw.rounded_rectangle(footer_box, radius=12, fill=(241, 245, 249, 255))
-    footer_text = f"{shop_name} OFFICIAL STORE • สินค้าของแท้ 100% พร้อมจัดส่งด่วน • มีศูนย์บริการรองรับมาตรฐานสากล"
+    footer_text = f"{shop_name} STORE • สินค้าของแท้ 100% พร้อมจัดส่งด่วน • มีศูนย์บริการรองรับมาตรฐานสากล"
     ft_b = font_footer.getbbox(footer_text)
     ft_w = ft_b[2] - ft_b[0]
     draw.text(((CANVAS_SIZE - ft_w) // 2, 1142), footer_text, font=font_footer, fill=(71, 85, 105, 255))
