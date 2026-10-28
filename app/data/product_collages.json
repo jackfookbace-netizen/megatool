@@ -16,6 +16,11 @@
       "url": "/static/covers/comparison_makita_m0900_m0910.jpg",
       "cdn_url": "https://iili.io/nvEba9a.jpg",
       "created_at": "2026-10-27T19:48:25.237284"
+    },
+    {
+      "url": "/static/covers/makita_marketing_hero_comparison.jpg",
+      "cdn_url": "https://iili.io/nv6Byox.jpg",
+      "created_at": "2026-10-28T10:04:47.218112"
     }
   ],
   "M011-M0910B": [
@@ -28,6 +33,11 @@
       "url": "/static/covers/comparison_makita_m0900_m0910.jpg",
       "cdn_url": "https://iili.io/nvEba9a.jpg",
       "created_at": "2026-10-27T19:48:25.256566"
+    },
+    {
+      "url": "/static/covers/makita_marketing_hero_comparison.jpg",
+      "cdn_url": "https://iili.io/nv6Byox.jpg",
+      "created_at": "2026-10-28T10:04:47.230285"
     }
   ]
 }
