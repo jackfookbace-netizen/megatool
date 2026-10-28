@@ -1,0 +1,32 @@
+{
+  "shop_1": {
+    "id": "shop_1",
+    "name": "MEGATOOL (ร้านหลัก)",
+    "code": "SHOP1",
+    "brand_display": "MEGATOOL",
+    "profit_margin": 0.15,
+    "fee_rate": 0.28,
+    "min_profit": 50.0,
+    "title_prefix": "[{brand} แท้ 100%]",
+    "title_suffix": "ของแท้มาตรฐานโรงงาน ประกันศูนย์",
+    "tag": "ร้านหลัก / Official",
+    "theme_color": "orange",
+    "is_default": true,
+    "description": "ร้านค้าหลัก เน้นภาพลักษณ์แบรนด์ทางการ สินค้าแท้ศูนย์ 100% พร้อมบริการหลังการขายครบวงจร"
+  },
+  "shop_2": {
+    "id": "shop_2",
+    "name": "MEGATOOL Store 2 (สาขา 2)",
+    "code": "SHOP2",
+    "brand_display": "MEGATOOL ECO",
+    "profit_margin": 0.08,
+    "fee_rate": 0.28,
+    "min_profit": 30.0,
+    "title_prefix": "[ส่งด่วนแท้ศูนย์]",
+    "title_suffix": "พร้อมส่งทันที มีสต็อกจริง ออกใบกำกับภาษีได้",
+    "tag": "สาขา 2 / Eco Outlet",
+    "theme_color": "blue",
+    "is_default": false,
+    "description": "ร้านสาขาที่ 2 เน้นทำราคาแข่งขัน ดึงลูกค้าสายประหยัด ใช้คีย์เวิร์ดและรูปมุมมองพิเศษเพื่อไม่ให้ซ้ำกับร้านแรก"
+  }
+}

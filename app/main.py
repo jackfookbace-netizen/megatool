@@ -18,9 +18,11 @@ from app.image_service import (
 )
 from app.shopee_service import export_shopee_batch
 from app.auth_service import verify_user, create_token, verify_token
+from app.shop_service import get_all_shops, get_shop, save_shop
 from app.listed_service import (
     get_all_listed, get_listed_product, save_listed_product,
-    delete_listed_product, get_dashboard_summary, update_listed_product_price
+    delete_listed_product, get_dashboard_summary, update_listed_product_price,
+    clone_product_to_shop
 )
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -110,14 +112,25 @@ class AttachShopeeRequest(BaseModel):
     price: Optional[float] = 0.0
     image_url: Optional[str] = ""
     variation_name: Optional[str] = ""
+    shop_id: Optional[str] = "shop_1"
+
+@app.get("/api/shops")
+def api_get_shops():
+    return {"shops": get_all_shops()}
+
+@app.post("/api/shops")
+def api_save_shop(shop_data: dict, request: Request, authorization: Optional[str] = Header(None)):
+    user = require_auth(request, authorization)
+    updated = save_shop(shop_data)
+    return {"success": True, "shop": updated}
 
 @app.get("/api/listed")
-def api_get_listed():
-    items = get_all_listed()
+def api_get_listed(shop_id: Optional[str] = Query("shop_1")):
+    items = get_all_listed(shop_id=shop_id or "shop_1")
     for item in items.values():
         if not item.get("ktw_url"):
             item["ktw_url"] = f"https://shop.ktw.co.th/p/{item.get('sku')}"
-    return {"items": list(items.values()), "total": len(items)}
+    return {"items": list(items.values()), "total": len(items), "shop_id": shop_id}
 
 @app.post("/api/listed")
 def api_save_listed(req: AttachShopeeRequest, request: Request, authorization: Optional[str] = Header(None)):
@@ -131,33 +144,63 @@ def api_save_listed(req: AttachShopeeRequest, request: Request, authorization: O
         brand=req.brand,
         price=req.price or 0.0,
         image_url=req.image_url or "",
-        variation_name=req.variation_name or ""
+        variation_name=req.variation_name or "",
+        shop_id=req.shop_id or "shop_1"
     )
     return {"success": True, "item": item}
 
 class UpdatePriceRequest(BaseModel):
     sku: str
     price: float
+    shop_id: Optional[str] = "shop_1"
 
 @app.post("/api/listed/price")
 def api_update_listed_price(req: UpdatePriceRequest, request: Request, authorization: Optional[str] = Header(None)):
     user = require_auth(request, authorization)
     if not req.sku or req.price <= 0:
         raise HTTPException(status_code=400, detail="กรุณาระบุ SKU และราคาที่ถูกต้อง")
-    item = update_listed_product_price(req.sku, req.price)
+    item = update_listed_product_price(req.sku, req.price, shop_id=req.shop_id or "shop_1")
     if not item:
         raise HTTPException(status_code=404, detail="ไม่พบสินค้าในรายการที่ลงขาย")
     return {"success": True, "item": item}
 
 @app.delete("/api/listed/{sku}")
-def api_delete_listed(sku: str, request: Request, authorization: Optional[str] = Header(None)):
+def api_delete_listed(sku: str, request: Request, authorization: Optional[str] = Header(None), shop_id: Optional[str] = Query("shop_1")):
     user = require_auth(request, authorization)
-    deleted = delete_listed_product(sku)
+    deleted = delete_listed_product(sku, shop_id=shop_id or "shop_1")
     return {"success": deleted}
 
+class CloneProductRequest(BaseModel):
+    skus: List[str]
+    from_shop_id: Optional[str] = "shop_1"
+    to_shop_id: Optional[str] = "shop_2"
+    price_mode: Optional[str] = "auto"
+    custom_price: Optional[float] = None
+    custom_name: Optional[str] = None
+    custom_image: Optional[str] = None
+
+@app.post("/api/shops/clone")
+def api_clone_products(req: CloneProductRequest, request: Request, authorization: Optional[str] = Header(None)):
+    require_auth(request, authorization)
+    if not req.skus:
+        raise HTTPException(status_code=400, detail="กรุณาระบุอย่างน้อย 1 SKU เพื่อ Clone")
+    cloned_items = []
+    for sku in req.skus:
+        item = clone_product_to_shop(
+            sku=sku,
+            from_shop_id=req.from_shop_id or "shop_1",
+            to_shop_id=req.to_shop_id or "shop_2",
+            price_mode=req.price_mode or "auto",
+            custom_price=req.custom_price,
+            custom_name=req.custom_name,
+            custom_image=req.custom_image
+        )
+        cloned_items.append(item)
+    return {"success": True, "cloned_count": len(cloned_items), "items": cloned_items}
+
 @app.get("/api/dashboard/stats")
-def api_dashboard_stats():
-    return get_dashboard_summary()
+def api_dashboard_stats(shop_id: Optional[str] = Query("shop_1")):
+    return get_dashboard_summary(shop_id=shop_id or "shop_1")
 
 @app.get("/api/search")
 def api_search(
@@ -369,7 +412,8 @@ class ExportItem(BaseModel):
 class ExportRequest(BaseModel):
     items: List[ExportItem]
     filename: Optional[str] = "Shopee_Mass_Upload_Batch_Auto.xlsx"
-    shop_name: Optional[str] = "MEGATOOL"
+    shop_id: Optional[str] = "shop_1"
+    shop_name: Optional[str] = None
     is_variation_group: Optional[bool] = False
     parent_title: Optional[str] = None
     variation_group_name: Optional[str] = "รุ่นสินค้า"
@@ -383,11 +427,13 @@ def api_export(req: ExportRequest, request: Request, authorization: Optional[str
     if not req.items:
         raise HTTPException(status_code=400, detail="No items to export")
     items_data = [item.dict() for item in req.items]
+    target_shop = get_shop(req.shop_id or "shop_1")
+    eff_shop_name = req.shop_name or target_shop.get("brand_display") or "MEGATOOL"
     try:
         file_url = export_shopee_batch(
             items_data, 
             req.filename, 
-            shop_name=req.shop_name or "MEGATOOL",
+            shop_name=eff_shop_name,
             is_variation_group=req.is_variation_group or False,
             parent_title=req.parent_title,
             variation_group_name=req.variation_group_name or "รุ่นสินค้า",

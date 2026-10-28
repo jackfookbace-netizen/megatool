@@ -144,7 +144,45 @@
                 </nav>
 
                 <!-- Right Actions -->
-                <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2 sm:space-x-3">
+                    <!-- Store Switcher Dropdown (Multi-Shop) -->
+                    <template x-if="currentUser">
+                        <div class="relative" x-data="{ openStoreMenu: false }" @click.outside="openStoreMenu = false">
+                            <button @click="openStoreMenu = !openStoreMenu" 
+                                    class="flex items-center space-x-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-xs cursor-pointer select-none"
+                                    :class="activeShopId === 'shop_1' ? 'bg-orange-50 text-orange-800 border-orange-200 hover:bg-orange-100' : 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100'">
+                                <i data-lucide="store" class="w-3.5 h-3.5"></i>
+                                <span class="max-w-[110px] sm:max-w-[140px] truncate" x-text="currentShop ? currentShop.name : 'MEGATOOL'"></span>
+                                <span class="text-[9px] px-1.5 py-0.2 rounded font-mono uppercase bg-white/80 border border-black/10" 
+                                      x-text="currentShop ? currentShop.code : 'SHOP1'"></span>
+                                <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
+                            </button>
+                            <div x-show="openStoreMenu" x-cloak
+                                 class="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50">
+                                <div class="px-3.5 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                                    <span>สลับร้านค้า Shopee (Multi-Shop)</span>
+                                    <span class="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded" x-text="Object.keys(shops).length + ' ร้าน'"></span>
+                                </div>
+                                <template x-for="(shop, sId) in shops" :key="sId">
+                                    <button @click="switchShop(sId); openStoreMenu = false"
+                                            class="w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer"
+                                            :class="activeShopId === sId ? 'bg-orange-50/60 font-bold text-orange-800' : 'text-slate-700'">
+                                        <div class="flex items-center space-x-2.5">
+                                            <div class="w-3 h-3 rounded-full shrink-0" :class="sId === 'shop_1' ? 'bg-orange-500' : 'bg-blue-500'"></div>
+                                            <div>
+                                                <div class="flex items-center space-x-1.5">
+                                                    <span x-text="shop.name"></span>
+                                                    <span class="text-[9px] px-1 py-0.2 rounded text-slate-500 bg-slate-100 font-normal" x-text="shop.tag"></span>
+                                                </div>
+                                                <div class="text-[10px] text-slate-400 mt-0.5" x-text="'กำไร ' + Math.round(shop.profit_margin * 100) + '% | หัก ' + Math.round(shop.fee_rate * 100) + '%'"></div>
+                                            </div>
+                                        </div>
+                                        <i data-lucide="check" class="w-4 h-4 text-orange-600" x-show="activeShopId === sId"></i>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
                     <template x-if="currentUser">
                         <div class="flex items-center space-x-2">
                             <div class="px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center space-x-1.5 bg-orange-50 text-orange-700 border-orange-200">
@@ -838,6 +876,20 @@
                     </div>
 
                     <div class="flex flex-wrap items-center gap-3">
+                        <!-- Active Shop Pill -->
+                        <div class="flex items-center space-x-2 text-xs px-3 py-1.5 rounded-xl border select-none"
+                             :class="activeShopId === 'shop_1' ? 'bg-orange-50/80 border-orange-200 text-orange-800' : 'bg-blue-50/80 border-blue-200 text-blue-800'">
+                            <span class="w-2 h-2 rounded-full" :class="activeShopId === 'shop_1' ? 'bg-orange-500' : 'bg-blue-500'"></span>
+                            <span>ร้าน: <strong x-text="currentShop ? currentShop.name : 'MEGATOOL'"></strong></span>
+                        </div>
+
+                        <!-- Batch Clone Button -->
+                        <button @click="openBatchCloneModal()" x-show="selectedListedSkus.length > 0"
+                                class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                            <span>Clone (<span x-text="selectedListedSkus.length"></span>) ไปอีกร้าน</span>
+                        </button>
+
                         <div class="relative">
                             <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5"></i>
                             <input type="text" x-model="ledgerSearch" placeholder="🔍 ค้นหา SKU, ชื่อรุ่น, ตัวเลือก..." 
@@ -948,6 +1000,11 @@
                             <table class="w-full text-left border-collapse text-xs">
                                 <thead>
                                     <tr class="bg-slate-50/90 text-slate-600 border-b border-slate-200/90">
+                                        <th class="py-3 px-3 text-center w-8">
+                                            <input type="checkbox" @change="toggleSelectAllListed($event.target.checked)" 
+                                                   :checked="selectedListedSkus.length > 0 && selectedListedSkus.length === getFilteredListedProducts().length"
+                                                   class="rounded text-blue-600 cursor-pointer">
+                                        </th>
                                         <th class="py-3 px-4 font-semibold text-slate-700 text-left">สินค้า & สเปกในคลัง</th>
                                         <th class="py-3 px-3 font-semibold text-slate-700 text-left">รหัส SKU</th>
                                         <th class="py-3 px-3 font-semibold text-slate-700 text-center">แบรนด์</th>
@@ -965,6 +1022,11 @@
                                         <tr class="hover:bg-slate-50/80 transition-colors cursor-pointer group"
                                             @click="viewProductDetail(item.sku)">
                                             
+                                            <!-- Checkbox for Batch Clone -->
+                                            <td class="py-3 px-3 text-center" @click.stop>
+                                                <input type="checkbox" :value="item.sku" x-model="selectedListedSkus" class="rounded text-blue-600 cursor-pointer">
+                                            </td>
+
                                             <!-- Product Info & Stock -->
                                             <td class="py-3 px-4">
                                                 <div class="flex items-center space-x-3">
@@ -1059,6 +1121,10 @@
 
                                             <!-- 7. Actions -->
                                             <td class="py-3 px-4 text-center space-x-1" @click.stop>
+                                                <button @click="openCloneModal(item.sku)" title="Clone สินค้านี้ไปร้านที่ 2 (ป้องกันสินค้าซ้ำซ้อน)" 
+                                                        class="p-1 rounded-lg text-slate-400 hover:text-blue-700 hover:bg-blue-50 transition-colors border border-slate-200/70 cursor-pointer">
+                                                    <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                                                </button>
                                                 <button @click="openAttachModalForSameLink(item)" title="เพิ่มรุ่นย่อย/ตัวเลือกอื่นในลิงก์ Shopee เดียวกันนี้" 
                                                         class="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 transition-colors border border-slate-200/70"
                                                         x-show="item.shopee_url">
@@ -1336,6 +1402,300 @@
                                 class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-500/25 transition-all flex items-center space-x-1.5 disabled:opacity-50">
                             <span x-show="!savingAttach">บันทึกยืนยันสถานะขายแล้ว</span>
                             <span x-show="savingAttach" class="animate-spin">⏳</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: CLONE TO ANOTHER SHOP (MULTI-SHOP) -->
+
+        <div x-show="showCloneModal" 
+
+             class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto"
+
+             x-cloak>
+
+            <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 relative"
+
+                 @click.away="showCloneModal = false">
+
+                
+
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+
+                    <div class="flex items-center space-x-2.5">
+
+                        <div class="w-9 h-9 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+
+                        </div>
+
+                        <div>
+
+                            <h3 class="text-sm font-bold text-slate-800">Clone สินค้าไปร้าน Shopee อื่น</h3>
+
+                            <p class="text-[11px] text-slate-400">คัดลอกข้อมูล ปรับราคาและชื่ออัตโนมัติ ไม่โดนแบนสินค้าซ้ำซ้อน</p>
+
+                        </div>
+
+                    </div>
+
+                    <button @click="showCloneModal = false" class="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
+
+                        <i data-lucide="x" class="w-5 h-5"></i>
+
+                    </button>
+
+                </div>
+
+
+
+                <form @submit.prevent="executeClone()" class="space-y-4 pt-4">
+
+                    <!-- Source & Target Store Select -->
+
+                    <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+
+                        <div>
+
+                            <label class="text-[10px] font-bold text-slate-400 uppercase">จากร้านต้นทาง</label>
+
+                            <div class="text-xs font-bold text-slate-700 mt-1 flex items-center space-x-1.5">
+
+                                <span class="w-2.5 h-2.5 rounded-full" :class="cloneForm.from_shop_id === 'shop_1' ? 'bg-orange-500' : 'bg-blue-500'"></span>
+
+                                <span x-text="shops[cloneForm.from_shop_id]?.name || 'ร้านหลัก'"></span>
+
+                            </div>
+
+                        </div>
+
+                        <div>
+
+                            <label class="text-[10px] font-bold text-slate-400 uppercase">ไปยังร้านปลายทาง</label>
+
+                            <select x-model="cloneForm.to_shop_id" class="w-full mt-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-blue-700 py-1.5 px-2 outline-none">
+
+                                <template x-for="(shop, sId) in shops" :key="sId">
+
+                                    <option :value="sId" :disabled="sId === cloneForm.from_shop_id" x-text="shop.name"></option>
+
+                                </template>
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- Items Selected Count -->
+
+                    <div class="text-xs text-slate-700 bg-blue-50/70 border border-blue-200/80 rounded-xl p-3 flex items-center justify-between">
+
+                        <span>จำนวนสินค้าที่จะ Clone:</span>
+
+                        <span class="font-bold text-blue-700 font-mono" x-text="cloneForm.skus.length + ' รายการ (' + cloneForm.skus.join(', ') + ')'"></span>
+
+                    </div>
+
+
+
+                    <!-- Pricing Rule Option -->
+
+                    <div class="space-y-1.5">
+
+                        <label class="text-xs font-bold text-slate-700 flex items-center space-x-1.5">
+
+                            <i data-lucide="calculator" class="w-3.5 h-3.5 text-blue-600"></i>
+
+                            <span>สูตรการตั้งราคาในร้านใหม่:</span>
+
+                        </label>
+
+                        <div class="space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs">
+
+                            <label class="flex items-center space-x-2 cursor-pointer p-1 rounded hover:bg-white">
+
+                                <input type="radio" value="auto" x-model="cloneForm.price_mode" class="text-blue-600">
+
+                                <div>
+
+                                    <span class="font-medium text-slate-800">คำนวณอัตโนมัติตามสูตรร้านใหม่ (แนะนำ)</span>
+
+                                    <span class="text-[10px] text-slate-400 block" x-text="'กำไร ' + Math.round((shops[cloneForm.to_shop_id]?.profit_margin || 0.08) * 100) + '% + ค่าธรรมเนียม 28%'"></span>
+
+                                </div>
+
+                            </label>
+
+                            <label class="flex items-center space-x-2 cursor-pointer p-1 rounded hover:bg-white">
+
+                                <input type="radio" value="match_source" x-model="cloneForm.price_mode" class="text-blue-600">
+
+                                <span class="font-medium text-slate-800">ใช้ราคาเท่ากับร้านต้นทาง</span>
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- Smart Safety Features -->
+
+                    <div class="bg-amber-50/80 border border-amber-200 rounded-xl p-3 space-y-1.5">
+
+                        <div class="text-[11px] font-bold text-amber-800 flex items-center space-x-1">
+
+                            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-amber-600"></i>
+
+                            <span>ระบบป้องกันการโดน Shopee ตรวจจับสินค้าซ้ำซ้อน (Anti-Duplicate):</span>
+
+                        </div>
+
+                        <ul class="text-[11px] text-amber-900 space-y-1 list-disc list-inside">
+
+                            <li>สลับคำนำหน้าชื่อเป็น <code class="bg-white/90 px-1 py-0.2 rounded font-bold" x-text="shops[cloneForm.to_shop_id]?.title_prefix || '[ส่งด่วนแท้ศูนย์]'"></code></li>
+
+                            <li>สลับรูปหน้าปกเป็นรูปมุมอื่น หรือรูปเปรียบเทียบ (Collage) อัตโนมัติ</li>
+
+                            <li>ตัดสต็อกตรงจากคลัง KTW เรียลไทม์ ซิงก์พร้อมกันทั้ง 2 ร้าน</li>
+
+                        </ul>
+
+                    </div>
+
+
+
+                    <!-- Action Buttons -->
+
+                    <div class="pt-3 flex items-center justify-end space-x-2 border-t border-slate-100">
+
+                        <button type="button" @click="showCloneModal = false"
+
+                                class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold hover:bg-slate-50 transition-colors cursor-pointer">
+
+                            ยกเลิก
+
+                        </button>
+
+                        <button type="submit" :disabled="cloning"
+
+                                class="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer">
+
+                            <span x-show="!cloning">🚀 ยืนยันการ Clone ไปยังร้านใหม่</span>
+
+                            <span x-show="cloning" class="animate-spin">⏳ กำลังประมวลผล...</span>
+
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- MODAL: CLONE TO ANOTHER SHOP (MULTI-SHOP) -->
+        <div x-show="showCloneModal" 
+             class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto"
+             x-cloak>
+            <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 relative"
+                 @click.away="showCloneModal = false">
+                
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div class="flex items-center space-x-2.5">
+                        <div class="w-9 h-9 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-800">Clone สินค้าไปร้าน Shopee อื่น</h3>
+                            <p class="text-[11px] text-slate-400">คัดลอกข้อมูล ปรับราคาและชื่ออัตโนมัติ ไม่โดนแบนสินค้าซ้ำซ้อน</p>
+                        </div>
+                    </div>
+                    <button @click="showCloneModal = false" class="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <form @submit.prevent="executeClone()" class="space-y-4 pt-4">
+                    <!-- Source & Target Store Select -->
+                    <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase">จากร้านต้นทาง</label>
+                            <div class="text-xs font-bold text-slate-700 mt-1 flex items-center space-x-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full" :class="cloneForm.from_shop_id === 'shop_1' ? 'bg-orange-500' : 'bg-blue-500'"></span>
+                                <span x-text="shops[cloneForm.from_shop_id]?.name || 'ร้านหลัก'"></span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase">ไปยังร้านปลายทาง</label>
+                            <select x-model="cloneForm.to_shop_id" class="w-full mt-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-blue-700 py-1.5 px-2 outline-none">
+                                <template x-for="(shop, sId) in shops" :key="sId">
+                                    <option :value="sId" :disabled="sId === cloneForm.from_shop_id" x-text="shop.name"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Items Selected Count -->
+                    <div class="text-xs text-slate-700 bg-blue-50/70 border border-blue-200/80 rounded-xl p-3 flex items-center justify-between">
+                        <span>จำนวนสินค้าที่จะ Clone:</span>
+                        <span class="font-bold text-blue-700 font-mono" x-text="cloneForm.skus.length + ' รายการ (' + cloneForm.skus.join(', ') + ')'"></span>
+                    </div>
+
+                    <!-- Pricing Rule Option -->
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-bold text-slate-700 flex items-center space-x-1.5">
+                            <i data-lucide="calculator" class="w-3.5 h-3.5 text-blue-600"></i>
+                            <span>สูตรการตั้งราคาในร้านใหม่:</span>
+                        </label>
+                        <div class="space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs">
+                            <label class="flex items-center space-x-2 cursor-pointer p-1 rounded hover:bg-white">
+                                <input type="radio" value="auto" x-model="cloneForm.price_mode" class="text-blue-600">
+                                <div>
+                                    <span class="font-medium text-slate-800">คำนวณอัตโนมัติตามสูตรร้านใหม่ (แนะนำ)</span>
+                                    <span class="text-[10px] text-slate-400 block" x-text="'กำไร ' + Math.round((shops[cloneForm.to_shop_id]?.profit_margin || 0.08) * 100) + '% + ค่าธรรมเนียม 28%'"></span>
+                                </div>
+                            </label>
+                            <label class="flex items-center space-x-2 cursor-pointer p-1 rounded hover:bg-white">
+                                <input type="radio" value="match_source" x-model="cloneForm.price_mode" class="text-blue-600">
+                                <span class="font-medium text-slate-800">ใช้ราคาเท่ากับร้านต้นทาง</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Smart Safety Features -->
+                    <div class="bg-amber-50/80 border border-amber-200 rounded-xl p-3 space-y-1.5">
+                        <div class="text-[11px] font-bold text-amber-800 flex items-center space-x-1">
+                            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-amber-600"></i>
+                            <span>ระบบป้องกันการโดน Shopee ตรวจจับสินค้าซ้ำซ้อน (Anti-Duplicate):</span>
+                        </div>
+                        <ul class="text-[11px] text-amber-900 space-y-1 list-disc list-inside">
+                            <li>สลับคำนำหน้าชื่อเป็น <code class="bg-white/90 px-1 py-0.2 rounded font-bold" x-text="shops[cloneForm.to_shop_id]?.title_prefix || '[ส่งด่วนแท้ศูนย์]'"></code></li>
+                            <li>สลับรูปหน้าปกเป็นรูปมุมอื่น หรือรูปเปรียบเทียบ (Collage) อัตโนมัติ</li>
+                            <li>ตัดสต็อกตรงจากคลัง KTW เรียลไทม์ ซิงก์พร้อมกันทั้ง 2 ร้าน</li>
+                        </ul>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="pt-3 flex items-center justify-end space-x-2 border-t border-slate-100">
+                        <button type="button" @click="showCloneModal = false"
+                                class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold hover:bg-slate-50 transition-colors cursor-pointer">
+                            ยกเลิก
+                        </button>
+                        <button type="submit" :disabled="cloning"
+                                class="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer">
+                            <span x-show="!cloning">🚀 ยืนยันการ Clone ไปยังร้านใหม่</span>
+                            <span x-show="cloning" class="animate-spin">⏳ กำลังประมวลผล...</span>
                         </button>
                     </div>
                 </form>
@@ -1924,6 +2284,23 @@
                 exporting: false,
                 downloadUrl: null,
 
+                // Multi-Shop State
+                shops: {},
+                activeShopId: localStorage.getItem('megatool_active_shop_id') || 'shop_1',
+                currentShop: null,
+                selectedListedSkus: [],
+                showCloneModal: false,
+                cloning: false,
+                cloneForm: {
+                    skus: [],
+                    from_shop_id: 'shop_1',
+                    to_shop_id: 'shop_2',
+                    price_mode: 'auto',
+                    custom_price: 0,
+                    custom_name: '',
+                    custom_image: ''
+                },
+
                 // Listed & Dashboard State
                 listedProducts: [],
                 ledgerSearch: '',
@@ -1962,6 +2339,7 @@
                     this.authToken = localStorage.getItem('megatool_token') || sessionStorage.getItem('megatool_token');
                     await this.checkAuth();
                     if (this.currentUser) {
+                        await this.fetchShops();
                         await this.fetchListed();
                         this.fetchDashboardStats();
                         this.search();
@@ -2084,9 +2462,100 @@
                     return headers;
                 },
 
+                                // Multi-Shop Management
+                async fetchShops() {
+                    try {
+                        const res = await fetch('/api/shops');
+                        if (res.ok) {
+                            const data = await res.json();
+                            this.shops = data.shops || {};
+                            if (!this.shops[this.activeShopId]) {
+                                this.activeShopId = Object.keys(this.shops)[0] || 'shop_1';
+                            }
+                            this.currentShop = this.shops[this.activeShopId];
+                        }
+                    } catch (e) {
+                        console.error('Error fetching shops:', e);
+                    }
+                },
+
+                async switchShop(shopId) {
+                    if (!this.shops[shopId]) return;
+                    this.activeShopId = shopId;
+                    this.currentShop = this.shops[shopId];
+                    localStorage.setItem('megatool_active_shop_id', shopId);
+                    this.selectedListedSkus = [];
+                    await this.fetchListed();
+                    await this.fetchDashboardStats();
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                openCloneModal(sku = null) {
+                    if (sku) {
+                        this.cloneForm.skus = [sku];
+                    } else if (this.selectedListedSkus.length > 0) {
+                        this.cloneForm.skus = [...this.selectedListedSkus];
+                    } else {
+                        return;
+                    }
+                    this.cloneForm.from_shop_id = this.activeShopId;
+                    this.cloneForm.to_shop_id = this.activeShopId === 'shop_1' ? 'shop_2' : 'shop_1';
+                    this.cloneForm.price_mode = 'auto';
+                    this.showCloneModal = true;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                openBatchCloneModal() {
+                    if (this.selectedListedSkus.length === 0) return;
+                    this.openCloneModal();
+                },
+
+                toggleSelectAllListed(checked) {
+                    if (checked) {
+                        this.selectedListedSkus = this.getFilteredListedProducts().map(i => i.sku);
+                    } else {
+                        this.selectedListedSkus = [];
+                    }
+                },
+
+                async executeClone() {
+                    if (!this.cloneForm.skus || this.cloneForm.skus.length === 0) return;
+                    this.cloning = true;
+                    try {
+                        const res = await fetch('/api/shops/clone', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...this.getHeaders()
+                            },
+                            body: JSON.stringify({
+                                skus: this.cloneForm.skus,
+                                from_shop_id: this.cloneForm.from_shop_id,
+                                to_shop_id: this.cloneForm.to_shop_id,
+                                price_mode: this.cloneForm.price_mode
+                            })
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.success) {
+                            const targetName = this.shops[this.cloneForm.to_shop_id]?.name || 'ร้านใหม่';
+                            alert(`✅ สำเร็จ! Clone สินค้า ${data.cloned_count} รายการไปยัง "${targetName}" เรียบร้อยแล้ว`);
+                            this.showCloneModal = false;
+                            this.selectedListedSkus = [];
+                            // Switch to the target shop to view the cloned items
+                            await this.switchShop(this.cloneForm.to_shop_id);
+                        } else {
+                            alert('❌ เกิดข้อผิดพลาด: ' + (data.detail || 'ไม่สามารถ Clone ได้'));
+                        }
+                    } catch (e) {
+                        alert('❌ เกิดข้อผิดพลาด: ' + e.message);
+                    } finally {
+                        this.cloning = false;
+                    }
+                },
+
                 async fetchListed() {
                     try {
-                        const res = await fetch('/api/listed', { headers: this.getHeaders() });
+                        const res = await fetch(`/api/listed?shop_id=${this.activeShopId || 'shop_1'}`, { headers: this.getHeaders() });
                         if (res.ok) {
                             const data = await res.json();
                             let serverItems = data.items || [];
@@ -2094,7 +2563,7 @@
                             // Two-way LocalStorage sync: Protect against Render container restarts & redeploys
                             let localBackup = {};
                             try {
-                                localBackup = JSON.parse(localStorage.getItem('megatool_listed_products_backup') || '{}');
+                                localBackup = JSON.parse(localStorage.getItem(`megatool_listed_products_backup_${this.activeShopId || 'shop_1'}`) || '{}');
                             } catch (e) {}
 
                             const serverMap = new Map(serverItems.map(i => [i.sku, i]));
@@ -2166,7 +2635,7 @@
                             }
 
                             if (needsRefresh) {
-                                const refreshRes = await fetch('/api/listed', { headers: this.getHeaders() });
+                                const refreshRes = await fetch(`/api/listed?shop_id=${this.activeShopId || 'shop_1'}`, { headers: this.getHeaders() });
                                 if (refreshRes.ok) {
                                     const refreshedData = await refreshRes.json();
                                     serverItems = refreshedData.items || serverItems;
@@ -2180,7 +2649,7 @@
                             for (const item of this.listedProducts) {
                                 updatedBackup[item.sku] = { ...item };
                             }
-                            localStorage.setItem('megatool_listed_products_backup', JSON.stringify(updatedBackup));
+                            localStorage.setItem(`megatool_listed_products_backup_${this.activeShopId || 'shop_1'}`, JSON.stringify(updatedBackup));
                         }
                     } catch (e) {
                         console.error('Error fetching listed products:', e);
@@ -2217,10 +2686,10 @@
                     // 2. Save to LocalStorage immediately
                     let localBackup = {};
                     try {
-                        localBackup = JSON.parse(localStorage.getItem('megatool_listed_products_backup') || '{}');
+                        localBackup = JSON.parse(localStorage.getItem(`megatool_listed_products_backup_${this.activeShopId || 'shop_1'}`) || '{}');
                     } catch (e) {}
                     localBackup[item.sku] = { ...item, price: newPrice, updated_at: nowIso };
-                    localStorage.setItem('megatool_listed_products_backup', JSON.stringify(localBackup));
+                    localStorage.setItem(`megatool_listed_products_backup_${this.activeShopId || 'shop_1'}`, JSON.stringify(localBackup));
 
                     // 3. Persist to server
                     try {
@@ -2230,7 +2699,7 @@
                                 'Content-Type': 'application/json',
                                 ...this.getHeaders()
                             },
-                            body: JSON.stringify({ sku: item.sku, price: newPrice })
+                            body: JSON.stringify({ sku: item.sku, price: newPrice, shop_id: this.activeShopId || 'shop_1' })
                         });
                         if (res.ok) {
                             await this.fetchDashboardStats();
@@ -2245,7 +2714,7 @@
 
                 async fetchDashboardStats() {
                     try {
-                        const res = await fetch('/api/dashboard/stats', { headers: this.getHeaders() });
+                        const res = await fetch(`/api/dashboard/stats?shop_id=${this.activeShopId || 'shop_1'}`, { headers: this.getHeaders() });
                         if (res.ok) {
                             this.dashboardStats = await res.json();
                         }
@@ -2349,10 +2818,10 @@
                         if (itemToSave.sku && itemToSave.shopee_url) {
                             let localBackup = {};
                             try {
-                                localBackup = JSON.parse(localStorage.getItem('megatool_listed_products_backup') || '{}');
+                                localBackup = JSON.parse(localStorage.getItem(`megatool_listed_products_backup_${this.activeShopId || 'shop_1'}`) || '{}');
                             } catch (e) {}
                             localBackup[itemToSave.sku] = itemToSave;
-                            localStorage.setItem('megatool_listed_products_backup', JSON.stringify(localBackup));
+                            localStorage.setItem(`megatool_listed_products_backup_${this.activeShopId || 'shop_1'}`, JSON.stringify(localBackup));
                         }
 
                         const res = await fetch('/api/listed', {
@@ -2361,7 +2830,7 @@
                                 'Content-Type': 'application/json',
                                 ...this.getHeaders()
                             },
-                            body: JSON.stringify(this.attachForm)
+                            body: JSON.stringify({ ...this.attachForm, shop_id: this.activeShopId || 'shop_1' })
                         });
                         const data = await res.json();
                         if (res.ok && data.success) {
@@ -2386,12 +2855,12 @@
                     try {
                         let localBackup = {};
                         try {
-                            localBackup = JSON.parse(localStorage.getItem('megatool_listed_products_backup') || '{}');
+                            localBackup = JSON.parse(localStorage.getItem(`megatool_listed_products_backup_${this.activeShopId || 'shop_1'}`) || '{}');
                         } catch (e) {}
                         delete localBackup[sku];
-                        localStorage.setItem('megatool_listed_products_backup', JSON.stringify(localBackup));
+                        localStorage.setItem(`megatool_listed_products_backup_${this.activeShopId || 'shop_1'}`, JSON.stringify(localBackup));
 
-                        const res = await fetch(`/api/listed/${sku}`, {
+                        const res = await fetch(`/api/listed/${sku}?shop_id=${this.activeShopId || 'shop_1'}`, {
                             method: 'DELETE',
                             headers: this.getHeaders()
                         });
@@ -3145,7 +3614,8 @@
                                 model_text: this.collageModel || '',
                                 title: this.collageTitle || 'อุปกรณ์มาตรฐานในกล่องครบชุด',
                                 badge_text: this.customBadgeText || 'มีสต็อกพร้อมส่งทันที',
-                                shop_name: this.shopName,
+                                shop_id: this.activeShopId || 'shop_1',
+                            shop_name: this.currentShop ? (this.currentShop.brand_display || this.currentShop.name) : this.shopName,
                                 font_size: this.collageFontSize || 38,
                                 position: this.collagePosition || 'top-left'
                             })
@@ -3283,7 +3753,8 @@
                                     : (item.selected_image ? [item.selected_image] : undefined),
                                 use_template: item.use_template !== false
                             })),
-                            shop_name: this.shopName,
+                            shop_id: this.activeShopId || 'shop_1',
+                            shop_name: this.currentShop ? (this.currentShop.brand_display || this.currentShop.name) : this.shopName,
                             is_variation_group: isVar,
                             parent_title: this.groupParentTitle || undefined,
                             variation_group_name: this.groupVariationTierName || "รุ่น / ตัวเลือกสินค้า",
