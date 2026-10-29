@@ -702,13 +702,18 @@
                                             <span class="font-semibold text-slate-800 tabular-nums" x-text="'฿' + (p.cost_price ? p.cost_price.toLocaleString() : '0')"></span>
                                         </div>
 
-                                        <!-- Suggested Shopee Price -->
+                                        <!-- Shopee Price (Synced with Listed / Cart) -->
                                         <div class="flex items-center justify-between text-xs">
-                                            <span class="text-orange-600 font-medium">ราคาขาย Shopee:</span>
+                                            <span class="font-medium" :class="isProductListed(p.sku) ? 'font-bold text-emerald-700' : 'text-orange-600'">
+                                                <span x-text="isProductListed(p.sku) ? 'ราคาขายจริง (Shopee):' : 'ราคาขาย Shopee:'"></span>
+                                            </span>
                                             <input type="number" 
-                                                   :value="getSuggestedPrice(p)" 
-                                                   @input="updateItemPrice(p.sku, $event.target.value)"
-                                                   class="w-20 px-1.5 py-0.5 text-right font-bold text-orange-600 bg-white border border-orange-200 rounded text-xs focus:ring-1 focus:ring-orange-500 outline-none">
+                                                   :value="getProductPrice(p)" 
+                                                   @change="handleCatalogPriceChange(p, $event.target.value)"
+                                                   @input="handleCatalogPriceChange(p, $event.target.value)"
+                                                   :title="isProductListed(p.sku) ? 'แก้ไขราคานี้จะอัปเดตไปยังเมนูขายอยู่บน Shopee ทันที' : 'แก้ไขราคาขาย'"
+                                                   class="w-20 px-1.5 py-0.5 text-right font-bold bg-white border rounded text-xs focus:ring-1 outline-none transition-colors"
+                                                   :class="isProductListed(p.sku) ? 'text-emerald-700 border-emerald-300 focus:ring-emerald-500 bg-emerald-50/40' : 'text-orange-600 border-orange-200 focus:ring-orange-500'">
                                         </div>
                                     </div>
                                 </div>
@@ -2831,6 +2836,13 @@
                     item.price = newPrice;
                     item.updated_at = nowIso;
 
+                    // Sync to cart if currently in queue
+                    const cartItem = (this.selectedItems || []).find(ci => ci.sku === item.sku);
+                    if (cartItem) {
+                        cartItem.price = newPrice;
+                        this.saveCartToStorage();
+                    }
+
                     // 2. Save to LocalStorage immediately
                     let localBackup = {};
                     try {
@@ -3316,6 +3328,62 @@
                     return ((this.getTotalListedNetProfit() / cost) * 100).toFixed(1);
                 },
 
+                getProductPrice(p) {
+                    if (!p) return 0;
+                    const sku = p.sku || p.code;
+                    // 1. If product is already listed on Shopee, use the confirmed listed price!
+                    const listed = (this.listedProducts || []).find(i => i.sku === sku);
+                    if (listed && listed.price > 0) {
+                        return listed.price;
+                    }
+                    // 2. If item is currently in the export cart, use cart price
+                    const inCart = (this.selectedItems || []).find(i => i.sku === sku);
+                    if (inCart && inCart.price > 0) {
+                        return inCart.price;
+                    }
+                    // 3. Otherwise calculate from recommended formula
+                    return this.getSuggestedPrice(p);
+                },
+
+                async handleCatalogPriceChange(p, val) {
+                    const sku = p.sku || p.code;
+                    const newPrice = parseFloat(String(val).replace(/,/g, '').trim());
+                    if (isNaN(newPrice) || newPrice <= 0) return;
+
+                    // 1. Update in export cart if present
+                    const cartItem = (this.selectedItems || []).find(i => i.sku === sku);
+                    if (cartItem) {
+                        cartItem.price = newPrice;
+                        this.saveCartToStorage();
+                    }
+
+                    // 2. If listed on Shopee, sync to listedProducts AND server
+                    const listedItem = (this.listedProducts || []).find(i => i.sku === sku);
+                    if (listedItem) {
+                        listedItem.price = newPrice;
+                        listedItem.updated_at = new Date().toISOString();
+
+                        // Local backup
+                        try {
+                            const localBackup = JSON.parse(localStorage.getItem(`megatool_listed_products_backup_${this.activeShopId || 'shop_1'}`) || '{}');
+                            localBackup[sku] = { ...listedItem, price: newPrice };
+                            localStorage.setItem(`megatool_listed_products_backup_${this.activeShopId || 'shop_1'}`, JSON.stringify(localBackup));
+                        } catch (e) {}
+
+                        // Persist to server
+                        try {
+                            await fetch('/api/listed/price', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', ...this.getHeaders() },
+                                body: JSON.stringify({ sku: sku, price: newPrice, shop_id: this.activeShopId || 'shop_1' })
+                            });
+                            await this.fetchDashboardStats();
+                        } catch (err) {
+                            console.error('Failed to sync catalog price to listed products:', err);
+                        }
+                    }
+                },
+
                 getSuggestedPrice(p) {
                     const cost = (p.price && p.price.value) ? p.price.value : (p.cost_price || 0);
                     if (cost <= 0) return 0;
@@ -3341,7 +3409,7 @@
                         this.selectedItems.push({
                             sku: p.sku || p.code,
                             name: p.name,
-                            price: this.getSuggestedPrice(p),
+                            price: this.getProductPrice(p),
                             brand: p.brand || p.manufacturer,
                             image: p.image || (p.images && p.images[0]),
                             use_template: true,
@@ -3929,7 +3997,7 @@
                         this.selectedItems.push({
                             sku: sku,
                             name: this.activePreviewItem.name,
-                            price: this.getSuggestedPrice(this.activePreviewItem),
+                            price: this.getProductPrice(this.activePreviewItem),
                             brand: this.activePreviewItem.brand || this.activePreviewItem.manufacturer,
                             image: coverImg,
                             selected_image: coverImg,
