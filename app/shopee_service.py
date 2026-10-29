@@ -228,10 +228,20 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
             raw_images = raw_images[:9]
 
             use_template = item_info.get('use_template', True)
+            unframed_images = set(item_info.get('unframed_images') or [])
             cdn_results = {}
             with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
                 future_to_idx = {
-                    executor.submit(_process_single_image, u, idx, sku, brand, badge_text, shop_name, use_template=use_template): idx
+                    executor.submit(
+                        _process_single_image, 
+                        u, 
+                        idx, 
+                        sku, 
+                        brand, 
+                        badge_text, 
+                        shop_name, 
+                        use_template=(use_template and (u not in unframed_images))
+                    ): idx
                     for idx, u in enumerate(raw_images)
                 }
                 for fut in concurrent.futures.as_completed(future_to_idx):
@@ -454,10 +464,20 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
             raw_images = raw_images[:9]
 
             use_template = item_info.get('use_template', True)
+            unframed_images = set(item_info.get('unframed_images') or [])
             cdn_results = {}
             with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
                 future_to_idx = {
-                    executor.submit(_process_single_image, u, idx, sku, brand, badge_text, shop_name, use_template=use_template): idx
+                    executor.submit(
+                        _process_single_image, 
+                        u, 
+                        idx, 
+                        sku, 
+                        brand, 
+                        badge_text, 
+                        shop_name, 
+                        use_template=(use_template and (u not in unframed_images))
+                    ): idx
                     for idx, u in enumerate(raw_images)
                 }
                 for fut in concurrent.futures.as_completed(future_to_idx):

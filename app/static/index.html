@@ -1753,6 +1753,12 @@
                                                 รูปปกหลัก
                                             </span>
 
+                                            <!-- Unframed Badge -->
+                                            <span x-show="isImageUnframed(img) && !isCollageImage(img)" 
+                                                  class="absolute top-0.5 left-0.5 bg-slate-700 text-white text-[7px] px-1 py-0.5 rounded font-bold shadow-xs">
+                                                ไม่ใส่กรอบ
+                                            </span>
+
                                             <!-- Collage Badge -->
                                             <span x-show="isCollageImage(img)" 
                                                   class="absolute top-0.5 left-0.5 bg-indigo-600 text-white text-[7px] px-1 py-0.5 rounded font-bold shadow-xs">
@@ -2238,6 +2244,7 @@
                 customBadgeText: 'มีสต็อกพร้อมส่งทันที',
                 customUseTemplate: true,
                 userManuallyTurnedOffTemplate: false,
+                unframedUrls: [],
                 collageSelectedIndices: [],
                 collageModel: '',
                 collageTitle: 'อุปกรณ์มาตรฐานในกล่องครบชุด',
@@ -3408,6 +3415,7 @@
                     }
 
                     this.userManuallyTurnedOffTemplate = (existingInQueue && existingInQueue.use_template === false);
+                    this.unframedUrls = (existingInQueue && Array.isArray(existingInQueue.unframed_images)) ? [...existingInQueue.unframed_images] : [];
                     this.customUseTemplate = !this.userManuallyTurnedOffTemplate;
 
                     try {
@@ -3451,24 +3459,29 @@
                     this.selectedImageIndex = idx;
                     this.renderedCoverUrl = null;
                     const imgUrl = (this.activePreviewItem?.all_images && this.activePreviewItem.all_images[idx]) || this.activePreviewItem?.image;
-                    if (imgUrl && (imgUrl.includes('collage_') || imgUrl.includes('comparison_'))) {
+                    if (imgUrl && (imgUrl.includes('collage_') || imgUrl.includes('comparison_') || this.isImageUnframed(imgUrl))) {
                         this.customUseTemplate = false;
                         this.renderedCoverUrl = imgUrl;
                         return;
                     }
-                    if (!this.userManuallyTurnedOffTemplate) {
-                        this.customUseTemplate = true;
-                    }
+                    this.customUseTemplate = true;
                     this.generatePreviewCover();
                 },
 
                 onTemplateToggleChange() {
                     this.userManuallyTurnedOffTemplate = !this.customUseTemplate;
+                    const currentIdx = this.selectedImageIndex;
+                    const currentUrl = (this.activePreviewItem?.all_images && this.activePreviewItem.all_images[currentIdx]) || this.activePreviewItem?.image;
                     if (!this.customUseTemplate) {
-                        const currentIdx = this.selectedImageIndex;
-                        this.renderedCoverUrl = (this.activePreviewItem?.all_images && this.activePreviewItem.all_images[currentIdx]) || this.activePreviewItem?.image;
+                        if (currentUrl && !this.unframedUrls.includes(currentUrl)) {
+                            this.unframedUrls.push(currentUrl);
+                        }
+                        this.renderedCoverUrl = currentUrl;
                         this.generatingPreview = false;
                     } else {
+                        if (currentUrl) {
+                            this.unframedUrls = this.unframedUrls.filter(u => u !== currentUrl);
+                        }
                         this.generatePreviewCover();
                     }
                 },
@@ -3617,6 +3630,11 @@
                         }
                         localStorage.setItem('megatool_collages', JSON.stringify(saved));
                     } catch (e) {}
+                },
+
+                isImageUnframed(img) {
+                    if (!img) return false;
+                    return Array.isArray(this.unframedUrls) && this.unframedUrls.includes(img);
                 },
 
                 isCollageImage(img) {
@@ -3794,6 +3812,7 @@
                         this.selectedItems[existingIndex].excluded_indices = [...this.excludedImageIndices];
                         this.selectedItems[existingIndex].badge = this.customBadgeText;
                         this.selectedItems[existingIndex].use_template = (this.customUseTemplate !== false);
+                        this.selectedItems[existingIndex].unframed_images = [...this.unframedUrls];
                     } else {
                         this.selectedItems.push({
                             sku: sku,
@@ -3806,6 +3825,7 @@
                             excluded_indices: [...this.excludedImageIndices],
                             badge: this.customBadgeText,
                             use_template: (this.customUseTemplate !== false),
+                            unframed_images: [...this.unframedUrls],
                             stock: this.activePreviewItem.stock?.stockLevel || this.activePreviewItem.stock || 0
                         });
                     }
@@ -3830,7 +3850,8 @@
                                 selected_images: (item.selected_images && item.selected_images.length > 0)
                                     ? item.selected_images
                                     : (item.selected_image ? [item.selected_image] : undefined),
-                                use_template: item.use_template !== false
+                                use_template: item.use_template !== false,
+                                unframed_images: item.unframed_images || []
                             })),
                             shop_id: this.activeShopId || 'shop_1',
                             shop_name: this.currentShop ? (this.currentShop.brand_display || this.currentShop.name) : this.shopName,

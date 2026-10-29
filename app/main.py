@@ -408,6 +408,7 @@ class ExportItem(BaseModel):
     selected_image: Optional[str] = None
     selected_images: Optional[List[str]] = None
     use_template: Optional[bool] = True
+    unframed_images: Optional[List[str]] = None
 
 class ExportRequest(BaseModel):
     items: List[ExportItem]
