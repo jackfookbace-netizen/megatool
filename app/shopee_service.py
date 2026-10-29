@@ -204,9 +204,9 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                 target_net = max(cost_price * 1.07, cost_price + 30)
                 sale_price = round(target_net / (1 - 0.28), 0)
                 
-            stock_qty = detail.get('stock', {}).get('stockLevel', 100)
-            if stock_qty <= 0:
-                stock_qty = 50
+            stock_qty = detail.get('stock', {}).get('stockLevel', 0)
+            if stock_qty is None or stock_qty < 0:
+                stock_qty = 0
                 
             weight_kg = 1.0
             width_cm = 10.0
@@ -454,9 +454,9 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                 sale_price = round(target_net / (1 - 0.28), 0)
 
             # Stock
-            stock_qty = detail.get('stock', {}).get('stockLevel', 100)
-            if stock_qty <= 0:
-                stock_qty = 50
+            stock_qty = detail.get('stock', {}).get('stockLevel', 0)
+            if stock_qty is None or stock_qty < 0:
+                stock_qty = 0
 
             # Weight & Dims
             weight_kg = 1.0
