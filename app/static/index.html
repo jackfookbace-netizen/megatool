@@ -1040,14 +1040,54 @@
                                                    :checked="selectedListedSkus.length > 0 && selectedListedSkus.length === getFilteredListedProducts().length"
                                                    class="rounded text-blue-600 cursor-pointer">
                                         </th>
-                                        <th class="py-3 px-4 font-semibold text-slate-700 text-left">สินค้า & สเปกในคลัง</th>
-                                        <th class="py-3 px-3 font-semibold text-slate-700 text-left">รหัส SKU</th>
-                                        <th class="py-3 px-3 font-semibold text-slate-700 text-center">แบรนด์</th>
-                                        <th class="py-3 px-4 font-semibold text-slate-700 text-right">ราคาทุน KTW</th>
-                                        <th class="py-3 px-4 font-semibold text-orange-600 text-right">ราคาขาย Shopee</th>
-                                        <th class="py-3 px-4 font-semibold text-slate-500 text-right">หักค่าธรรมเนียม (<span x-text="shopeeFeePercent + '%'"></span>)</th>
-                                        <th class="py-3 px-4 font-semibold text-slate-700 text-right">เงินรับสุทธิ</th>
-                                        <th class="py-3 px-4 font-semibold text-emerald-700 text-right">กำไรสุทธิ</th>
+                                        <th @click="toggleListedSort('name')" class="py-3 px-4 font-semibold text-slate-700 text-left cursor-pointer hover:bg-slate-100 select-none transition-colors" title="คลิกเพื่อเรียงตามชื่อสินค้า">
+                                            <div class="flex items-center space-x-1">
+                                                <span>สินค้า & สเปกในคลัง</span>
+                                                <span class="text-[10px] font-mono" :class="listedSortField === 'name' ? 'text-orange-600 font-bold' : 'text-slate-300'" x-text="listedSortField === 'name' ? (listedSortDir === 'asc' ? '▲' : '▼') : '↕'"></span>
+                                            </div>
+                                        </th>
+                                        <th @click="toggleListedSort('sku')" class="py-3 px-3 font-semibold text-slate-700 text-left cursor-pointer hover:bg-slate-100 select-none transition-colors" title="คลิกเพื่อเรียงตามรหัส SKU">
+                                            <div class="flex items-center space-x-1">
+                                                <span>รหัส SKU</span>
+                                                <span class="text-[10px] font-mono" :class="listedSortField === 'sku' ? 'text-orange-600 font-bold' : 'text-slate-300'" x-text="listedSortField === 'sku' ? (listedSortDir === 'asc' ? '▲' : '▼') : '↕'"></span>
+                                            </div>
+                                        </th>
+                                        <th @click="toggleListedSort('brand')" class="py-3 px-3 font-semibold text-slate-700 text-center cursor-pointer hover:bg-slate-100 select-none transition-colors" title="คลิกเพื่อเรียงตามแบรนด์">
+                                            <div class="flex items-center justify-center space-x-1">
+                                                <span>แบรนด์</span>
+                                                <span class="text-[10px] font-mono" :class="listedSortField === 'brand' ? 'text-orange-600 font-bold' : 'text-slate-300'" x-text="listedSortField === 'brand' ? (listedSortDir === 'asc' ? '▲' : '▼') : '↕'"></span>
+                                            </div>
+                                        </th>
+                                        <th @click="toggleListedSort('cost_price')" class="py-3 px-4 font-semibold text-slate-700 text-right cursor-pointer hover:bg-slate-100 select-none transition-colors" title="คลิกเพื่อเรียงตามราคาทุน">
+                                            <div class="flex items-center justify-end space-x-1">
+                                                <span>ราคาทุน KTW</span>
+                                                <span class="text-[10px] font-mono" :class="listedSortField === 'cost_price' ? 'text-orange-600 font-bold' : 'text-slate-300'" x-text="listedSortField === 'cost_price' ? (listedSortDir === 'asc' ? '▲' : '▼') : '↕'"></span>
+                                            </div>
+                                        </th>
+                                        <th @click="toggleListedSort('price')" class="py-3 px-4 font-semibold text-orange-600 text-right cursor-pointer hover:bg-orange-50 select-none transition-colors" title="คลิกเพื่อเรียงตามราคาขาย">
+                                            <div class="flex items-center justify-end space-x-1">
+                                                <span>ราคาขาย Shopee</span>
+                                                <span class="text-[10px] font-mono" :class="listedSortField === 'price' ? 'text-orange-600 font-bold' : 'text-slate-300'" x-text="listedSortField === 'price' ? (listedSortDir === 'asc' ? '▲' : '▼') : '↕'"></span>
+                                            </div>
+                                        </th>
+                                        <th @click="toggleListedSort('fee')" class="py-3 px-4 font-semibold text-slate-500 text-right cursor-pointer hover:bg-slate-100 select-none transition-colors" title="คลิกเพื่อเรียงตามค่าธรรมเนียม">
+                                            <div class="flex items-center justify-end space-x-1">
+                                                <span>หักค่าธรรมเนียม (<span x-text="shopeeFeePercent + '%'"></span>)</span>
+                                                <span class="text-[10px] font-mono" :class="listedSortField === 'fee' ? 'text-orange-600 font-bold' : 'text-slate-300'" x-text="listedSortField === 'fee' ? (listedSortDir === 'asc' ? '▲' : '▼') : '↕'"></span>
+                                            </div>
+                                        </th>
+                                        <th @click="toggleListedSort('net')" class="py-3 px-4 font-semibold text-slate-700 text-right cursor-pointer hover:bg-slate-100 select-none transition-colors" title="คลิกเพื่อเรียงตามเงินรับสุทธิ">
+                                            <div class="flex items-center justify-end space-x-1">
+                                                <span>เงินรับสุทธิ</span>
+                                                <span class="text-[10px] font-mono" :class="listedSortField === 'net' ? 'text-orange-600 font-bold' : 'text-slate-300'" x-text="listedSortField === 'net' ? (listedSortDir === 'asc' ? '▲' : '▼') : '↕'"></span>
+                                            </div>
+                                        </th>
+                                        <th @click="toggleListedSort('profit')" class="py-3 px-4 font-semibold text-emerald-700 text-right cursor-pointer hover:bg-emerald-50 select-none transition-colors" title="คลิกเพื่อเรียงตามกำไรสุทธิ">
+                                            <div class="flex items-center justify-end space-x-1">
+                                                <span>กำไรสุทธิ</span>
+                                                <span class="text-[10px] font-mono" :class="listedSortField === 'profit' ? 'text-emerald-700 font-bold' : 'text-slate-300'" x-text="listedSortField === 'profit' ? (listedSortDir === 'asc' ? '▲' : '▼') : '↕'"></span>
+                                            </div>
+                                        </th>
                                         <th class="py-3 px-3 font-semibold text-slate-700 text-center">หน้าร้าน</th>
                                         <th class="py-3 px-4 font-semibold text-slate-700 text-center">จัดการ</th>
                                     </tr>
@@ -2360,6 +2400,8 @@
 
                 // Listed & Dashboard State
                 listedProducts: [],
+                listedSortField: '',
+                listedSortDir: 'desc',
                 ledgerSearch: '',
                 exportMode: 'single', // 'single' or 'variations'
                 groupParentTitle: '',
@@ -3193,19 +3235,78 @@
                     return this.listedProducts.filter(i => (i.shopee_url || '').trim().toLowerCase() === clean).length;
                 },
 
-                getFilteredListedProducts() {
-                    if (!this.ledgerSearch || !this.ledgerSearch.trim()) {
-                        return this.listedProducts;
+toggleListedSort(field) {
+                    if (this.listedSortField === field) {
+                        this.listedSortDir = this.listedSortDir === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        this.listedSortField = field;
+                        if (['price', 'cost_price', 'profit', 'stock', 'fee', 'net'].includes(field)) {
+                            this.listedSortDir = 'desc';
+                        } else {
+                            this.listedSortDir = 'asc';
+                        }
                     }
-                    const q = this.ledgerSearch.trim().toLowerCase();
-                    return this.listedProducts.filter(item => {
-                        const sku = (item.sku || '').toLowerCase();
-                        const name = (item.name || '').toLowerCase();
-                        const brand = (item.brand || '').toLowerCase();
-                        const varName = (item.variation_name || '').toLowerCase();
-                        const url = (item.shopee_url || '').toLowerCase();
-                        return sku.includes(q) || name.includes(q) || brand.includes(q) || varName.includes(q) || url.includes(q);
-                    });
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                getFilteredListedProducts() {
+                    let items = [...(this.listedProducts || [])];
+                    if (this.ledgerSearch && this.ledgerSearch.trim()) {
+                        const q = this.ledgerSearch.trim().toLowerCase();
+                        items = items.filter(item => {
+                            const sku = (item.sku || '').toLowerCase();
+                            const name = (item.name || '').toLowerCase();
+                            const brand = (item.brand || '').toLowerCase();
+                            const varName = (item.variation_name || '').toLowerCase();
+                            const url = (item.shopee_url || '').toLowerCase();
+                            return sku.includes(q) || name.includes(q) || brand.includes(q) || varName.includes(q) || url.includes(q);
+                        });
+                    }
+
+                    if (this.listedSortField) {
+                        const field = this.listedSortField;
+                        const dir = this.listedSortDir === 'asc' ? 1 : -1;
+                        items.sort((a, b) => {
+                            let valA, valB;
+                            if (field === 'price') {
+                                valA = parseFloat(a.price) || 0;
+                                valB = parseFloat(b.price) || 0;
+                            } else if (field === 'cost_price') {
+                                valA = parseFloat(a.cost_price) || 0;
+                                valB = parseFloat(b.cost_price) || 0;
+                            } else if (field === 'fee') {
+                                valA = this.getShopeeFee(a.price);
+                                valB = this.getShopeeFee(b.price);
+                            } else if (field === 'net') {
+                                valA = (parseFloat(a.price) || 0) - this.getShopeeFee(a.price);
+                                valB = (parseFloat(b.price) || 0) - this.getShopeeFee(b.price);
+                            } else if (field === 'profit') {
+                                valA = this.getNetProfit(a);
+                                valB = this.getNetProfit(b);
+                            } else if (field === 'stock') {
+                                valA = parseInt(a.stock) || 0;
+                                valB = parseInt(b.stock) || 0;
+                            } else if (field === 'sku') {
+                                valA = (a.sku || '').toLowerCase();
+                                valB = (b.sku || '').toLowerCase();
+                                return valA.localeCompare(valB, 'th') * dir;
+                            } else if (field === 'brand') {
+                                valA = (a.brand || '').toLowerCase();
+                                valB = (b.brand || '').toLowerCase();
+                                return valA.localeCompare(valB, 'th') * dir;
+                            } else if (field === 'name') {
+                                valA = (a.name || a.sku || '').toLowerCase();
+                                valB = (b.name || b.sku || '').toLowerCase();
+                                return valA.localeCompare(valB, 'th') * dir;
+                            } else {
+                                valA = new Date(a.updated_at || a.created_at || 0).getTime();
+                                valB = new Date(b.updated_at || b.created_at || 0).getTime();
+                            }
+                            return (valA - valB) * dir;
+                        });
+                    }
+
+                    return items;
                 },
 
                 openAttachModalForSameLink(parentItem) {
