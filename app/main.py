@@ -1,5 +1,8 @@
 import os
 import sys
+import threading
+import uuid
+import time
 from fastapi import FastAPI, Query, HTTPException, Request, Response, Depends, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -421,6 +424,8 @@ class ExportRequest(BaseModel):
     comparison_card_url: Optional[str] = None
     include_comparison: Optional[bool] = True
 
+export_tasks = {}
+
 @app.post("/api/export")
 def api_export(req: ExportRequest, request: Request, authorization: Optional[str] = Header(None)):
     # Requires logged-in user
@@ -430,20 +435,58 @@ def api_export(req: ExportRequest, request: Request, authorization: Optional[str
     items_data = [item.dict() for item in req.items]
     target_shop = get_shop(req.shop_id or "shop_1")
     eff_shop_name = req.shop_name or target_shop.get("brand_display") or "MEGATOOL"
-    try:
-        file_url = export_shopee_batch(
-            items_data, 
-            req.filename, 
-            shop_name=eff_shop_name,
-            is_variation_group=req.is_variation_group or False,
-            parent_title=req.parent_title,
-            variation_group_name=req.variation_group_name or "รุ่นสินค้า",
-            comparison_card_url=req.comparison_card_url,
-            include_comparison=req.include_comparison if req.include_comparison is not None else True
-        )
-        return {"download_url": file_url}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    
+    task_id = str(uuid.uuid4())[:12]
+    export_tasks[task_id] = {
+        "status": "processing",
+        "current": 0,
+        "total": len(items_data),
+        "percent": 0,
+        "sku": "",
+        "download_url": None,
+        "created_at": time.time()
+    }
+
+    def run_worker():
+        def progress(cur, tot, sku):
+            if task_id in export_tasks:
+                export_tasks[task_id]["current"] = cur
+                export_tasks[task_id]["total"] = tot
+                export_tasks[task_id]["percent"] = min(int((cur / max(tot, 1)) * 95), 95)
+                export_tasks[task_id]["sku"] = sku
+
+        try:
+            file_url = export_shopee_batch(
+                items_data, 
+                req.filename, 
+                shop_name=eff_shop_name,
+                is_variation_group=req.is_variation_group or False,
+                parent_title=req.parent_title,
+                variation_group_name=req.variation_group_name or "รุ่นสินค้า",
+                comparison_card_url=req.comparison_card_url,
+                include_comparison=req.include_comparison if req.include_comparison is not None else True,
+                progress_callback=progress
+            )
+            export_tasks[task_id]["status"] = "completed"
+            export_tasks[task_id]["current"] = len(items_data)
+            export_tasks[task_id]["total"] = len(items_data)
+            export_tasks[task_id]["percent"] = 100
+            export_tasks[task_id]["download_url"] = file_url
+            export_tasks[task_id]["sku"] = ""
+        except Exception as e:
+            print(f"Export task {task_id} failed:", e)
+            export_tasks[task_id]["status"] = "error"
+            export_tasks[task_id]["message"] = str(e)
+
+    threading.Thread(target=run_worker, daemon=True).start()
+    return {"task_id": task_id}
+
+@app.get("/api/export-progress/{task_id}")
+def api_export_progress(task_id: str):
+    task = export_tasks.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Export task not found")
+    return task
 
 @app.get("/api/stats")
 def api_stats():

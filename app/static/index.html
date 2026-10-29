@@ -2166,18 +2166,41 @@
                 </div>
 
                 <!-- Export Action Bar -->
-                <div class="pt-3 border-t border-slate-100 flex items-center justify-between shrink-0">
-                    <button @click="clearQueue()" :disabled="selectedItems.length === 0"
-                            class="text-xs text-rose-500 hover:underline disabled:opacity-40">
-                        ล้างตะกร้าทั้งหมด
-                    </button>
+                <div class="pt-3 border-t border-slate-100 flex flex-col space-y-2.5 shrink-0">
+                    <!-- Progress Bar when Exporting -->
+                    <div x-show="exporting" class="p-3 bg-orange-50/90 border border-orange-200 rounded-2xl space-y-2">
+                        <div class="flex items-center justify-between text-xs font-bold text-orange-950">
+                            <span class="flex items-center space-x-1.5">
+                                <span class="animate-spin text-sm">⚙️</span>
+                                <span>กำลังประมวลผลสินค้า: <span class="text-orange-600 font-mono" x-text="exportProgress.current + '/' + exportProgress.total"></span> รายการ</span>
+                            </span>
+                            <span class="font-mono text-orange-600 text-sm font-extrabold" x-text="exportProgress.percent + '%'"></span>
+                        </div>
+                        <!-- Animated Progress Bar -->
+                        <div class="w-full bg-orange-100 h-2.5 rounded-full overflow-hidden shadow-inner">
+                            <div class="bg-gradient-to-r from-orange-500 to-amber-500 h-full rounded-full transition-all duration-300 relative"
+                                 :style="'width: ' + Math.max(exportProgress.percent, 5) + '%'">
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between text-[11px] text-slate-500">
+                            <span class="truncate max-w-[280px]" x-text="exportProgress.sku ? ('กำลังแต่งรูปและอัปโหลด CDN: ' + exportProgress.sku) : 'กำลังเตรียมข้อมูล...'"></span>
+                            <span class="shrink-0 text-amber-700 font-medium">กรุณาอย่าเพิ่งปิดหน้าต่าง</span>
+                        </div>
+                    </div>
 
-                    <button @click="exportToShopee()" :disabled="selectedItems.length === 0 || exporting"
-                            class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white text-xs font-bold shadow-md shadow-orange-500/20 disabled:opacity-50 flex items-center space-x-2">
-                        <span x-show="!exporting">สร้างไฟล์ Excel ยิง Shopee</span>
-                        <span x-show="exporting" class="animate-spin">⏳</span>
-                        <span x-show="exporting">กำลังประมวลผลรูปภาพและ Excel...</span>
-                    </button>
+                    <div class="flex items-center justify-between">
+                        <button @click="clearQueue()" :disabled="selectedItems.length === 0 || exporting"
+                                class="text-xs text-rose-500 hover:underline disabled:opacity-40 cursor-pointer">
+                            ล้างตะกร้าทั้งหมด
+                        </button>
+
+                        <button @click="exportToShopee()" :disabled="selectedItems.length === 0 || exporting"
+                                class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white text-xs font-bold shadow-md shadow-orange-500/20 disabled:opacity-50 flex items-center space-x-2 transition-all cursor-pointer">
+                            <span x-show="!exporting">สร้างไฟล์ Excel ยิง Shopee</span>
+                            <span x-show="exporting" class="animate-spin">⏳</span>
+                            <span x-show="exporting" x-text="'กำลังประมวลผล (' + exportProgress.current + '/' + exportProgress.total + ' รายการ)...'"></span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Success Download Box -->
@@ -2269,6 +2292,7 @@
                 includeComparisonCard: true,
                 generatingComparison: false,
                 exporting: false,
+                exportProgress: { current: 0, total: 0, percent: 0, sku: '' },
                 downloadUrl: null,
 
                 // Multi-Shop State
@@ -3901,6 +3925,7 @@
                             filename: isVar ? `Shopee_Variations_Group_${Date.now()}.xlsx` : `Shopee_Mass_Upload_${Date.now()}.xlsx`
                         };
 
+                        this.exportProgress = { current: 0, total: this.selectedItems.length, percent: 0, sku: '' };
                         const res = await fetch('/api/export', {
                             method: 'POST',
                             headers: {
@@ -3912,15 +3937,44 @@
 
                         if (res.ok) {
                             const data = await res.json();
-                            this.downloadUrl = data.download_url;
+                            if (data.task_id) {
+                                const taskId = data.task_id;
+                                const pollInterval = setInterval(async () => {
+                                    try {
+                                        const pRes = await fetch(`/api/export-progress/${taskId}`, { headers: this.getHeaders() });
+                                        if (pRes.ok) {
+                                            const pData = await pRes.json();
+                                            this.exportProgress = pData;
+                                            if (pData.status === 'completed') {
+                                                clearInterval(pollInterval);
+                                                this.downloadUrl = pData.download_url;
+                                                this.exporting = false;
+                                                this.$nextTick(() => lucide.createIcons());
+                                            } else if (pData.status === 'error') {
+                                                clearInterval(pollInterval);
+                                                this.exporting = false;
+                                                alert('เกิดข้อผิดพลาดในการสร้างไฟล์ Shopee: ' + (pData.message || 'Unknown error'));
+                                                this.$nextTick(() => lucide.createIcons());
+                                            }
+                                        }
+                                    } catch (err) {
+                                        console.error('Polling error:', err);
+                                    }
+                                }, 800);
+                                return;
+                            } else if (data.download_url) {
+                                this.downloadUrl = data.download_url;
+                                this.exporting = false;
+                            }
                         } else {
                             const err = await res.json();
                             alert('เกิดข้อผิดพลาดในการสร้างไฟล์ Shopee: ' + (err.detail || 'Unknown error'));
+                            this.exporting = false;
                         }
                     } catch (e) {
                         alert('เชื่อมต่อเซิร์ฟเวอร์ผิดพลาด: ' + e);
+                        this.exporting = false;
                     }
-                    this.exporting = false;
                     this.$nextTick(() => lucide.createIcons());
                 }
             }

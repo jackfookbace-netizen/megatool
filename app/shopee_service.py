@@ -116,7 +116,7 @@ def col_to_idx(col_str):
         num = num * 26 + (ord(ch.upper()) - ord('A') + 1)
     return num
 
-def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx', shop_name='MEGATOOL', is_variation_group=False, parent_title=None, variation_group_name='รุ่นสินค้า', comparison_card_url=None, include_comparison=True):
+def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx', shop_name='MEGATOOL', is_variation_group=False, parent_title=None, variation_group_name='รุ่นสินค้า', comparison_card_url=None, include_comparison=True, progress_callback=None):
     """
     Takes product_items: [{'sku': '...', 'price': 145, 'badge': '...'}]
     Generates branded template images for ALL angles, uploads to CDN, and injects into official Shopee template.
@@ -173,8 +173,14 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
         all_gallery_images = []
         combined_descs = []
 
-        for item_info in product_items:
+        total_group_items = len(product_items)
+        for p_idx, item_info in enumerate(product_items):
             sku = item_info['sku']
+            if progress_callback:
+                try:
+                    progress_callback(p_idx + 1, total_group_items, sku)
+                except Exception:
+                    pass
             override_price = item_info.get('price')
             badge_text = item_info.get('badge')
             custom_var_name = item_info.get('variation_name')
@@ -405,8 +411,14 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                 sheet_data.append(row_elem)
                 current_row_num += 1
     else:
-        for item_info in product_items:
+        total_group_items = len(product_items)
+        for p_idx, item_info in enumerate(product_items):
             sku = item_info['sku']
+            if progress_callback:
+                try:
+                    progress_callback(p_idx + 1, total_group_items, sku)
+                except Exception:
+                    pass
             override_price = item_info.get('price')
             badge_text = item_info.get('badge')
         
