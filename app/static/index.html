@@ -3479,7 +3479,12 @@
                         console.error('Error fetching images:', e);
                     }
 
-                    if (this.isImageExcluded(0)) {
+                    if (existingInQueue && existingInQueue.selected_image && this.activePreviewItem?.all_images) {
+                        const savedIdx = this.activePreviewItem.all_images.findIndex(u => u === existingInQueue.selected_image);
+                        if (savedIdx >= 0) {
+                            this.selectedImageIndex = savedIdx;
+                        }
+                    } else if (this.isImageExcluded(0)) {
                         const total = this.activePreviewItem?.all_images?.length || 1;
                         const nextAvailable = Array.from({ length: total }, (_, i) => i)
                             .find(i => !this.excludedImageIndices.includes(i));
@@ -3487,6 +3492,9 @@
                             this.selectedImageIndex = nextAvailable;
                         }
                     }
+
+                    const curImg = (this.activePreviewItem?.all_images && this.activePreviewItem.all_images[this.selectedImageIndex]) || this.activePreviewItem?.image;
+                    this.customUseTemplate = !this.isImageUnframed(curImg);
 
                     this.generatePreviewCover();
                 },
@@ -3866,6 +3874,9 @@
                     
                     const orderedImgs = [coverImg, ...finalImgs.filter(u => u !== coverImg)];
                     
+                    const allUnframed = allImgs.length > 0 && allImgs.every(u => this.isImageUnframed(u));
+                    const itemUseTemplate = !allUnframed;
+
                     const existingIndex = this.selectedItems.findIndex(i => i.sku === sku);
                     if (existingIndex >= 0) {
                         this.selectedItems[existingIndex].image = coverImg;
@@ -3873,7 +3884,7 @@
                         this.selectedItems[existingIndex].selected_images = orderedImgs;
                         this.selectedItems[existingIndex].excluded_indices = [...this.excludedImageIndices];
                         this.selectedItems[existingIndex].badge = this.customBadgeText;
-                        this.selectedItems[existingIndex].use_template = (this.customUseTemplate !== false);
+                        this.selectedItems[existingIndex].use_template = itemUseTemplate;
                         this.selectedItems[existingIndex].unframed_images = [...this.unframedUrls];
                     } else {
                         this.selectedItems.push({
@@ -3886,7 +3897,7 @@
                             selected_images: orderedImgs,
                             excluded_indices: [...this.excludedImageIndices],
                             badge: this.customBadgeText,
-                            use_template: (this.customUseTemplate !== false),
+                            use_template: itemUseTemplate,
                             unframed_images: [...this.unframedUrls],
                             stock: this.activePreviewItem.stock?.stockLevel || this.activePreviewItem.stock || 0
                         });

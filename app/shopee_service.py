@@ -235,6 +235,17 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
 
             use_template = item_info.get('use_template', True)
             unframed_images = set(item_info.get('unframed_images') or [])
+
+            def should_apply_template(img_u):
+                if not img_u:
+                    return False
+                if unframed_images:
+                    u_fname = str(img_u).split('/')[-1].split('?')[0]
+                    if img_u in unframed_images or any(u_fname in str(x) for x in unframed_images):
+                        return False
+                    return True
+                return use_template
+
             cdn_results = {}
             with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
                 future_to_idx = {
@@ -246,7 +257,7 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                         brand, 
                         badge_text, 
                         shop_name, 
-                        use_template=(use_template and (u not in unframed_images))
+                        use_template=should_apply_template(u)
                     ): idx
                     for idx, u in enumerate(raw_images)
                 }
@@ -477,6 +488,17 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
 
             use_template = item_info.get('use_template', True)
             unframed_images = set(item_info.get('unframed_images') or [])
+
+            def should_apply_template(img_u):
+                if not img_u:
+                    return False
+                if unframed_images:
+                    u_fname = str(img_u).split('/')[-1].split('?')[0]
+                    if img_u in unframed_images or any(u_fname in str(x) for x in unframed_images):
+                        return False
+                    return True
+                return use_template
+
             cdn_results = {}
             with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
                 future_to_idx = {
@@ -488,7 +510,7 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                         brand, 
                         badge_text, 
                         shop_name, 
-                        use_template=(use_template and (u not in unframed_images))
+                        use_template=should_apply_template(u)
                     ): idx
                     for idx, u in enumerate(raw_images)
                 }
