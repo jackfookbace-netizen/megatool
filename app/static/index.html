@@ -1675,7 +1675,7 @@
         <div x-show="showPreviewModal" 
              class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-2 sm:p-4 md:p-6 overflow-hidden"
              @mousedown="handleBackdropMouseDown($event)"
-             @mouseup="handleBackdropMouseUp($event, () => showPreviewModal = false)"
+             @mouseup="handleBackdropMouseUp($event, () => closeCoverPreview())"
              x-cloak>
             <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-5xl w-full max-h-[95vh] flex flex-col p-4 sm:p-6 relative overflow-hidden"
                  @click.stop>
@@ -1688,7 +1688,7 @@
                         </div>
                         <h3 class="text-sm font-bold text-slate-800 line-clamp-1 mt-0.5" x-text="activePreviewItem?.name"></h3>
                     </div>
-                    <button @click="showPreviewModal = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer" title="ปิดหน้าต่าง">
+                    <button @click="closeCoverPreview()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer" title="ปิดหน้าต่าง">
                         <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
@@ -1977,12 +1977,25 @@
                         </div>
 
                         <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
-                            <span class="text-xs text-slate-500">พร้อมลงขายใน Shopee ทันที</span>
-                            <button @click="addToQueueFromPreview()"
-                                    class="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-md shadow-orange-500/20 transition-all flex items-center space-x-1.5">
-                                <i data-lucide="plus" class="w-4 h-4"></i>
-                                <span>เพิ่มเข้าตะกร้าเตรียมยิง Shopee</span>
-                            </button>
+                            <div>
+                                <span x-show="isItemInCart" class="text-xs text-emerald-600 font-bold flex items-center space-x-1.5">
+                                    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
+                                    <span>สินค้านี้อยู่ในตะกร้าแล้ว (กดบันทึกเพื่ออัปเดตรูป)</span>
+                                </span>
+                                <span x-show="!isItemInCart" class="text-xs text-slate-500">พร้อมลงขายใน Shopee ทันที</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button type="button" @click="closeCoverPreview()"
+                                        class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold transition-all cursor-pointer">
+                                    ยกเลิก
+                                </button>
+                                <button type="button" @click="saveAndReturnFromPreview()"
+                                        class="px-5 py-2.5 rounded-xl text-white text-xs font-bold shadow-md transition-all flex items-center space-x-1.5 cursor-pointer"
+                                        :class="isItemInCart ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20' : 'bg-orange-600 hover:bg-orange-700 shadow-orange-500/20'">
+                                    <i :data-lucide="isItemInCart ? 'check' : 'plus'" class="w-4 h-4"></i>
+                                    <span x-text="isItemInCart ? (openedFromCart ? '💾 บันทึกรูปและกลับไปที่ตะกร้า' : '💾 บันทึกการแก้ไขรูป') : '➕ เพิ่มเข้าตะกร้าเตรียมยิง Shopee'"></span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2112,7 +2125,7 @@
                                         <span class="text-emerald-600 font-bold" x-text="'สต็อก: ' + item.stock"></span>
                                         <span>•</span>
                                         <span class="text-orange-600 font-sans font-bold" x-text="(item.selected_images?.length || 1) + ' รูป'"></span>
-                                        <button type="button" @click="showQueueModal = false; openCoverPreview(item)" 
+                                        <button type="button" @click="showQueueModal = false; openCoverPreview(item, true)" 
                                                 title="คลิกเพื่อแต่งรูปปก หรือรวมรูปเครื่อง+อุปกรณ์เป็นภาพเดียว" 
                                                 class="text-[10px] px-2 py-0.5 rounded-md font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-all font-sans ml-1 cursor-pointer">
                                             🖼️ แต่งรูป / รวมรูปอุปกรณ์
@@ -2245,6 +2258,7 @@
                 customUseTemplate: true,
                 userManuallyTurnedOffTemplate: false,
                 unframedUrls: [],
+                openedFromCart: false,
                 collageSelectedIndices: [],
                 collageModel: '',
                 collageTitle: 'อุปกรณ์มาตรฐานในกล่องครบชุด',
@@ -3350,8 +3364,9 @@
                         .filter(i => i !== this.selectedImageIndex);
                 },
 
-                async openCoverPreview(p) {
+                async openCoverPreview(p, fromCart = false) {
                     this.activePreviewItem = p;
+                    this.openedFromCart = Boolean(fromCart);
                     this.selectedImageIndex = 0;
                     this.renderedCoverUrl = null;
                     this.showPreviewModal = true;
@@ -3630,6 +3645,29 @@
                         }
                         localStorage.setItem('megatool_collages', JSON.stringify(saved));
                     } catch (e) {}
+                },
+
+                get isItemInCart() {
+                    if (!this.activePreviewItem) return false;
+                    const sku = this.activePreviewItem.sku || this.activePreviewItem.code;
+                    return Array.isArray(this.selectedItems) && this.selectedItems.some(i => i.sku === sku);
+                },
+
+                saveAndReturnFromPreview() {
+                    const wasFromCart = this.openedFromCart;
+                    this.addToQueueFromPreview();
+                    if (wasFromCart) {
+                        this.showQueueModal = true;
+                    }
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                closeCoverPreview() {
+                    this.showPreviewModal = false;
+                    if (this.openedFromCart) {
+                        this.showQueueModal = true;
+                    }
+                    this.$nextTick(() => lucide.createIcons());
                 },
 
                 isImageUnframed(img) {
