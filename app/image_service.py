@@ -410,7 +410,7 @@ def smart_split_title(title: str) -> list:
 def generate_collage(
     image_urls,
     output_path,
-    title="อุปกรณ์มาตรฐานในกล่องครบชุด",
+    title="",
     badge_text="มีสต็อกพร้อมส่งทันที",
     shop_name="MEGATOOL",
     model_text="",

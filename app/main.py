@@ -319,7 +319,7 @@ class CollageRequest(BaseModel):
     sku: str
     image_urls: List[str]
     model_text: Optional[str] = ""
-    title: Optional[str] = "อุปกรณ์มาตรฐานในกล่องครบชุด"
+    title: Optional[str] = ""
     badge_text: Optional[str] = "มีสต็อกพร้อมส่งทันที"
     shop_name: Optional[str] = "MEGATOOL"
     font_size: Optional[int] = 34
@@ -331,8 +331,8 @@ def api_generate_collage(req: CollageRequest):
     if not req.image_urls or len(req.image_urls) < 1:
         raise HTTPException(status_code=400, detail="กรุณาเลือกรูปภาพอย่างน้อย 1 รูปภาพครับ")
     
-    clean_model = (req.model_text or "").strip()
-    clean_title = (req.title or "อุปกรณ์มาตรฐานในกล่องครบชุด").strip()
+    clean_model = (req.model_text if req.model_text is not None else "").strip()
+    clean_title = (req.title if req.title is not None else "").strip()
     clean_badge = (req.badge_text or "มีสต็อกพร้อมส่งทันที").strip()
     font_sz = int(req.font_size or 38)
     pos = (req.position or "top-left").lower().strip()
