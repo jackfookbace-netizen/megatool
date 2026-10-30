@@ -918,6 +918,14 @@
                             <span>ร้าน: <strong x-text="currentShop ? currentShop.name : 'MEGATOOL'"></strong></span>
                         </div>
 
+                        <!-- Re-export Selected / All to Cart Button -->
+                        <button @click="addListedToQueue(selectedListedSkus.length > 0)"
+                                class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer"
+                                :title="selectedListedSkus.length > 0 ? 'ส่งออกเฉพาะรายการที่ติ๊กเลือก' : 'ส่งออกสินค้าทั้งหมดที่ลงขายแล้ว'">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                            <span x-text="selectedListedSkus.length > 0 ? `ส่งออกที่เลือก (${selectedListedSkus.length}) เป็น Excel ใหม่` : `ส่งออกทั้งหมด (${listedProducts.length}) เป็น Excel ใหม่`"></span>
+                        </button>
+
                         <!-- Batch Clone Button -->
                         <button @click="openBatchCloneModal()" x-show="selectedListedSkus.length > 0"
                                 class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer">
@@ -1196,6 +1204,10 @@
 
                                             <!-- 7. Actions -->
                                             <td class="py-3 px-4 text-center space-x-1" @click.stop>
+                                                <button @click="addSingleListedToQueue(item)" title="ส่งออกสินค้านี้เป็น Excel ใหม่ (ใช้ระบบ SEO และรายละเอียดล่าสุด)" 
+                                                        class="p-1 rounded-lg text-slate-400 hover:text-orange-600 hover:bg-orange-50 transition-colors border border-slate-200/70 cursor-pointer">
+                                                    <i data-lucide="shopping-bag" class="w-3.5 h-3.5"></i>
+                                                </button>
                                                 <button @click="openCloneModal(item.sku)" title="Clone สินค้านี้ไปร้านที่ 2 (ป้องกันสินค้าซ้ำซ้อน)" 
                                                         class="p-1 rounded-lg text-slate-400 hover:text-blue-700 hover:bg-blue-50 transition-colors border border-slate-200/70 cursor-pointer">
                                                     <i data-lucide="copy" class="w-3.5 h-3.5"></i>
@@ -2711,6 +2723,67 @@
                     } else {
                         this.selectedListedSkus = [];
                     }
+                },
+
+                addSingleListedToQueue(item) {
+                    const existingIndex = this.selectedItems.findIndex(i => i.sku === item.sku);
+                    const queueItem = {
+                        sku: item.sku,
+                        name: item.name,
+                        price: parseFloat(item.price) || 0,
+                        brand: item.brand,
+                        image: item.image_url || item.image,
+                        selected_image: item.image_url || item.image,
+                        use_template: true,
+                        variation_name: item.variation_name || this.autoCleanOptionName(item.name, item.sku, item.brand),
+                        stock: item.stock || 0
+                    };
+                    if (existingIndex >= 0) {
+                        this.selectedItems[existingIndex] = queueItem;
+                    } else {
+                        this.selectedItems.push(queueItem);
+                    }
+                    this.exportMode = 'single';
+                    this.saveCartToStorage();
+                    this.openQueueModal();
+                },
+
+                addListedToQueue(selectedOnly = true) {
+                    let targetItems = [];
+                    if (selectedOnly && this.selectedListedSkus.length > 0) {
+                        const skuSet = new Set(this.selectedListedSkus);
+                        targetItems = this.listedProducts.filter(item => skuSet.has(item.sku));
+                    } else {
+                        targetItems = [...this.listedProducts];
+                    }
+
+                    if (targetItems.length === 0) {
+                        alert('ไม่พบรายการสินค้าที่ต้องการส่งออกครับ');
+                        return;
+                    }
+
+                    this.selectedItems = targetItems.map(item => ({
+                        sku: item.sku,
+                        name: item.name,
+                        price: parseFloat(item.price) || 0,
+                        brand: item.brand,
+                        image: item.image_url || item.image,
+                        selected_image: item.image_url || item.image,
+                        use_template: true,
+                        variation_name: item.variation_name || this.autoCleanOptionName(item.name, item.sku, item.brand),
+                        stock: item.stock || 0
+                    }));
+
+                    if (this.selectedItems.length > 1) {
+                        const firstBrand = (this.selectedItems[0].brand || '').toLowerCase();
+                        const allSameBrand = this.selectedItems.every(i => (i.brand || '').toLowerCase() === firstBrand);
+                        this.exportMode = (allSameBrand && this.selectedItems.length <= 10) ? 'variations' : 'single';
+                    } else {
+                        this.exportMode = 'single';
+                    }
+
+                    this.saveCartToStorage();
+                    this.openQueueModal();
                 },
 
                 async executeClone() {
