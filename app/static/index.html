@@ -1924,26 +1924,33 @@
                                     <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
                                         <!-- ช่อง 1: รุ่น / สเปกเน้น (ตัวใหญ่เด่นชัด) -->
                                         <div class="sm:col-span-4">
-                                            <label class="block text-[11px] font-bold text-slate-800 mb-1 flex items-center space-x-1">
-                                                <span class="w-2 h-2 rounded-full bg-red-600 inline-block"></span>
-                                                <span>รุ่น / บาร์ (ตัวใหญ่เด่น)</span>
-                                            </label>
-                                            <input type="text" x-model="collageModel" @input="saveCollageSettingsToLocal()" placeholder="เช่น 100 บาร์, 135 บาร์"
-                                                   class="w-full px-3 py-2 text-xs font-bold text-red-600 bg-white border border-red-300 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 shadow-2xs placeholder:font-normal placeholder:text-slate-400">
+                                            <div class="flex items-center justify-between mb-1">
+                                                <label class="text-[11px] font-bold text-slate-800 flex items-center space-x-1.5 cursor-pointer select-none">
+                                                    <input type="checkbox" x-model="collageShowModel" @change="saveCollageSettingsToLocal()" class="rounded text-red-600 focus:ring-red-500 cursor-pointer">
+                                                    <span class="w-2 h-2 rounded-full bg-red-600 inline-block"></span>
+                                                    <span>รุ่น / บาร์ (ตัวใหญ่เด่น)</span>
+                                                </label>
+                                            </div>
+                                            <input type="text" x-model="collageModel" :disabled="!collageShowModel" @input="saveCollageSettingsToLocal()" placeholder="เช่น 100 บาร์, 135 บาร์"
+                                                   :class="{'opacity-40 bg-slate-100 cursor-not-allowed': !collageShowModel}"
+                                                   class="w-full px-3 py-2 text-xs font-bold text-red-600 bg-white border border-red-300 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 shadow-2xs placeholder:font-normal placeholder:text-slate-400 transition-all">
                                         </div>
-                                        <!-- ช่อง 2: ข้อความคำอธิบาย / อุปกรณ์ในกล่อง -->
+
+                                        <!-- ช่อง 2: ข้อความอธิบาย / อุปกรณ์ในกล่อง -->
                                         <div class="sm:col-span-5">
-                                            <label class="block text-[11px] font-bold text-slate-800 mb-1 flex items-center justify-between">
-                                                <span class="flex items-center space-x-1">
+                                            <div class="flex items-center justify-between mb-1">
+                                                <label class="text-[11px] font-bold text-slate-800 flex items-center space-x-1.5 cursor-pointer select-none">
+                                                    <input type="checkbox" x-model="collageShowTitle" @change="saveCollageSettingsToLocal()" class="rounded text-slate-700 focus:ring-slate-500 cursor-pointer">
                                                     <span class="w-2 h-2 rounded-full bg-slate-700 inline-block"></span>
                                                     <span>ข้อความป้ายกำกับ</span>
-                                                </span>
-                                                <span class="text-[10px] text-slate-400 font-normal">ยาวได้ / ตัด 2 บรรทัดอัตโนมัติ (หรือพิมพ์ |)</span>
-                                            </label>
-                                            <input type="text" x-model="collageTitle" @input="saveCollageSettingsToLocal()" placeholder="เช่น อุปกรณ์มาตรฐานในกล่องครบชุดพร้อมใช้งาน"
-                                                   class="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 shadow-2xs">
+                                                </label>
+                                                <span class="text-[10px] text-slate-400 font-normal">ยาวได้ / ตัด 2 บรรทัด (พิมพ์ |)</span>
+                                            </div>
+                                            <input type="text" x-model="collageTitle" :disabled="!collageShowTitle" @input="saveCollageSettingsToLocal()" placeholder="เช่น อุปกรณ์มาตรฐานในกล่องครบชุดพร้อมใช้งาน"
+                                                   :class="{'opacity-40 bg-slate-100 cursor-not-allowed': !collageShowTitle}"
+                                                   class="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 shadow-2xs transition-all">
                                         </div>
-                                        <!-- ปุ่ม รวมภาพทันที -->
+
                                         <div class="sm:col-span-3">
                                             <button type="button" @click="generateCollageAction()" :disabled="collageSelectedIndices.length < 1 || generatingCollage"
                                                     class="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center space-x-1.5 shrink-0 cursor-pointer">
@@ -2365,6 +2372,8 @@
                 unframedUrls: [],
                 openedFromCart: false,
                 collageSelectedIndices: [],
+                collageShowModel: true,
+                collageShowTitle: true,
                 collageModel: '',
                 collageTitle: 'อุปกรณ์มาตรฐานในกล่องครบชุด',
                 collageFontSize: 38,
@@ -3985,6 +3994,8 @@ toggleListedSort(field) {
                         const targetSku = sku || this.activePreviewItem?.sku || this.activePreviewItem?.code;
                         let allSettings = JSON.parse(localStorage.getItem('megatool_collage_settings') || '{}');
                         const data = {
+                            showModel: this.collageShowModel,
+                            showTitle: this.collageShowTitle,
                             model: this.collageModel,
                             title: this.collageTitle,
                             fontSize: this.collageFontSize,
@@ -4170,8 +4181,8 @@ toggleListedSort(field) {
                             body: JSON.stringify({
                                 sku: sku,
                                 image_urls: selectedUrls,
-                                model_text: this.collageModel || '',
-                                title: this.collageTitle || 'อุปกรณ์มาตรฐานในกล่องครบชุด',
+                                model_text: this.collageShowModel ? (this.collageModel || '').trim() : '',
+                                title: this.collageShowTitle ? (this.collageTitle || '').trim() : '',
                                 badge_text: this.customBadgeText || 'มีสต็อกพร้อมส่งทันที',
                                 shop_id: this.activeShopId || 'shop_1',
                             shop_name: this.currentShop ? (this.currentShop.brand_display || this.currentShop.name) : this.shopName,
