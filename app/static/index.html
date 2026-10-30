@@ -3373,7 +3373,44 @@ toggleListedSort(field) {
                     }
                 },
 
-buildShopeeSeoTitle(brand, rawName, sku = '', isVariationGroup = false) {
+                autoCleanOptionName(rawName, sku = '', brand = '') {
+                    let name = (rawName || '').trim();
+                    if (brand) {
+                        const brandRegex = new RegExp(`^\\[?${brand}\\]?\\s*`, 'i');
+                        name = name.replace(brandRegex, '').trim();
+                    }
+                    name = name.replace(/\[.*?\]/g, '').replace(/\s+/g, ' ').trim();
+
+                    const modelMatch = name.match(/^([A-Za-z0-9\-_/]+(?:\s*[0-9]+[A-Za-z0-9\-]*)?)/);
+                    const model = modelMatch ? modelMatch[1].trim() : '';
+
+                    let spec = '';
+                    const barM = name.match(/(\d+)\s*(?:bar|บาร์)/i);
+                    const wattM = name.match(/(\d+)\s*(?:w|วัตต์)/i);
+                    const inchM = name.match(/(\d+(?:\.\d+)?)\s*(?:นิ้ว|"|'')/);
+                    const strokeM = name.match(/([24]\s*จังหวะ)/);
+
+                    if (barM) spec = `${barM[1]}บาร์`;
+                    else if (wattM) spec = `${wattM[1]}W`;
+                    else if (inchM) spec = `${inchM[1]}นิ้ว`;
+                    else if (strokeM) spec = strokeM[1].replace(/\s+/g, '');
+
+                    let candidate = '';
+                    if (model && spec) {
+                        candidate = `${model} (${spec})`;
+                        if (candidate.length > 20) candidate = `${model}(${spec})`;
+                    } else if (model) {
+                        candidate = model;
+                    } else {
+                        const cleanSku = (sku || '').includes('-') ? sku.split('-').pop() : sku;
+                        candidate = cleanSku ? `รุ่น ${cleanSku}` : name;
+                    }
+
+                    if (candidate.length > 20) candidate = candidate.substring(0, 20);
+                    return candidate.trim();
+                },
+
+                buildShopeeSeoTitle(brand, rawName, sku = '', isVariationGroup = false) {
                     brand = (brand || 'KTW').trim();
                     let clean = (rawName || '').trim();
                     const brandRegex = new RegExp(`^\\[?${brand}\\]?\\s*`, 'i');
@@ -3582,6 +3619,7 @@ buildShopeeSeoTitle(brand, rawName, sku = '', isVariationGroup = false) {
                             brand: p.brand || p.manufacturer,
                             image: p.image || (p.images && p.images[0]),
                             use_template: true,
+                            variation_name: this.autoCleanOptionName(p.name, p.sku || p.code, p.brand || p.manufacturer),
                             stock: p.stock?.stockLevel || p.stock || 0
                         });
                     }

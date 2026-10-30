@@ -6,7 +6,7 @@ import json
 import xml.etree.ElementTree as ET
 from app.image_service import generate_cover, upload_to_cdn
 from app.ktw_service import get_product_detail, clean_brand_name, detect_brand_from_sku, extract_product_images
-from app.seo_service import build_shopee_seo_title
+from app.seo_service import build_shopee_seo_title, detect_shopee_category, auto_clean_option_name
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -192,10 +192,8 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                 
             brand = clean_brand_name(detail.get('manufacturer'), sku)
             group_brand = brand
-            if brand == '3M':
-                group_cat_id = 101186
-                
             raw_name = detail.get('name', sku)
+            group_cat_id = detect_shopee_category(raw_name, brand)
             raw_desc = clean_html(detail.get('description', ''))
             cost_price = detail.get('price', {}).get('value', 0)
             
@@ -281,9 +279,9 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
 
             opt_name = (custom_var_name or "").strip()
             if not opt_name:
-                opt_name = raw_name.replace(f"[{brand}]", "").strip()
-                if len(opt_name) > 20:
-                    opt_name = opt_name[:20]
+                opt_name = auto_clean_option_name(raw_name, sku, brand)
+            if len(opt_name) > 20:
+                opt_name = opt_name[:20]
 
             combined_descs.append(f"• ตัวเลือก: {opt_name} (รหัส {sku})\n{raw_desc[:200]}...")
 
@@ -547,8 +545,8 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
 
     📦 สินค้ามีสต็อกจริงพร้อมส่ง แพ็คห่อแน่นหนาอย่างดี จัดส่งรวดเร็วทุกวันครับ"""
 
-            # Map Category ID: Default tool category 101800 (สว่าน) or 101186 (เทป)
-            cat_id = 101186 if brand == '3M' else 101800
+            # Map Category ID using intelligent SEO detector
+            cat_id = detect_shopee_category(raw_name, brand)
 
             cells = {}
             cells['A'] = ('n', cat_id)
