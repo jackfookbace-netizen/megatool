@@ -3373,12 +3373,80 @@ toggleListedSort(field) {
                     }
                 },
 
+buildShopeeSeoTitle(brand, rawName, sku = '', isVariationGroup = false) {
+                    brand = (brand || 'KTW').trim();
+                    let clean = (rawName || '').trim();
+                    const brandRegex = new RegExp(`^\\[?${brand}\\]?\\s*`, 'i');
+                    clean = clean.replace(brandRegex, '').replace(/\[.*?\]/g, '').replace(/\s+/g, ' ').trim();
+                    const cleanLower = clean.toLowerCase();
+
+                    const rules = [
+                        { triggers: ['เครื่องเจียร์', 'หินเจียร์', 'ลูกหมู', 'เจียร์ 4', 'เจียร์ 5', 'เจียร์ 7'], keywords: ['ลูกหมู', 'หินเจียร์', 'ตัดขัดเหล็ก'] },
+                        { triggers: ['เครื่องฉีดน้ำ', 'ปั๊มอัดฉีด', 'เครื่องฉีด'], keywords: ['ปั๊มอัดฉีด', 'แรงดันสูง', 'ล้างรถ'] },
+                        { triggers: ['ตัดหญ้า'], keywords: ['สะพายบ่า', 'ตัดหญ้าสวน'] },
+                        { triggers: ['สว่านโรตารี่', 'โรตารี่', 'sds'], keywords: ['สว่านกระแทก', 'เจาะปูน'] },
+                        { triggers: ['สว่าน', 'สว่านไฟฟ้า', 'สว่านไขควง', 'สว่านแบต'], keywords: ['เจาะปูน/เหล็ก/ไม้'] },
+                        { triggers: ['ปั๊มจุ่ม', 'ปั๊มแช่', 'ไดโว่'], keywords: ['ไดโว่', 'สูบน้ำ', 'ดูดน้ำ'] },
+                        { triggers: ['เลื่อยวงเดือน'], keywords: ['เลื่อยตัดไม้'] },
+                        { triggers: ['แท่นตัด', 'เครื่องตัด 14', 'ไฟเบอร์ตัด'], keywords: ['แท่นไฟเบอร์', 'ตัดเหล็ก'] },
+                        { triggers: ['เทปพันสายไฟ', 'temflex'], keywords: ['ฉนวนกันไฟฟ้า', 'เนื้อกาวเหนียวแน่น'] },
+                        { triggers: ['ปั๊มลม'], keywords: ['ถังลม', 'เติมลม พ่นสี'] },
+                        { triggers: ['ตู้เชื่อม', 'เครื่องเชื่อม'], keywords: ['ตู้เชื่อมอินเวอร์เตอร์', 'เชื่อมเหล็ก'] },
+                        { triggers: ['โบลเวอร์', 'เครื่องเป่าลม'], keywords: ['โบลเวอร์', 'เป่าฝุ่น ดูดฝุ่น'] },
+                        { triggers: ['กบไสไม้'], keywords: ['ไสไม้ไฟฟ้า', 'ปรับหน้าไม้'] }
+                    ];
+
+                    const addedKw = [];
+                    for (const r of rules) {
+                        if (r.triggers.some(tr => cleanLower.includes(tr.toLowerCase()))) {
+                            for (const kw of r.keywords) {
+                                if (!cleanLower.includes(kw.toLowerCase()) && !addedKw.some(k => k.toLowerCase() === kw.toLowerCase())) {
+                                    addedKw.push(kw);
+                                }
+                            }
+                        }
+                    }
+
+                    const prefix = `[${brand} แท้ 100%]`;
+                    const trustSuffix = 'ประกันศูนย์';
+
+                    if (isVariationGroup) {
+                        const varSuffix = 'รวมทุกรุ่นตัวเลือก ประกันศูนย์';
+                        let parts = [prefix, clean, ...addedKw, varSuffix];
+                        let title = parts.filter(Boolean).join(' ');
+                        while (title.length > 120 && addedKw.length > 0) {
+                            addedKw.pop();
+                            parts = [prefix, clean, ...addedKw, varSuffix];
+                            title = parts.filter(Boolean).join(' ');
+                        }
+                        if (title.length > 120) {
+                            title = `${prefix} ${clean} รวมทุกรุ่นตัวเลือก`;
+                            if (title.length > 120) title = title.substring(0, 117) + '...';
+                        }
+                        return title;
+                    } else {
+                        const skuPart = sku ? `รหัส ${sku}` : '';
+                        let parts = [prefix, clean, ...addedKw, trustSuffix, skuPart];
+                        let title = parts.filter(Boolean).join(' ');
+                        while (title.length > 120 && addedKw.length > 0) {
+                            addedKw.pop();
+                            parts = [prefix, clean, ...addedKw, trustSuffix, skuPart];
+                            title = parts.filter(Boolean).join(' ');
+                        }
+                        if (title.length > 120) {
+                            title = `${prefix} ${clean} ${trustSuffix} ${skuPart}`.trim();
+                            if (title.length > 120) title = title.substring(0, 117) + '...';
+                        }
+                        return title;
+                    }
+                },
+
                 getDefaultParentTitle() {
                     if (this.selectedItems.length === 0) return '';
                     const first = this.selectedItems[0];
                     const brand = first.brand || 'KTW';
-                    const cleanName = (first.name || first.sku).replace(/\[.*?\]/g, '').trim();
-                    return `[${brand} แท้ 100%] ${cleanName} รวมรุ่นตัวเลือกสเปก ของแท้มาตรฐานโรงงาน`;
+                    const rawName = first.name || first.sku || '';
+                    return this.buildShopeeSeoTitle(brand, rawName, first.sku, true);
                 },
 
                 // Shopee Ledger & Profit Calculation Helpers

@@ -6,6 +6,7 @@ import json
 import xml.etree.ElementTree as ET
 from app.image_service import generate_cover, upload_to_cdn
 from app.ktw_service import get_product_detail, clean_brand_name, detect_brand_from_sku, extract_product_images
+from app.seo_service import build_shopee_seo_title
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -306,7 +307,7 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                 final_parent_title = parent_title.strip()
             else:
                 first_name = processed_items[0]['raw_name']
-                final_parent_title = f"[{group_brand} แท้ 100%] {first_name} รวมรุ่นตัวเลือกสเปก ของแท้มาตรฐานโรงงาน"
+                final_parent_title = build_shopee_seo_title(group_brand, first_name, parent_sku, is_variation_group=True)
             if len(final_parent_title) > 120:
                 final_parent_title = final_parent_title[:117] + "..."
 
@@ -530,10 +531,8 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
 
 
 
-            # SEO Title
-            shopee_title = f"[{brand} แท้ 100%] {raw_name} รหัส {sku} ของแท้มาตรฐานโรงงาน"
-            if len(shopee_title) > 120:
-                shopee_title = shopee_title[:117] + "..."
+            # Smart Shopee SEO Title
+            shopee_title = build_shopee_seo_title(brand, raw_name, sku, is_variation_group=False)
 
             shopee_desc = f"""[{brand} แท้ 100%] {raw_name}
     สินค้าคุณภาพมาตรฐานสากล ส่งตรงจากโรงงานผลิต มั่นใจได้ในของแท้ 100%

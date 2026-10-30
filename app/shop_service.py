@@ -95,24 +95,18 @@ def calculate_shop_price(cost_price: float, shop_id: str = "shop_1") -> float:
     sale_price = round(target_net / fee_factor)
     return sale_price
 
+from app.seo_service import build_shopee_seo_title
+
 def generate_shop_title(sku: str, raw_name: str, brand: str, shop_id: str = "shop_1") -> str:
     shop = get_shop(shop_id)
-    prefix_tpl = shop.get("title_prefix", "[{brand} แท้ 100%]")
-    prefix = prefix_tpl.format(brand=brand)
-    suffix = shop.get("title_suffix", "ของแท้มาตรฐานโรงงาน")
-    
-    clean_name = raw_name.replace(f"[{brand}]", "").strip()
-    
-    if shop_id == "shop_2":
-        # Smart alternative keyword tuning for Shop 2
-        alt_name = clean_name
-        # Replace formal terms with common mechanic terms if applicable
-        if "เครื่องเจียร์" in alt_name and "ลูกหมู" not in alt_name:
-            alt_name = alt_name.replace("เครื่องเจียร์", "หินเจียร์ ลูกหมู")
-        title = f"{prefix} {alt_name} รุ่น {sku} {suffix}"
-    else:
+    suffix = shop.get("title_suffix", "")
+    # If custom user suffix is specified and not default legacy, respect it
+    if suffix and suffix not in ("ของแท้มาตรฐานโรงงาน", "ของแท้มาตรฐานโรงงาน ประกันศูนย์"):
+        prefix_tpl = shop.get("title_prefix", "[{brand} แท้ 100%]")
+        prefix = prefix_tpl.format(brand=brand)
+        clean_name = raw_name.replace(f"[{brand}]", "").strip()
         title = f"{prefix} {clean_name} รหัส {sku} {suffix}"
-        
-    if len(title) > 120:
-        title = title[:117] + "..."
-    return title.strip()
+        if len(title) > 120:
+            title = title[:117] + "..."
+        return title.strip()
+    return build_shopee_seo_title(brand, raw_name, sku, is_variation_group=False)
