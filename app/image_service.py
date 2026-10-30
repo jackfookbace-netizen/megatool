@@ -117,8 +117,8 @@ def generate_cover(
         w_l = draw.textbbox((0, 0), char_l, font=f_tool)[2]
 
         total_w = w_prefix + w_t + w_o1 + w_o2 + w_l
-        margin_right = 50
-        margin_top = 38
+        margin_right = 32
+        margin_top = 28
 
         x_start = canvas_size - margin_right - total_w
         y_text = margin_top
@@ -150,8 +150,8 @@ def generate_cover(
     else:
         # Fallback for custom generic shop names
         f_shop_main = load_font('arialbd.ttf', 76)
-        margin_right = 50
-        margin_top = 38
+        margin_right = 32
+        margin_top = 28
         title_text = shop_name.strip().rstrip('.')
         main_bbox = draw.textbbox((0, 0), title_text, font=f_shop_main)
         main_w = main_bbox[2] - main_bbox[0]
@@ -763,12 +763,12 @@ def generate_collage(
     w_l = draw.textbbox((0, 0), char_l, font=f_tool)[2]
 
     total_w = w_prefix + w_t + w_o1 + w_o2 + w_l
-    margin_top = 38
+    margin_top = 28
 
     if pos == "top-right":
-        x_start = 50
+        x_start = 32
     else:
-        margin_right = 50
+        margin_right = 32
         x_start = CANVAS_SIZE - margin_right - total_w
 
     y_text = margin_top
