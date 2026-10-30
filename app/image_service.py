@@ -163,9 +163,9 @@ def generate_cover(
     y_top = canvas_size - banner_h
     y_bot = canvas_size
     
-    x_slant_bot = 570
-    x_slant_top = 635
-    
+    x_slant_bot = 620
+    x_slant_top = 685
+
     draw.polygon([
         (x_slant_bot, y_bot),
         (canvas_size, y_bot),
@@ -176,19 +176,10 @@ def generate_cover(
     # Text inside ribbon (default: 'มีสต็อกพร้อมส่งทันที')
     display_banner_text = badge_text if (badge_text and badge_text != 'ของแท้ 100%') else "มีสต็อกพร้อมส่งทันที"
     
-    f_sz = 42
-    f_banner = load_font('tahomabd.ttf', f_sz)
-    b_box = draw.textbbox((0, 0), display_banner_text, font=f_banner)
-    text_w = b_box[2] - b_box[0]
-    while text_w > 430 and f_sz > 30:
-        f_sz -= 2
-        f_banner = load_font('tahomabd.ttf', f_sz)
-        b_box = draw.textbbox((0, 0), display_banner_text, font=f_banner)
-        text_w = b_box[2] - b_box[0]
-
-    safe_right = canvas_size - border_w - 18
+    f_banner = load_font('tahomabd.ttf', 46)
+    text_center_x = (x_slant_top + canvas_size - border_w) // 2
     text_center_y = y_top + (banner_h // 2) - 4
-    draw.text((safe_right, text_center_y), display_banner_text, fill=WHITE, font=f_banner, anchor='rm')
+    draw.text((text_center_x, text_center_y), display_banner_text, fill=WHITE, font=f_banner, anchor='mm')
 
     # 6. Above Banner: 'ของแท้  100%'
     f_badge_thai = load_font('tahomabd.ttf', 54)
@@ -804,8 +795,8 @@ def generate_collage(
     banner_h = 120
     y_top = CANVAS_SIZE - banner_h
     y_bot = CANVAS_SIZE
-    x_slant_bot = 570
-    x_slant_top = 635
+    x_slant_bot = 620
+    x_slant_top = 685
 
     draw.polygon([
         (x_slant_bot, y_bot),
@@ -815,19 +806,10 @@ def generate_collage(
     ], fill=RED)
 
     display_banner_text = badge_text or "มีสต็อกพร้อมส่งทันที"
-    f_sz = 42
-    f_banner = load_font('tahomabd.ttf', f_sz)
-    b_box = draw.textbbox((0, 0), display_banner_text, font=f_banner)
-    text_w = b_box[2] - b_box[0]
-    while text_w > 430 and f_sz > 30:
-        f_sz -= 2
-        f_banner = load_font('tahomabd.ttf', f_sz)
-        b_box = draw.textbbox((0, 0), display_banner_text, font=f_banner)
-        text_w = b_box[2] - b_box[0]
-
-    safe_right = CANVAS_SIZE - border_w - 18
+    f_banner = load_font('tahomabd.ttf', 46)
+    text_center_x = (x_slant_top + CANVAS_SIZE - border_w) // 2
     text_center_y = y_top + (banner_h // 2) - 4
-    draw.text((safe_right, text_center_y), display_banner_text, fill=WHITE, font=f_banner, anchor='rm')
+    draw.text((text_center_x, text_center_y), display_banner_text, fill=WHITE, font=f_banner, anchor='mm')
 
     # 7. Above Banner: 'ของแท้ 100%'
     f_badge_thai = load_font('tahomabd.ttf', 54)
