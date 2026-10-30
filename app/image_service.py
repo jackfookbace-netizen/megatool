@@ -455,7 +455,11 @@ def generate_collage(
     slots = []
     gap = 20
 
-    if count == 2:
+    if count == 1:
+        # 1 single image: full centered safe area inside template (no card border, no #1 badge)
+        slots.append([45, 145, 1155, 1140])
+
+    elif count == 2:
         # 2 large cards side-by-side
         w_each = 530
         slots.append([45, 145, 45 + w_each, 1140])       # Left: large tool
@@ -483,10 +487,14 @@ def generate_collage(
     # 3. Draw each image inside its slot
     for idx, (slot, img) in enumerate(zip(slots, loaded_imgs)):
         sx1, sy1, sx2, sy2 = slot
-        # Draw soft card border
-        draw.rounded_rectangle([sx1, sy1, sx2, sy2], radius=16, fill=(255, 255, 255, 255), outline=(226, 232, 240, 255), width=2)
+        # Draw soft card border only when multiple images are arranged
+        if count > 1:
+            draw.rounded_rectangle([sx1, sy1, sx2, sy2], radius=16, fill=(255, 255, 255, 255), outline=(226, 232, 240, 255), width=2)
+            pad = 20
+        else:
+            # Single image mode: clean floating product
+            pad = 35
 
-        pad = 20
         avail_w = (sx2 - sx1) - (pad * 2)
         avail_h = (sy2 - sy1) - (pad * 2)
 
@@ -500,16 +508,17 @@ def generate_collage(
         py = sy1 + (sy2 - sy1 - new_h) // 2
         canvas.paste(resized_im, (px, py), resized_im)
 
-        # Number Circle Badge ① ② ③ ④
-        badge_r = 20
-        bx = sx1 + 16
-        by = sy1 + 16
-        draw.ellipse([bx, by, bx + (badge_r * 2), by + (badge_r * 2)], fill=RED)
-        num_str = str(idx + 1)
-        nb = font_num.getbbox(num_str)
-        nw = nb[2] - nb[0]
-        nh = nb[3] - nb[1]
-        draw.text((bx + badge_r - nw // 2, by + badge_r - nh // 2 - 2), num_str, font=font_num, fill=WHITE)
+        # Number Circle Badge only when multiple images
+        if count > 1:
+            badge_r = 20
+            bx = sx1 + 16
+            by = sy1 + 16
+            draw.ellipse([bx, by, bx + (badge_r * 2), by + (badge_r * 2)], fill=RED)
+            num_str = str(idx + 1)
+            nb = font_num.getbbox(num_str)
+            nw = nb[2] - nb[0]
+            nh = nb[3] - nb[1]
+            draw.text((bx + badge_r - nw // 2, by + badge_r - nh // 2 - 2), num_str, font=font_num, fill=WHITE)
 
     # 4. Collage Title Badge Pill
     # Strip emojis and leading symbols that cause square tofu boxes
@@ -523,7 +532,7 @@ def generate_collage(
             clean_model = bar_m.group(1).strip()
             clean_title = bar_m.group(2).strip()
 
-    if not clean_title:
+    if not clean_title and not clean_model:
         clean_title = "อุปกรณ์มาตรฐานในกล่องครบชุด"
 
     pos = (position or "top-left").lower().strip()

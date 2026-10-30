@@ -328,8 +328,8 @@ class CollageRequest(BaseModel):
 @app.post("/api/generate-collage")
 def api_generate_collage(req: CollageRequest):
     import hashlib
-    if not req.image_urls or len(req.image_urls) < 2:
-        raise HTTPException(status_code=400, detail="กรุณาเลือกรูปภาพอย่างน้อย 2 รูปเพื่อรวมเป็นภาพเดียว")
+    if not req.image_urls or len(req.image_urls) < 1:
+        raise HTTPException(status_code=400, detail="กรุณาเลือกรูปภาพอย่างน้อย 1 รูปภาพครับ")
     
     clean_model = (req.model_text or "").strip()
     clean_title = (req.title or "อุปกรณ์มาตรฐานในกล่องครบชุด").strip()

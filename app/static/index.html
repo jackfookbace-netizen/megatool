@@ -1903,7 +1903,7 @@
                                           x-text="'เลือก ' + collageSelectedIndices.length + ' / 4 รูป'"></span>
                                 </div>
                                 <p class="text-[11px] text-slate-600 mb-2.5 leading-relaxed">
-                                    💡 <strong>วิธีใช้:</strong> คลิกเลือก 2 - 4 รูปด้านล่าง (เช่น ตัวเครื่อง + ของแถม + กล่อง) แล้วกดปุ่ม <strong>"⚡ รวมภาพทันที"</strong> ระบบจะรวมเป็น 1 ภาพพร้อมหมายเลขชี้ชัดเจน
+                                    💡 <strong>วิธีใช้:</strong> คลิกเลือก 1 - 4 รูปด้านล่าง (เลือก 1 รูปเพื่อติดป้ายชื่อรุ่น หรือเลือก 2-4 รูปเพื่อรวมชุดอุปกรณ์) แล้วกดปุ่มสร้างภาพ
                                 </p>
 
                                 <div class="flex items-center space-x-2 overflow-x-auto pb-1.5 pt-0.5">
@@ -1945,9 +1945,9 @@
                                         </div>
                                         <!-- ปุ่ม รวมภาพทันที -->
                                         <div class="sm:col-span-3">
-                                            <button type="button" @click="generateCollageAction()" :disabled="collageSelectedIndices.length < 2 || generatingCollage"
+                                            <button type="button" @click="generateCollageAction()" :disabled="collageSelectedIndices.length < 1 || generatingCollage"
                                                     class="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center space-x-1.5 shrink-0 cursor-pointer">
-                                                <span x-show="!generatingCollage">⚡ รวมภาพ</span>
+                                                <span x-show="!generatingCollage" x-text="collageSelectedIndices.length === 1 ? '⚡ สร้างภาพพร้อมป้ายชื่อรุ่น' : '⚡ รวมภาพทันที'"></span>
                                                 <span x-show="generatingCollage" class="animate-spin text-[11px]">⏳ รวมภาพ...</span>
                                             </button>
                                         </div>
@@ -4152,8 +4152,8 @@ toggleListedSort(field) {
                 },
 
                 async generateCollageAction() {
-                    if (this.collageSelectedIndices.length < 2) {
-                        alert('กรุณาเลือกอย่างน้อย 2 รูปเพื่อรวมเป็นภาพเดียวครับ');
+                    if (this.collageSelectedIndices.length < 1) {
+                        alert('กรุณาเลือกอย่างน้อย 1 รูปภาพครับ');
                         return;
                     }
                     const sku = this.activePreviewItem?.sku || this.activePreviewItem?.code;
