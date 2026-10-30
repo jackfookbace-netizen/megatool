@@ -6,7 +6,7 @@ import json
 import xml.etree.ElementTree as ET
 from app.image_service import generate_cover, upload_to_cdn
 from app.ktw_service import get_product_detail, clean_brand_name, detect_brand_from_sku, extract_product_images
-from app.seo_service import build_shopee_seo_title, detect_shopee_category, auto_clean_option_name
+from app.seo_service import build_shopee_seo_title, detect_shopee_category, auto_clean_option_name, get_brand_warranty_info
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -310,11 +310,17 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                 final_parent_title = final_parent_title[:117] + "..."
 
             desc_bullet_text = "\n\n".join(combined_descs)
+            warranty_info = get_brand_warranty_info(group_brand)
             final_parent_desc = f"""[{group_brand} แท้ 100%] รวมตัวเลือกสินค้าคุณภาพมาตรฐานสากล
 สินค้าส่งตรงจากโรงงานผู้ผลิต มั่นใจได้ในคุณภาพของแท้ 100%
 
 【 รายละเอียดตัวเลือกสินค้าในรายการนี้ 】
 {desc_bullet_text}
+
+【 การรับประกันสินค้าและศูนย์บริการ 】
+{warranty_info['text']}
+• ใบรับประกัน: มีใบรับประกันอย่างเป็นทางการแนบในกล่องสินค้าทุกชิ้น
+• เงื่อนไข: รับประกันความบกพร่องจากการผลิต สามารถนำเข้าศูนย์บริการ KTW (เกรียงไทยวัฒนา) ได้ทั่วประเทศ
 
 【 ข้อแนะนำการสั่งซื้อ 】
 • สามารถกดเลือกตัวเลือกรุ่น/สเปกที่ต้องการได้ที่ปุ่มตัวเลือกสินค้าด้านบน
@@ -532,18 +538,24 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
             # Smart Shopee SEO Title
             shopee_title = build_shopee_seo_title(brand, raw_name, sku, is_variation_group=False)
 
+            warranty_info = get_brand_warranty_info(brand)
             shopee_desc = f"""[{brand} แท้ 100%] {raw_name}
-    สินค้าคุณภาพมาตรฐานสากล ส่งตรงจากโรงงานผลิต มั่นใจได้ในของแท้ 100%
+สินค้าคุณภาพมาตรฐานสากล ส่งตรงจากโรงงานผลิต มั่นใจได้ในของแท้ 100%
 
-    【 จุดเด่นและสเปกสินค้า 】
-    {raw_desc}
+【 จุดเด่นและสเปกสินค้า 】
+{raw_desc}
 
-    【 ข้อมูลจำเพาะ 】
-    • แบรนด์: {brand}
-    • รหัสสินค้า (SKU): {sku}
-    • บาร์โค้ดสากล (EAN): {ean if ean else '-'}
+【 ข้อมูลจำเพาะ 】
+• แบรนด์: {brand}
+• รหัสสินค้า (SKU): {sku}
+• บาร์โค้ดสากล (EAN): {ean if ean else '-'}
 
-    📦 สินค้ามีสต็อกจริงพร้อมส่ง แพ็คห่อแน่นหนาอย่างดี จัดส่งรวดเร็วทุกวันครับ"""
+【 การรับประกันสินค้าและศูนย์บริการ 】
+{warranty_info['text']}
+• ใบรับประกัน: มีใบรับประกันอย่างเป็นทางการแนบในกล่องสินค้า
+• บริการหลังการขาย: รองรับการเข้าศูนย์บริการ KTW (เกรียงไทยวัฒนา) ทั่วประเทศ
+
+📦 สินค้ามีสต็อกจริงพร้อมส่ง แพ็คห่อแน่นหนาอย่างดี จัดส่งรวดเร็วทุกวันครับ"""
 
             # Map Category ID using intelligent SEO detector
             cat_id = detect_shopee_category(raw_name, brand)

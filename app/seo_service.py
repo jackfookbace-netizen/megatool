@@ -202,3 +202,31 @@ def auto_clean_option_name(raw_name: str, sku: str = "", brand: str = "") -> str
     if len(candidate) > 20:
         candidate = candidate[:20]
     return candidate.strip()
+
+def get_brand_warranty_info(brand: str) -> dict:
+    b = (brand or "").upper().strip()
+    if "MAKITA" in b or "MAKTEC" in b or "MT" in b:
+        return {
+            "period": "6 เดือน",
+            "text": "• การรับประกัน: ประกันศูนย์ KTW / Makita Thailand แท้ 6 เดือนเต็ม (มีใบรับประกันในกล่อง พร้อมลงทะเบียนออนไลน์ได้)"
+        }
+    elif "POLO" in b:
+        return {
+            "period": "6 เดือน",
+            "text": "• การรับประกัน: ประกันศูนย์ KTW แท้ 6 เดือนเต็ม (มีใบรับประกันศูนย์แนบในกล่อง)"
+        }
+    elif "JASIC" in b:
+        return {
+            "period": "1 ปี - 2 ปี",
+            "text": "• การรับประกัน: ประกันศูนย์ KTW แท้ 1 - 2 ปีเต็ม (มีใบรับประกันศูนย์แนบในกล่อง)"
+        }
+    elif "3M" in b:
+        return {
+            "period": "รับประกันของแท้",
+            "text": "• การรับประกัน: สินค้าของแท้ 3M Thailand 100% ส่งตรงจากโรงงานผู้ผลิต"
+        }
+    else:
+        return {
+            "period": "6 เดือน",
+            "text": "• การรับประกัน: ประกันศูนย์ KTW แท้ 6 เดือนเต็ม (มีใบรับประกันในกล่อง)"
+        }
