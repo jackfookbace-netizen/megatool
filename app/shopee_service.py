@@ -196,6 +196,7 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
             group_cat_id = detect_shopee_category(raw_name, brand)
             raw_desc = clean_html(detail.get('description', ''))
             cost_price = detail.get('price', {}).get('value', 0)
+            raw_warrenty = (detail.get('warrenty') or '').strip()
             
             if override_price and float(override_price) > 0:
                 sale_price = float(override_price)
@@ -283,7 +284,8 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
             if len(opt_name) > 20:
                 opt_name = opt_name[:20]
 
-            combined_descs.append(f"• ตัวเลือก: {opt_name} (รหัส {sku})\n{raw_desc[:200]}...")
+            war_tag = f" | รับประกัน: {raw_warrenty}" if (raw_warrenty and raw_warrenty != '-') else ""
+            combined_descs.append(f"• ตัวเลือก: {opt_name} (รหัส {sku}){war_tag}\n{raw_desc[:200]}...")
 
             processed_items.append({
                 "sku": sku,
@@ -296,6 +298,7 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                 "width_cm": width_cm,
                 "height_cm": height_cm,
                 "opt_name": opt_name,
+                "warrenty": raw_warrenty,
                 "var_cover": var_cover,
                 "cdn_urls": cdn_urls
             })
@@ -310,7 +313,14 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                 final_parent_title = final_parent_title[:117] + "..."
 
             desc_bullet_text = "\n\n".join(combined_descs)
-            warranty_info = get_brand_warranty_info(group_brand)
+            # Use actual warranty from KTW items if present
+            valid_warranties = [p['warrenty'] for p in processed_items if p.get('warrenty') and p['warrenty'] != '-']
+            if valid_warranties:
+                actual_war = valid_warranties[0]
+                warranty_line = f"• การรับประกันจาก KTW: {actual_war} (มีใบรับประกันศูนย์แนบในกล่อง)"
+            else:
+                warranty_line = "• การรับประกัน: สินค้าของแท้ 100% ส่งตรงจากผู้ผลิต (ไม่มีอายุการรับประกันทางกลไก)"
+
             final_parent_desc = f"""[{group_brand} แท้ 100%] รวมตัวเลือกสินค้าคุณภาพมาตรฐานสากล
 สินค้าส่งตรงจากโรงงานผู้ผลิต มั่นใจได้ในคุณภาพของแท้ 100%
 
@@ -318,7 +328,7 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
 {desc_bullet_text}
 
 【 การรับประกันสินค้าและศูนย์บริการ 】
-{warranty_info['text']}
+{warranty_line}
 • ใบรับประกัน: มีใบรับประกันอย่างเป็นทางการแนบในกล่องสินค้าทุกชิ้น
 • เงื่อนไข: รับประกันความบกพร่องจากการผลิต สามารถนำเข้าศูนย์บริการ KTW (เกรียงไทยวัฒนา) ได้ทั่วประเทศ
 
@@ -538,7 +548,12 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
             # Smart Shopee SEO Title
             shopee_title = build_shopee_seo_title(brand, raw_name, sku, is_variation_group=False)
 
-            warranty_info = get_brand_warranty_info(brand)
+            single_war = (detail.get('warrenty') or '').strip()
+            if single_war and single_war != '-':
+                warranty_line = f"• การรับประกันจาก KTW: {single_war} (มีใบรับประกันศูนย์แนบในกล่อง)"
+            else:
+                warranty_line = "• การรับประกัน: สินค้าของแท้ 100% ส่งตรงจากผู้ผลิต (ไม่มีอายุการรับประกันทางกลไก)"
+
             shopee_desc = f"""[{brand} แท้ 100%] {raw_name}
 สินค้าคุณภาพมาตรฐานสากล ส่งตรงจากโรงงานผลิต มั่นใจได้ในของแท้ 100%
 
@@ -551,7 +566,7 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
 • บาร์โค้ดสากล (EAN): {ean if ean else '-'}
 
 【 การรับประกันสินค้าและศูนย์บริการ 】
-{warranty_info['text']}
+{warranty_line}
 • ใบรับประกัน: มีใบรับประกันอย่างเป็นทางการแนบในกล่องสินค้า
 • บริการหลังการขาย: รองรับการเข้าศูนย์บริการ KTW (เกรียงไทยวัฒนา) ทั่วประเทศ
 
