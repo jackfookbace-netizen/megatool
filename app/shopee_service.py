@@ -33,6 +33,45 @@ def clean_html(text):
     text = re.sub(r'<[^>]+>', '', text)
     return text.strip()
 
+def prioritize_variation_lines(desc_text: str, budget: int = 550) -> str:
+    lines = [l.strip() for l in (desc_text or '').strip().splitlines() if l.strip()]
+    if not lines:
+        return ""
+    
+    # If full text already fits within budget, return full lines
+    if sum(len(l) + 1 for l in lines) <= budget:
+        return "\n".join(lines)
+    
+    spec_keywords = [
+        'กำลังมอเตอร์', 'แรงดัน', 'ปริมาณน้ำ', 'อัตราการฉีด', 'อัตราการไหล',
+        'กำลังไฟฟ้า', 'ประเภทมอเตอร์', 'สายอัดฉีด', 'ความยาวสาย', 'ขนาด',
+        'น้ำหนัก', 'อุปกรณ์มาตรฐาน', 'ความเร็วรอบ', 'ขนาดแกน', 'ข้อต่อน้ำ',
+        'ความยาว', 'ความกว้าง', 'ความสูง', 'โวลต์', 'วัตต์', 'บาร์', 'ระบบ'
+    ]
+    
+    title_lines = []
+    spec_lines = []
+    other_lines = []
+    
+    for l in lines:
+        if 'รายละเอียดสินค้า' in l or any(k in l for k in ['เครื่องฉีดน้ำ', 'เครื่องเจียร์', 'สว่าน', 'เลื่อย', 'ปั๊ม']):
+            title_lines.append(l)
+        elif any(k in l for k in spec_keywords):
+            spec_lines.append(l)
+        else:
+            other_lines.append(l)
+            
+    ordered = title_lines + spec_lines + other_lines
+    selected = []
+    curr = 0
+    for l in ordered:
+        if curr + len(l) + 1 > budget:
+            continue
+        selected.append(l)
+        curr += len(l) + 1
+        
+    return "\n".join(selected)
+
 def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_name, use_template=True):
     import hashlib
     import requests
@@ -285,11 +324,11 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                 opt_name = opt_name[:20]
 
             war_tag = f" | รับประกัน: {raw_warrenty}" if (raw_warrenty and raw_warrenty != '-') else ""
-            combined_descs.append(f"• ตัวเลือก: {opt_name} (รหัส {sku}){war_tag}\n{raw_desc[:200]}...")
 
             processed_items.append({
                 "sku": sku,
                 "raw_name": raw_name,
+                "raw_desc": raw_desc,
                 "brand": brand,
                 "sale_price": sale_price,
                 "stock_qty": stock_qty,
@@ -312,7 +351,6 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
             if len(final_parent_title) > 120:
                 final_parent_title = final_parent_title[:117] + "..."
 
-            desc_bullet_text = "\n\n".join(combined_descs)
             # Use actual warranty from supplier items if present. If none, omit the section completely!
             valid_warranties = [p['warrenty'] for p in processed_items if p.get('warrenty') and p['warrenty'] != '-']
             warranty_section = ""
@@ -320,24 +358,34 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                 actual_war = valid_warranties[0]
                 warranty_section = f"""\n\n【 การรับประกันสินค้าและศูนย์บริการ 】
 • การรับประกัน: ประกันศูนย์แท้ {actual_war} (มีใบรับประกันศูนย์แนบในกล่อง)
-• เงื่อนไขการรับประกัน: รับประกันข้อบกพร่องจากการผลิตตามมาตรฐานศูนย์บริการอย่างเป็นทางการ
-• การดูแลหลังการขาย: หากสินค้ามีปัญหา สามารถติดต่อร้านค้าได้ตลอด มีทีมงานช่วยดูแลและประสานงานศูนย์บริการให้โดยตรงครับ"""
+• เงื่อนไข: รับประกันข้อบกพร่องจากการผลิตตามมาตรฐานศูนย์บริการอย่างเป็นทางการ
+• มีทีมงานคอยดูแลและประสานงานศูนย์บริการให้ตลอดอายุการใช้งานครับ"""
 
-            final_parent_desc = f"""[{group_brand} แท้ 100%] รวมตัวเลือกสินค้าคุณภาพมาตรฐานสากล
-สินค้าของแท้ 100% สต็อกไทย พร้อมส่งทันที
-
-【 รายละเอียดตัวเลือกสินค้าในรายการนี้ 】
-{desc_bullet_text}{warranty_section}
-
-【 มั่นใจได้เมื่อซื้อกับร้านเรา 】
-• สินค้าของแท้ 100% ส่งตรงจากตัวแทนจำหน่ายมาตรฐาน
-• ตรวจเช็คสภาพสินค้าเบื้องต้นก่อนแพ็คส่งทุกชิ้น มั่นใจได้ของสมบูรณ์
+            confidence_section = f"""\n\n【 มั่นใจได้เมื่อซื้อกับเรา 】
+• สินค้าของแท้ 100% ส่งตรงจากตัวแทนจำหน่ายมาตรฐาน ตรวจเช็คสภาพเครื่องก่อนส่ง
 • แพ็คห่อแน่นหนาด้วยบับเบิ้ลกันกระแทกอย่างดี ป้องกันความเสียหายระหว่างขนส่ง
-• การันตีเปลี่ยนตัวใหม่ใน 7 วัน หากสินค้าเสียหายจากการขนส่งหรือเปิดเครื่องไม่ติด
-
-【 ข้อแนะนำการสั่งซื้อ 】
-• สามารถกดเลือกตัวเลือกรุ่น/สเปกที่ต้องการได้ที่ปุ่มตัวเลือกสินค้าด้านบน
+• การันตีเปลี่ยนตัวใหม่ใน 7 วัน หากสินค้ามีปัญหาจากขนส่งหรือเปิดเครื่องไม่ติด
 • สินค้ามีสต็อกจริงพร้อมส่ง จัดส่งรวดเร็วทุกวัน มีบริการเก็บเงินปลายทาง (COD) ครับ"""
+
+            header_text = f"[{group_brand} แท้ 100%] รวมตัวเลือกสินค้าคุณภาพมาตรฐานสากล\nสินค้าของแท้ 100% สต็อกไทย พร้อมส่งทันที\n\n【 รายละเอียดตัวเลือกสินค้าในรายการนี้ 】"
+
+            # Compute character budget per item (Shopee total limit is 3,000 chars)
+            fixed_len = len(header_text) + len(warranty_section) + len(confidence_section) + 50
+            total_budget_for_items = max(1000, 2900 - fixed_len)
+            budget_per_item = max(400, total_budget_for_items // len(processed_items))
+
+            item_blocks = []
+            for p in processed_items:
+                opt_title = p['opt_name']
+                p_sku = p['sku']
+                p_war = f" | รับประกัน: {p['warrenty']}" if (p.get('warrenty') and p['warrenty'] != '-') else ""
+                item_header = f"▶ ตัวเลือก: {opt_title} (รหัส {p_sku}){p_war}"
+                p_desc = p.get('raw_desc', '').strip()
+                formatted_body = prioritize_variation_lines(p_desc, budget=budget_per_item)
+                item_blocks.append(f"{item_header}\n{formatted_body}")
+
+            desc_bullet_text = "\n\n".join(item_blocks)
+            final_parent_desc = f"{header_text}\n\n{desc_bullet_text}{warranty_section}{confidence_section}"
 
             final_gallery = all_gallery_images[:9]
             # Inject Comparison Card as Image 2 if enabled and provided/auto-generated
