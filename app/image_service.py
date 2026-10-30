@@ -185,7 +185,7 @@ def generate_cover(
     f_badge_thai = load_font('tahomabd.ttf', 54)
     f_badge_num = load_font('arialbd.ttf', 62)
     
-    badge_y = y_top - 58
+    badge_y = y_top - 22
     
     num_str = "100%"
     thai_str = "ของแท้"
@@ -814,7 +814,7 @@ def generate_collage(
     # 7. Above Banner: 'ของแท้ 100%'
     f_badge_thai = load_font('tahomabd.ttf', 54)
     f_badge_num = load_font('arialbd.ttf', 62)
-    badge_y = y_top - 58
+    badge_y = y_top - 22
 
     num_str = "100%"
     thai_str = "ของแท้"
