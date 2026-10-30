@@ -3411,7 +3411,8 @@ toggleListedSort(field) {
                 },
 
                 buildShopeeSeoTitle(brand, rawName, sku = '', isVariationGroup = false) {
-                    brand = (brand || 'KTW').trim();
+                    brand = (brand || '').trim();
+                    if (brand.toUpperCase() === 'KTW' || brand.toUpperCase() === 'OTHER') brand = '';
                     let clean = (rawName || '').trim();
                     const brandRegex = new RegExp(`^\\[?${brand}\\]?\\s*`, 'i');
                     clean = clean.replace(brandRegex, '').replace(/\[.*?\]/g, '').replace(/\s+/g, ' ').trim();
@@ -3444,7 +3445,7 @@ toggleListedSort(field) {
                         }
                     }
 
-                    const prefix = `[${brand} แท้ 100%]`;
+                    const prefix = brand ? `[${brand} แท้ 100%]` : '[ของแท้ 100%]';
                     const trustSuffix = 'ประกันศูนย์';
 
                     if (isVariationGroup) {
@@ -3481,7 +3482,8 @@ toggleListedSort(field) {
                 getDefaultParentTitle() {
                     if (this.selectedItems.length === 0) return '';
                     const first = this.selectedItems[0];
-                    const brand = first.brand || 'KTW';
+                    const rawBrand = first.brand || '';
+                    const brand = (rawBrand.toUpperCase() === 'KTW' || rawBrand.toUpperCase() === 'OTHER') ? '' : rawBrand;
                     const rawName = first.name || first.sku || '';
                     return this.buildShopeeSeoTitle(brand, rawName, first.sku, true);
                 },
