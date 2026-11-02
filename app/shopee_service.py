@@ -443,7 +443,7 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                 clean_var_tier = clean_var_tier[:14]
 
             for idx, p_item in enumerate(processed_items):
-                row_elem = ET.Element('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row', {'r': str(current_row_num), 'spans': '1:38'})
+                row_elem = ET.Element('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row', {'r': str(current_row_num), 'spans': '1:39'})
                 cells = {}
 
                 # Category & Title (Columns A & B): Filled on ALL rows so Shopee never reports empty title
@@ -483,6 +483,7 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                 cells['AH'] = ('n', int(p_item['height_cm']))
                 cells['AI'] = ('s', "เปิด")
                 cells['AJ'] = ('s', "ปิด")
+                cells['AK'] = ('s', "ปิด")
 
                 append_sorted_cells(row_elem, cells, current_row_num)
                 sheet_data.append(row_elem)
@@ -503,7 +504,7 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
             if not detail:
                 continue
             
-            row_elem = ET.Element('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row', {'r': str(current_row_num), 'spans': '1:38'})
+            row_elem = ET.Element('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row', {'r': str(current_row_num), 'spans': '1:39'})
 
 
             brand = clean_brand_name(detail.get('manufacturer'), sku)
@@ -649,6 +650,7 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
             cells['AH'] = ('n', int(height_cm))
             cells['AI'] = ('s', "เปิด")
             cells['AJ'] = ('s', "ปิด")
+            cells['AK'] = ('s', "ปิด")
 
             for col_l in sorted(cells.keys(), key=col_to_idx):
                 c_type, val = cells[col_l]
@@ -677,7 +679,7 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
     last_row = max(start_row, current_row_num - 1)
     dim = s2_root.find('main:dimension', ns)
     if dim is not None:
-        dim.attrib['ref'] = f'A1:AL{last_row}'
+        dim.attrib['ref'] = f'A1:AM{last_row}'
     new_s2_xml = ET.tostring(s2_root, encoding='utf-8', xml_declaration=True)
 
 
