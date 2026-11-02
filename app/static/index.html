@@ -3639,6 +3639,7 @@ toggleListedSort(field) {
                     let clean = (rawName || '').trim();
                     const brandRegex = new RegExp(`^\\[?${brand}\\]?\\s*`, 'i');
                     clean = clean.replace(brandRegex, '').replace(/\[.*?\]/g, '').replace(/\s+/g, ' ').trim();
+                    clean = clean.replace(/เครื่องฉีดน้ำ\s*ฯ/g, 'เครื่องฉีดน้ำแรงดันสูง').replace(/เครื่องฉีดน้ำฯ/g, 'เครื่องฉีดน้ำแรงดันสูง');
                     const cleanLower = clean.toLowerCase();
 
                     const rules = [

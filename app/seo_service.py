@@ -78,6 +78,8 @@ def build_shopee_seo_title(brand: str, raw_name: str, sku: str = "", is_variatio
     # Remove existing square brackets e.g. [xxx]
     clean_name = re.sub(r"\[.*?\]", "", clean_name).strip()
     clean_name = re.sub(r"\s+", " ", clean_name)
+    clean_name = re.sub(r'เครื่องฉีดน้ำ\s*ฯ', 'เครื่องฉีดน้ำแรงดันสูง', clean_name)
+    clean_name = re.sub(r'เครื่องฉีดน้ำฯ', 'เครื่องฉีดน้ำแรงดันสูง', clean_name)
     clean_lower = clean_name.lower()
     
     # Collect SEO keywords not yet in title

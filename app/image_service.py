@@ -1313,14 +1313,30 @@ def generate_comparison_card(
     header_box = [30, 30, CANVAS_SIZE - 30, 115]
     draw.rounded_rectangle(header_box, radius=18, fill=(15, 23, 42, 255))
 
-    clean_parent_title = re.sub(r'[\U00010000-\U0010ffff]|[\u2600-\u27bf]', '', str(parent_title)).strip()
-    draw.text((60, 42), clean_parent_title[:45], font=font_title, fill=(255, 255, 255, 255))
-    draw.text((60, 82), "ตารางเปรียบเทียบสเปกเพื่อให้คุณเลือกรุ่นที่ตอบโจทย์งานที่สุด", font=font_sub, fill=(203, 213, 225, 255))
-
-    shop_str = f"{shop_name} STORE"
+    # Clean shop name: remove STORE
+    clean_shop_name = re.sub(r'\s*STORE\s*$', '', str(shop_name), flags=re.IGNORECASE).strip()
+    shop_str = clean_shop_name
     sb = font_sub.getbbox(shop_str)
     sw = sb[2] - sb[0]
     draw.text((CANVAS_SIZE - 70 - sw, 60), shop_str, font=font_sub, fill=(249, 115, 22, 255))
+
+    clean_parent_title = re.sub(r'[\U00010000-\U0010ffff]|[\u2600-\u27bf]', '', str(parent_title)).strip()
+    clean_parent_title = re.sub(r'เครื่องฉีดน้ำ\s*ฯ', 'เครื่องฉีดน้ำแรงดันสูง', clean_parent_title)
+    clean_parent_title = re.sub(r'เครื่องฉีดน้ำฯ', 'เครื่องฉีดน้ำแรงดันสูง', clean_parent_title)
+
+    # Dynamic scaling for title to ensure it fits perfectly without truncation
+    max_title_w = (CANVAS_SIZE - 70 - sw) - 80
+    cur_font_title = font_title
+    tb = cur_font_title.getbbox(clean_parent_title)
+    tw = tb[2] - tb[0]
+    if tw > max_title_w:
+        scaled_size = max(22, int(34 * max_title_w / tw))
+        cur_font_title = load_font("leelawdb.ttf", scaled_size)
+        tb = cur_font_title.getbbox(clean_parent_title)
+        tw = tb[2] - tb[0]
+
+    draw.text((60, 42 + (34 - (tb[3] - tb[1])) // 2), clean_parent_title, font=cur_font_title, fill=(255, 255, 255, 255))
+    draw.text((60, 82), "ตารางเปรียบเทียบสเปกเพื่อให้คุณเลือกรุ่นที่ตอบโจทย์งานที่สุด", font=font_sub, fill=(203, 213, 225, 255))
 
     processed_items = []
     all_spec_keys = []
@@ -1490,7 +1506,7 @@ def generate_comparison_card(
 
     footer_box = [30, 1130, CANVAS_SIZE - 30, 1175]
     draw.rounded_rectangle(footer_box, radius=12, fill=(241, 245, 249, 255))
-    footer_text = f"{shop_name} STORE • สินค้าของแท้ 100% พร้อมจัดส่งด่วน • มีศูนย์บริการรองรับมาตรฐานสากล"
+    footer_text = f"{clean_shop_name} • สินค้าของแท้ 100% พร้อมจัดส่งด่วน • มีศูนย์บริการรองรับมาตรฐานสากล"
     ft_b = font_footer.getbbox(footer_text)
     ft_w = ft_b[2] - ft_b[0]
     draw.text(((CANVAS_SIZE - ft_w) // 2, 1142), footer_text, font=font_footer, fill=(71, 85, 105, 255))
