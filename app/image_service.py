@@ -1283,6 +1283,20 @@ def extract_key_specs(detail):
             psi_val = round(bar_val * 14.5038)
             specs['แรงดันสูงสุด'] = f"{bar_val} บาร์ ({psi_val:,} PSI)"
 
+        # User requirement: fill 220V power supply for corded power tools / pressure washers
+    if 'กำลังไฟฟ้า' not in specs and ('วัตต์' in clean_desc or 'กำลังมอเตอร์' in specs or 'เครื่องฉีดน้ำ' in (detail.get('name', '') + clean_desc)):
+        specs['กำลังไฟฟ้า'] = '220 โวลต์ / 1 เฟส'
+
+    # User requirement: 90 bar / compact models use carbon brush motor (แปรงถ่าน)
+    if 'ประเภทมอเตอร์' not in specs:
+        m_power = specs.get('กำลังมอเตอร์', '')
+        w_match = re.search(r'(\d+[\d,]*)', m_power)
+        watt = int(w_match.group(1).replace(',', '')) if w_match else 0
+        if watt >= 1800:
+            specs['ประเภทมอเตอร์'] = 'มอเตอร์เหนี่ยวนำ'
+        else:
+            specs['ประเภทมอเตอร์'] = 'มอเตอร์แปรงถ่าน'
+
     return specs
 
 def generate_comparison_card(
@@ -1320,9 +1334,33 @@ def generate_comparison_card(
     sw = sb[2] - sb[0]
     draw.text((CANVAS_SIZE - 70 - sw, 60), shop_str, font=font_sub, fill=(249, 115, 22, 255))
 
-    clean_parent_title = re.sub(r'[\U00010000-\U0010ffff]|[\u2600-\u27bf]', '', str(parent_title)).strip()
-    clean_parent_title = re.sub(r'เครื่องฉีดน้ำ\s*ฯ', 'เครื่องฉีดน้ำแรงดันสูง', clean_parent_title)
-    clean_parent_title = re.sub(r'เครื่องฉีดน้ำฯ', 'เครื่องฉีดน้ำแรงดันสูง', clean_parent_title)
+    # Format concise clean title: e.g. [POLO แท้ 100%] ตารางเปรียบเทียบเครื่องฉีดน้ำแรงดันสูง
+    clean_raw = re.sub(r'[\U00010000-\U0010ffff]|[\u2600-\u27bf]', '', str(parent_title)).strip()
+    brand_match = re.search(r'\[(.*?)\]', clean_raw)
+    if brand_match:
+        brand_tag = f"[{brand_match.group(1)}]"
+    else:
+        first_brand = items[0].get('brand') if items else 'POLO'
+        brand_tag = f"[{first_brand} แท้ 100%]" if first_brand else "[ของแท้ 100%]"
+
+    combined_text = clean_raw + ' ' + ' '.join([i.get('name', '') for i in items])
+    if 'เครื่องฉีดน้ำ' in combined_text:
+        clean_parent_title = f"{brand_tag} ตารางเปรียบเทียบเครื่องฉีดน้ำแรงดันสูง"
+    elif 'เครื่องเจียร์' in combined_text or 'ลูกหมู' in combined_text:
+        clean_parent_title = f"{brand_tag} ตารางเปรียบเทียบเครื่องเจียร์"
+    elif 'สว่าน' in combined_text:
+        clean_parent_title = f"{brand_tag} ตารางเปรียบเทียบสว่านไฟฟ้า / สว่านโรตารี่"
+    elif 'ปั๊มจุ่ม' in combined_text or 'ไดโว่' in combined_text:
+        clean_parent_title = f"{brand_tag} ตารางเปรียบเทียบปั๊มจุ่ม / ปั๊มแช่"
+    elif 'เครื่องตัดหญ้า' in combined_text:
+        clean_parent_title = f"{brand_tag} ตารางเปรียบเทียบเครื่องตัดหญ้า"
+    elif 'ตู้เชื่อม' in combined_text or 'เครื่องเชื่อม' in combined_text:
+        clean_parent_title = f"{brand_tag} ตารางเปรียบเทียบเครื่องเชื่อมไฟฟ้า"
+    else:
+        short_name = re.sub(r'\[.*?\]', '', clean_raw).strip()
+        words = short_name.split()
+        tool_name = ' '.join(words[:3]) if words else 'สินค้าคุณภาพ'
+        clean_parent_title = f"{brand_tag} ตารางเปรียบเทียบ{tool_name}"
 
     # Dynamic scaling for title to ensure it fits perfectly without truncation
     max_title_w = (CANVAS_SIZE - 70 - sw) - 80
