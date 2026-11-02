@@ -1279,32 +1279,6 @@ def extract_key_specs(detail):
             psi_val = round(bar_val * 14.5038)
             specs['แรงดันสูงสุด'] = f"{bar_val} บาร์ ({psi_val:,} PSI)"
 
-    # 4.2 Smart Defaults for Pressure Washers
-    prod_name = detail.get('name', '') or ''
-    is_pressure_washer = 'เครื่องฉีดน้ำ' in (prod_name + clean_desc)
-    if is_pressure_washer:
-        if 'ระบบตัดการทำงาน' not in specs:
-            specs['ระบบตัดการทำงาน'] = 'ระบบ Auto Stop'
-        if 'กำลังไฟฟ้า' not in specs:
-            specs['กำลังไฟฟ้า'] = '220 โวลต์ / 1 เฟส'
-        if 'ประเภทมอเตอร์' not in specs:
-            m_power = specs.get('กำลังมอเตอร์', '')
-            w_match = re.search(r'(\d+[\d,]*)', m_power)
-            watt_num = int(w_match.group(1).replace(',', '')) if w_match else 0
-            if watt_num >= 1800:
-                specs['ประเภทมอเตอร์'] = 'มอเตอร์เหนี่ยวนำ'
-            else:
-                specs['ประเภทมอเตอร์'] = 'มอเตอร์แปรงถ่าน'
-    else:
-        # General electric power tools
-        if 'กำลังไฟฟ้า' not in specs and ('วัตต์' in clean_desc or 'กำลังมอเตอร์' in specs or '220' in clean_desc):
-            specs['กำลังไฟฟ้า'] = '220 โวลต์ / 1 เฟส'
-        if 'ประเภทมอเตอร์' not in specs:
-            if 'brushless' in clean_desc.lower() or 'ไร้แปรงถ่าน' in clean_desc:
-                specs['ประเภทมอเตอร์'] = 'มอเตอร์ไร้แปรงถ่าน (Brushless)'
-            elif 'กำลังมอเตอร์' in specs or 'วัตต์' in clean_desc:
-                specs['ประเภทมอเตอร์'] = 'มอเตอร์แปรงถ่าน'
-
     return specs
 
 def generate_comparison_card(
