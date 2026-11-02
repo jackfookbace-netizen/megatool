@@ -2281,23 +2281,33 @@
                     </div>
                 </div>
 
+                <!-- คำแนะนำลำดับรูปภาพใน Shopee -->
+                <div x-show="exportMode === 'variations' && selectedItems.length > 1" 
+                     class="my-2 p-2.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-xl text-xs text-amber-900 flex items-start space-x-2 shadow-2xs">
+                    <span class="text-sm shrink-0">💡</span>
+                    <div class="text-[11px] leading-relaxed">
+                        <span class="font-bold">ลำดับรูปบน Shopee:</span> 
+                        รุ่นที่เป็น <span class="font-bold text-amber-800 bg-amber-100/80 px-1 py-0.2 rounded border border-amber-300">อันดับ 1</span> จะเป็น <b>ภาพหน้าปกหลัก (Image 1)</b> ที่ลูกค้าเห็นตอนค้นหา และรูปของรุ่นถัดไปจะเรียงตาม <b>อันดับ 2, 3, 4...</b> คุณสามารถคลิกเลือกเปลี่ยนอันดับของแต่ละรุ่นได้อิสระจากกล่องเลือกด้านล่างครับ
+                    </div>
+                </div>
+
                 <!-- Queue Items List -->
-                <div class="max-h-80 overflow-y-auto divide-y divide-slate-100 my-4">
+                <div class="max-h-80 overflow-y-auto divide-y divide-slate-100 my-3">
                     <template x-for="(item, index) in selectedItems" :key="item.sku">
-                        <div class="py-3 flex items-center justify-between space-x-3 transition-colors rounded-xl px-1.5"
-                             :class="{'bg-amber-50/50 border border-amber-200/60 shadow-2xs': index === 0 && exportMode === 'variations' && selectedItems.length > 1}">
-                            <div class="flex items-center space-x-2.5">
-                                <!-- ปุ่มเลื่อนลำดับขึ้น / ลง (เมื่อรวมหลายรุ่น) -->
-                                <div x-show="exportMode === 'variations' && selectedItems.length > 1" class="flex flex-col items-center justify-center shrink-0 space-y-0.5 mr-0.5">
-                                    <button type="button" @click="moveItemInQueue(index, -1)" :disabled="index === 0"
-                                            class="p-0.5 text-slate-400 hover:text-orange-600 disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors" title="เลื่อนขึ้น">
-                                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg>
-                                    </button>
-                                    <span class="text-[9px] font-mono font-bold" :class="index === 0 ? 'text-amber-600 font-black' : 'text-slate-400'" x-text="'#' + (index + 1)"></span>
-                                    <button type="button" @click="moveItemInQueue(index, 1)" :disabled="index === selectedItems.length - 1"
-                                            class="p-0.5 text-slate-400 hover:text-orange-600 disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors" title="เลื่อนลง">
-                                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
-                                    </button>
+                        <div class="py-3 flex items-center justify-between space-x-3 transition-colors rounded-xl px-2"
+                             :class="{'bg-amber-50/60 border border-amber-200 shadow-2xs': index === 0 && exportMode === 'variations' && selectedItems.length > 1}">
+                            <div class="flex items-center space-x-3">
+                                <!-- กล่องเลือกอันดับรูปภาพโดยตรง (Dropdown) -->
+                                <div x-show="exportMode === 'variations' && selectedItems.length > 1" class="flex items-center space-x-1 shrink-0">
+                                    <select :value="index" @change="changeItemOrder(index, $event.target.value)"
+                                            :class="index === 0 ? 'bg-amber-100 text-amber-900 border-amber-400 font-bold ring-2 ring-amber-300/60' : 'bg-white text-slate-700 border-slate-300 font-medium'"
+                                            class="text-[11px] px-2 py-1 rounded-lg border outline-none cursor-pointer hover:border-orange-400 focus:ring-2 focus:ring-orange-200 shadow-2xs transition-all">
+                                        <template x-for="(other, optIdx) in selectedItems" :key="optIdx">
+                                            <option :value="optIdx" :selected="optIdx === index" 
+                                                    x-text="optIdx === 0 ? 'อันดับ 1 (⭐ หน้าปกหลัก)' : ('อันดับ ' + (optIdx + 1))">
+                                            </option>
+                                        </template>
+                                    </select>
                                 </div>
 
                                 <!-- ภาพหน้าปกย่อ -->
@@ -3838,6 +3848,21 @@ toggleListedSort(field) {
                         item.price = parseFloat(val) || 0;
                         this.saveCartToStorage();
                     }
+                },
+
+                changeItemOrder(currentIndex, targetIndex) {
+                    targetIndex = parseInt(targetIndex);
+                    if (isNaN(targetIndex) || currentIndex === targetIndex) return;
+                    if (targetIndex < 0 || targetIndex >= this.selectedItems.length) return;
+                    
+                    const item = this.selectedItems.splice(currentIndex, 1)[0];
+                    this.selectedItems.splice(targetIndex, 0, item);
+                    this.saveCartToStorage();
+                    if (currentIndex === 0 || targetIndex === 0) {
+                        this.groupParentTitle = this.getDefaultParentTitle();
+                        this.comparisonCardUrl = null;
+                    }
+                    this.$nextTick(() => lucide.createIcons());
                 },
 
                 setAsMainItem(index) {
