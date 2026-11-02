@@ -1120,6 +1120,9 @@ def extract_model_label(name, sku):
     sku_code = sku.split('-')[-1] if '-' in sku else sku
     model_code = words[0] if words else sku_code
     
+    # Strip common supplier prefixes like P171-, M011-, KT-, etc.
+    model_code = re.sub(r'^[A-Z]\d+[-_]', '', model_code, flags=re.IGNORECASE)
+    
     sub = ""
     bar_m = re.search(r'(\d+\s*บาร์)', clean_name)
     watt_m = re.search(r'(\d+\s*[wWวัตต์]+)', clean_name)
@@ -1266,6 +1269,42 @@ def extract_key_specs(detail):
             if net_w:
                 specs['น้ำหนักตัวเครื่อง'] = f"{round(net_w / 1000.0, 2)} กก."
                 
+    # 4. Standardize and Balance Specs
+    # 4.1 Normalize Pressure (Bar + PSI across all models)
+    if 'แรงดันสูงสุด' in specs:
+        p_str = specs['แรงดันสูงสุด']
+        m_bar = re.search(r'(\d+)\s*บาร์', p_str)
+        if m_bar:
+            bar_val = int(m_bar.group(1))
+            psi_val = round(bar_val * 14.5038)
+            specs['แรงดันสูงสุด'] = f"{bar_val} บาร์ ({psi_val:,} PSI)"
+
+    # 4.2 Smart Defaults for Pressure Washers
+    prod_name = detail.get('name', '') or ''
+    is_pressure_washer = 'เครื่องฉีดน้ำ' in (prod_name + clean_desc)
+    if is_pressure_washer:
+        if 'ระบบตัดการทำงาน' not in specs:
+            specs['ระบบตัดการทำงาน'] = 'ระบบ Auto Stop'
+        if 'กำลังไฟฟ้า' not in specs:
+            specs['กำลังไฟฟ้า'] = '220 โวลต์ / 1 เฟส'
+        if 'ประเภทมอเตอร์' not in specs:
+            m_power = specs.get('กำลังมอเตอร์', '')
+            w_match = re.search(r'(\d+[\d,]*)', m_power)
+            watt_num = int(w_match.group(1).replace(',', '')) if w_match else 0
+            if watt_num >= 1800:
+                specs['ประเภทมอเตอร์'] = 'มอเตอร์เหนี่ยวนำ'
+            else:
+                specs['ประเภทมอเตอร์'] = 'มอเตอร์แปรงถ่าน'
+    else:
+        # General electric power tools
+        if 'กำลังไฟฟ้า' not in specs and ('วัตต์' in clean_desc or 'กำลังมอเตอร์' in specs or '220' in clean_desc):
+            specs['กำลังไฟฟ้า'] = '220 โวลต์ / 1 เฟส'
+        if 'ประเภทมอเตอร์' not in specs:
+            if 'brushless' in clean_desc.lower() or 'ไร้แปรงถ่าน' in clean_desc:
+                specs['ประเภทมอเตอร์'] = 'มอเตอร์ไร้แปรงถ่าน (Brushless)'
+            elif 'กำลังมอเตอร์' in specs or 'วัตต์' in clean_desc:
+                specs['ประเภทมอเตอร์'] = 'มอเตอร์แปรงถ่าน'
+
     return specs
 
 def generate_comparison_card(
@@ -1338,10 +1377,10 @@ def generate_comparison_card(
             except Exception as e:
                 print(f"Error fetching thumb for {sku}:", e)
 
-        raw_name = item.get('name') or sku
+        raw_name = item.get('name') or item.get('raw_name') or item.get('opt_name') or (detail.get('name') if detail else sku)
         model_code, model_sub = extract_model_label(raw_name, sku)
 
-        raw_price = item.get('price', 0)
+        raw_price = item.get('price') or item.get('sale_price') or 0
         try:
             parsed_price = float(str(raw_price).replace(',', '').replace('฿', '').strip())
         except Exception:
@@ -1409,24 +1448,29 @@ def generate_comparison_card(
         pill_x1 = col_x + (model_col_w - pill_w) // 2
         pill_y1 = tbl_top + 155
         draw.rounded_rectangle([pill_x1, pill_y1, pill_x1 + pill_w, pill_y1 + 32], radius=8, fill=(234, 88, 12, 255))
-        nb = font_model.getbbox(m_code)
+        
+        cur_font_model = font_model
+        nb = cur_font_model.getbbox(m_code)
         nw = nb[2] - nb[0]
-        draw.text((pill_x1 + (pill_w - nw) // 2, pill_y1 + 5), m_code, font=font_model, fill=(255, 255, 255, 255))
+        if nw > pill_w - 16:
+            scaled_size = max(12, int(20 * (pill_w - 20) / nw))
+            cur_font_model = load_font("leelawdb.ttf", scaled_size)
+            nb = cur_font_model.getbbox(m_code)
+            nw = nb[2] - nb[0]
+        draw.text((pill_x1 + (pill_w - nw) // 2, pill_y1 + (32 - (nb[3] - nb[1])) // 2), m_code, font=cur_font_model, fill=(255, 255, 255, 255))
 
         # Line 2: Subtitle / Spec tag (e.g. แรงดัน 90 บาร์)
         if m['model_sub']:
             sb = font_model_sub.getbbox(m['model_sub'])
             sw = sb[2] - sb[0]
-            draw.text((col_x + (model_col_w - sw) // 2, tbl_top + 192), m['model_sub'], font=font_model_sub, fill=(100, 116, 139, 255))
+            draw.text((col_x + (model_col_w - sw) // 2, tbl_top + 194), m['model_sub'], font=font_model_sub, fill=(100, 116, 139, 255))
 
-        # Price
+        # Price (only draw if price > 0, otherwise skip cleanly without showing an empty '-' dash)
         if m['price'] and m['price'] > 0:
             price_str = f"฿{m['price']:,.0f}"
-        else:
-            price_str = "-"
-        pb = font_price.getbbox(price_str)
-        pw = pb[2] - pb[0]
-        draw.text((col_x + (model_col_w - pw) // 2, tbl_top + 235), price_str, font=font_price, fill=(239, 28, 37, 255))
+            pb = font_price.getbbox(price_str)
+            pw = pb[2] - pb[0]
+            draw.text((col_x + (model_col_w - pw) // 2, tbl_top + 235), price_str, font=font_price, fill=(239, 28, 37, 255))
 
     rows_h = (tbl_bottom - (tbl_top + thumb_row_h))
     row_count = len(ordered_keys) + 1
