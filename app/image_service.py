@@ -1283,8 +1283,13 @@ def extract_key_specs(detail):
             psi_val = round(bar_val * 14.5038)
             specs['แรงดันสูงสุด'] = f"{bar_val} บาร์ ({psi_val:,} PSI)"
 
-        # User requirement: fill 220V power supply for corded power tools / pressure washers
-    if 'กำลังไฟฟ้า' not in specs and ('วัตต์' in clean_desc or 'กำลังมอเตอร์' in specs or 'เครื่องฉีดน้ำ' in (detail.get('name', '') + clean_desc)):
+    # Auto Stop for all pressure washers (verified by user and manufacturer catalog)
+    is_pressure_washer = 'เครื่องฉีดน้ำ' in (detail.get('name', '') + clean_desc)
+    if is_pressure_washer:
+        specs['ระบบตัดการทำงาน'] = 'ระบบ Auto Stop'
+
+    # User requirement: fill 220V power supply for corded power tools / pressure washers
+    if 'กำลังไฟฟ้า' not in specs and ('วัตต์' in clean_desc or 'กำลังมอเตอร์' in specs or is_pressure_washer):
         specs['กำลังไฟฟ้า'] = '220 โวลต์ / 1 เฟส'
 
     # User requirement: 90 bar / compact models use carbon brush motor (แปรงถ่าน)
@@ -1379,7 +1384,7 @@ def generate_comparison_card(
     processed_items = []
     all_spec_keys = []
     preferred_order = [
-        'แรงดันสูงสุด', 'กำลังมอเตอร์', 'ประเภทมอเตอร์', 'กำลังไฟฟ้า', 'อัตราการไหลของน้ำ',
+        'แรงดันสูงสุด', 'กำลังมอเตอร์', 'ประเภทมอเตอร์', 'ระบบตัดการทำงาน', 'อัตราการไหลของน้ำ',
         'ความยาวสายฉีด', 'น้ำหนักตัวเครื่อง', 'ความเร็วรอบ', 'ขนาดใบตัด/เจียร์'
     ]
 
@@ -1429,11 +1434,11 @@ def generate_comparison_card(
             'thumb': thumb_im
         })
 
-    # Sort specs by preferred order (Approach 1: Exclude 'ระบบตัดการทำงาน', use 'น้ำหนักตัวเครื่อง' from KTW)
-    all_spec_keys = [k for k in all_spec_keys if k != 'ระบบตัดการทำงาน']
-    ordered_keys = [k for k in preferred_order if k in all_spec_keys and k != 'ระบบตัดการทำงาน']
+    # Sort specs by preferred order (Exclude 'กำลังไฟฟ้า', include 'ระบบตัดการทำงาน' and 'น้ำหนักตัวเครื่อง')
+    all_spec_keys = [k for k in all_spec_keys if k != 'กำลังไฟฟ้า']
+    ordered_keys = [k for k in preferred_order if k in all_spec_keys and k != 'กำลังไฟฟ้า']
     for k in all_spec_keys:
-        if k not in ordered_keys and k != 'ระบบตัดการทำงาน':
+        if k not in ordered_keys and k != 'กำลังไฟฟ้า':
             ordered_keys.append(k)
     ordered_keys = ordered_keys[:7]
 
