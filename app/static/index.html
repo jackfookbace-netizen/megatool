@@ -1989,10 +1989,37 @@
                                             </div>
                                         </div>
 
-                                        <!-- สีตัวอักษร -->
+                                        <!-- สไตล์ป้ายข้อความ 3 แบบ -->
                                         <div class="flex items-center space-x-1.5">
                                             <span class="text-[11px] font-bold text-slate-700 flex items-center space-x-1">
-                                                <span>🎨 สีตัวอักษร:</span>
+                                                <span>🏷️ สไตล์ป้าย:</span>
+                                            </span>
+                                            <div class="flex items-center space-x-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                                                <button type="button" @click="collageBadgeStyle = 'solid'; saveCollageSettingsToLocal()"
+                                                        :class="collageBadgeStyle === 'solid' ? 'bg-slate-900 text-white font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                                        class="px-2 py-0.5 text-[10px] rounded-md transition-all flex items-center space-x-1 cursor-pointer"
+                                                        title="แบบที่ 3: ป้ายสีทึบ (เช่น พื้นน้ำเงินตัวหนังสือขาว หรือพื้นแดงตัวหนังสือขาว)">
+                                                    <span>■ ป้ายสีทึบ</span>
+                                                </button>
+                                                <button type="button" @click="collageBadgeStyle = 'white'; saveCollageSettingsToLocal()"
+                                                        :class="collageBadgeStyle === 'white' ? 'bg-slate-900 text-white font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                                        class="px-2 py-0.5 text-[10px] rounded-md transition-all flex items-center space-x-1 cursor-pointer"
+                                                        title="แบบที่ 2: ป้ายพื้นขาว ขอบและตัวหนังสือตามสีที่เลือก">
+                                                    <span>▢ ป้ายพื้นขาว</span>
+                                                </button>
+                                                <button type="button" @click="collageBadgeStyle = 'none'; saveCollageSettingsToLocal()"
+                                                        :class="collageBadgeStyle === 'none' ? 'bg-slate-900 text-white font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                                        class="px-2 py-0.5 text-[10px] rounded-md transition-all flex items-center space-x-1 cursor-pointer"
+                                                        title="แบบที่ 1: ไม่มีพื้นหลัง ตัวหนังสือลอยเพียวๆ สไตล์มินิมอล">
+                                                    <span>🔤 ลอยเพียวๆ</span>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- สีตัวอักษร / สีธีมป้าย -->
+                                        <div class="flex items-center space-x-1.5">
+                                            <span class="text-[11px] font-bold text-slate-700 flex items-center space-x-1">
+                                                <span>🎨 โทนสี:</span>
                                             </span>
                                             <div class="flex items-center space-x-1">
                                                 <!-- ขาว #FFFFFF -->
@@ -2432,6 +2459,7 @@
                 collageTitle: 'อุปกรณ์มาตรฐานในกล่องครบชุด',
                 collageFontSize: 38,
                 collageTextColor: '#FFFFFF',
+                collageBadgeStyle: 'solid',
                 collagePosition: 'top-left',
                 generatingCollage: false,
                 comparisonCardUrl: null,
@@ -3893,6 +3921,15 @@ toggleListedSort(field) {
                     } else {
                         this.collageTextColor = '#FFFFFF';
                     }
+
+                    // 6. Badge Style: Restore per SKU or last used ('solid' | 'white' | 'none')
+                    if (savedSettings && savedSettings.badgeStyle) {
+                        this.collageBadgeStyle = savedSettings.badgeStyle;
+                    } else if (lastUsed && lastUsed.badgeStyle) {
+                        this.collageBadgeStyle = lastUsed.badgeStyle;
+                    } else {
+                        this.collageBadgeStyle = 'solid';
+                    }
                     
                     const existingInQueue = this.selectedItems.find(i => i.sku === sku);
                     if (existingInQueue && existingInQueue.excluded_indices) {
@@ -4065,6 +4102,7 @@ toggleListedSort(field) {
                             fontSize: this.collageFontSize,
                             position: this.collagePosition,
                             textColor: this.collageTextColor || '#FFFFFF',
+                            badgeStyle: this.collageBadgeStyle || 'solid',
                             updated_at: Date.now()
                         };
                         if (targetSku) {
@@ -4253,7 +4291,8 @@ toggleListedSort(field) {
                             shop_name: this.currentShop ? (this.currentShop.brand_display || this.currentShop.name) : this.shopName,
                                 font_size: this.collageFontSize || 38,
                                 position: this.collagePosition || 'top-left',
-                                text_color: this.collageTextColor || '#FFFFFF'
+                                text_color: this.collageTextColor || '#FFFFFF',
+                                badge_style: this.collageBadgeStyle || 'solid'
                             })
                         });
                         

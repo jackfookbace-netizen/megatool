@@ -325,6 +325,7 @@ class CollageRequest(BaseModel):
     font_size: Optional[int] = 34
     position: Optional[str] = "top-left"
     text_color: Optional[str] = "#FFFFFF"
+    badge_style: Optional[str] = "solid"
 
 @app.post("/api/generate-collage")
 def api_generate_collage(req: CollageRequest):
@@ -338,7 +339,8 @@ def api_generate_collage(req: CollageRequest):
     font_sz = int(req.font_size or 38)
     pos = (req.position or "top-left").lower().strip()
     color = (req.text_color or "#FFFFFF").strip()
-    raw_hash_str = f"{req.sku}_{'_'.join(req.image_urls[:4])}_{clean_model}_{clean_title}_{clean_badge}_{font_sz}_{pos}_{color}"
+    b_style = (req.badge_style or "solid").lower().strip()
+    raw_hash_str = f"{req.sku}_{'_'.join(req.image_urls[:4])}_{clean_model}_{clean_title}_{clean_badge}_{font_sz}_{pos}_{color}_{b_style}"
     url_hash = hashlib.md5(raw_hash_str.encode('utf-8')).hexdigest()[:8]
     filename = f"collage_{req.sku}_{url_hash}.jpg"
     local_path = f"app/static/covers/{filename}"
@@ -353,7 +355,8 @@ def api_generate_collage(req: CollageRequest):
             shop_name=req.shop_name or "MEGATOOL",
             font_size=font_sz,
             position=pos,
-            text_color=color
+            text_color=color,
+            badge_style=b_style
         )
         
         cdn_url = upload_to_cdn(local_path, force=True)

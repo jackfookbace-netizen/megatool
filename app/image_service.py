@@ -416,7 +416,8 @@ def generate_collage(
     model_text="",
     font_size=38,
     position="top-left",
-    text_color="#FFFFFF"
+    text_color="#FFFFFF",
+    badge_style="solid"
 ):
     """
     Combines 2 to 4 product images directly inside the official MEGATOOL shop template:
@@ -449,6 +450,27 @@ def generate_collage(
             return default
 
     TEXT_COLOR = _parse_rgba(text_color, WHITE)
+    b_style = (badge_style or "solid").lower().strip()
+    if b_style not in ("solid", "white", "outline", "none", "transparent"):
+        b_style = "solid"
+    if b_style == "outline":
+        b_style = "white"
+    elif b_style == "transparent":
+        b_style = "none"
+
+    THEME_COLOR = _parse_rgba(text_color, RED)
+    tr, tg, tb = THEME_COLOR[:3]
+    tlum = 0.299 * tr + 0.587 * tg + 0.114 * tb
+    is_pure_white = (tr > 240 and tg > 240 and tb > 240)
+
+    if is_pure_white:
+        solid_model_fill = RED
+        solid_model_text = WHITE
+        accent_color = RED
+    else:
+        solid_model_fill = THEME_COLOR
+        solid_model_text = WHITE if tlum < 165 else (15, 23, 42, 255)
+        accent_color = THEME_COLOR
 
     canvas = Image.new("RGBA", (CANVAS_SIZE, CANVAS_SIZE), WHITE)
     draw = ImageDraw.Draw(canvas)
@@ -635,26 +657,58 @@ def generate_collage(
 
         pill_y2 = pill_y1 + pill_h
 
-        if pos in ("center", "bottom-left"):
-            draw.rounded_rectangle([pill_x1 + 3, pill_y1 + 4, pill_x2 + 3, pill_y2 + 4], radius=16, fill=(0, 0, 0, 70))
-
-        draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=16, fill=SLATE)
-        draw.rounded_rectangle([pill_x1, pill_y1, pill_x1 + w_left, pill_y2], radius=16, fill=RED)
-        draw.rectangle([pill_x1 + w_left - 16, pill_y1, pill_x1 + w_left, pill_y2], fill=RED)
-
         hm = bm[3] - bm[1]
-        tx_m = pill_x1 + (w_left - wm) // 2
-        ty_m = pill_y1 + (pill_h - hm) // 2 - bm[1]
-        draw.text((tx_m, ty_m), clean_model, font=f_m, fill=TEXT_COLOR)
-
         start_ty = pill_y1 + (pill_h - total_lines_h) // 2
-        curr_y = start_ty
-        for i, l in enumerate(lines):
-            b = line_boxes[i]
-            lw = b[2] - b[0]
-            lx = pill_x1 + w_left + (w_right - lw) // 2
-            draw.text((lx, curr_y - b[1]), l, font=f_t, fill=TEXT_COLOR)
-            curr_y += ht_line + line_gap
+
+        if b_style == "solid":
+            if pos in ("center", "bottom-left"):
+                draw.rounded_rectangle([pill_x1 + 3, pill_y1 + 4, pill_x2 + 3, pill_y2 + 4], radius=16, fill=(0, 0, 0, 70))
+            draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=16, fill=SLATE)
+            draw.rounded_rectangle([pill_x1, pill_y1, pill_x1 + w_left, pill_y2], radius=16, fill=solid_model_fill)
+            draw.rectangle([pill_x1 + w_left - 16, pill_y1, pill_x1 + w_left, pill_y2], fill=solid_model_fill)
+
+            tx_m = pill_x1 + (w_left - wm) // 2
+            ty_m = pill_y1 + (pill_h - hm) // 2 - bm[1]
+            draw.text((tx_m, ty_m), clean_model, font=f_m, fill=solid_model_text)
+
+            curr_y = start_ty
+            for i, l in enumerate(lines):
+                b = line_boxes[i]
+                lw = b[2] - b[0]
+                lx = pill_x1 + w_left + (w_right - lw) // 2
+                draw.text((lx, curr_y - b[1]), l, font=f_t, fill=WHITE)
+                curr_y += ht_line + line_gap
+
+        elif b_style == "white":
+            if pos in ("center", "bottom-left"):
+                draw.rounded_rectangle([pill_x1 + 3, pill_y1 + 4, pill_x2 + 3, pill_y2 + 4], radius=16, fill=(0, 0, 0, 35))
+            draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=16, fill=WHITE, outline=accent_color, width=3)
+            draw.line([(pill_x1 + w_left, pill_y1 + 8), (pill_x1 + w_left, pill_y2 - 8)], fill=(203, 213, 225, 255), width=2)
+
+            tx_m = pill_x1 + (w_left - wm) // 2
+            ty_m = pill_y1 + (pill_h - hm) // 2 - bm[1]
+            draw.text((tx_m, ty_m), clean_model, font=f_m, fill=accent_color)
+
+            curr_y = start_ty
+            for i, l in enumerate(lines):
+                b = line_boxes[i]
+                lw = b[2] - b[0]
+                lx = pill_x1 + w_left + (w_right - lw) // 2
+                draw.text((lx, curr_y - b[1]), l, font=f_t, fill=SLATE)
+                curr_y += ht_line + line_gap
+
+        else:  # b_style == "none"
+            tx_m = pill_x1
+            ty_m = pill_y1 + (pill_h - hm) // 2 - bm[1]
+            draw.text((tx_m, ty_m), clean_model, font=f_m, fill=accent_color)
+
+            curr_y = start_ty
+            for i, l in enumerate(lines):
+                b = line_boxes[i]
+                lw = b[2] - b[0]
+                lx = pill_x1 + w_left + 16
+                draw.text((lx, curr_y - b[1]), l, font=f_t, fill=SLATE)
+                curr_y += ht_line + line_gap
 
     elif clean_model and not clean_title:
         # CASE 2: Only Model -> Single bold Red pill!
@@ -694,14 +748,26 @@ def generate_collage(
 
         pill_y2 = pill_y1 + pill_h
 
-        if pos in ("center", "bottom-left"):
-            draw.rounded_rectangle([pill_x1 + 3, pill_y1 + 4, pill_x2 + 3, pill_y2 + 4], radius=16, fill=(0, 0, 0, 70))
-        draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=16, fill=RED)
-
         hm = bm[3] - bm[1]
-        tx_m = pill_x1 + (total_w - wm) // 2
         ty_m = pill_y1 + (pill_h - hm) // 2 - bm[1]
-        draw.text((tx_m, ty_m), clean_model, font=f_m, fill=TEXT_COLOR)
+
+        if b_style == "solid":
+            if pos in ("center", "bottom-left"):
+                draw.rounded_rectangle([pill_x1 + 3, pill_y1 + 4, pill_x2 + 3, pill_y2 + 4], radius=16, fill=(0, 0, 0, 70))
+            draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=16, fill=solid_model_fill)
+            tx_m = pill_x1 + (total_w - wm) // 2
+            draw.text((tx_m, ty_m), clean_model, font=f_m, fill=solid_model_text)
+
+        elif b_style == "white":
+            if pos in ("center", "bottom-left"):
+                draw.rounded_rectangle([pill_x1 + 3, pill_y1 + 4, pill_x2 + 3, pill_y2 + 4], radius=16, fill=(0, 0, 0, 35))
+            draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=16, fill=WHITE, outline=accent_color, width=3)
+            tx_m = pill_x1 + (total_w - wm) // 2
+            draw.text((tx_m, ty_m), clean_model, font=f_m, fill=accent_color)
+
+        else:  # b_style == "none"
+            tx_m = pill_x1
+            draw.text((tx_m, ty_m), clean_model, font=f_m, fill=accent_color)
 
     elif not clean_model and clean_title:
         # CASE 3: Only Title -> Single solid Slate pill!
@@ -755,18 +821,39 @@ def generate_collage(
 
         pill_y2 = pill_y1 + pill_h
 
-        if pos in ("center", "bottom-left"):
-            draw.rounded_rectangle([pill_x1 + 3, pill_y1 + 4, pill_x2 + 3, pill_y2 + 4], radius=16, fill=(0, 0, 0, 70))
-        draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=16, fill=SLATE)
-
         start_ty = pill_y1 + (pill_h - total_lines_h) // 2
-        curr_y = start_ty
-        for i, l in enumerate(lines):
-            b = line_boxes[i]
-            lw = b[2] - b[0]
-            lx = pill_x1 + (pill_w - lw) // 2
-            draw.text((lx, curr_y - b[1]), l, font=f_t, fill=TEXT_COLOR)
-            curr_y += ht_line + line_gap
+        if b_style == "solid":
+            if pos in ("center", "bottom-left"):
+                draw.rounded_rectangle([pill_x1 + 3, pill_y1 + 4, pill_x2 + 3, pill_y2 + 4], radius=16, fill=(0, 0, 0, 70))
+            draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=16, fill=SLATE if is_pure_white else solid_model_fill)
+            curr_y = start_ty
+            for i, l in enumerate(lines):
+                b = line_boxes[i]
+                lw = b[2] - b[0]
+                lx = pill_x1 + (pill_w - lw) // 2
+                draw.text((lx, curr_y - b[1]), l, font=f_t, fill=WHITE if is_pure_white else solid_model_text)
+                curr_y += ht_line + line_gap
+
+        elif b_style == "white":
+            if pos in ("center", "bottom-left"):
+                draw.rounded_rectangle([pill_x1 + 3, pill_y1 + 4, pill_x2 + 3, pill_y2 + 4], radius=16, fill=(0, 0, 0, 35))
+            draw.rounded_rectangle([pill_x1, pill_y1, pill_x2, pill_y2], radius=16, fill=WHITE, outline=accent_color, width=3)
+            curr_y = start_ty
+            for i, l in enumerate(lines):
+                b = line_boxes[i]
+                lw = b[2] - b[0]
+                lx = pill_x1 + (pill_w - lw) // 2
+                draw.text((lx, curr_y - b[1]), l, font=f_t, fill=accent_color)
+                curr_y += ht_line + line_gap
+
+        else:  # b_style == "none"
+            curr_y = start_ty
+            for i, l in enumerate(lines):
+                b = line_boxes[i]
+                lw = b[2] - b[0]
+                lx = pill_x1
+                draw.text((lx, curr_y - b[1]), l, font=f_t, fill=accent_color)
+                curr_y += ht_line + line_gap
 
     else:
         # CASE 4: Neither Model nor Title -> Clean canvas without any pill!
