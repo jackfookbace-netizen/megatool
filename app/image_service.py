@@ -1596,12 +1596,30 @@ def generate_comparison_card(
         for idx, m in enumerate(processed_items):
             col_x = tbl_left + label_col_w + (idx * model_col_w)
             val = m['specs'].get(key, "-")
-            if len(val) > 28:
-                val = val[:26] + "..."
-            vb = font_val.getbbox(val)
+            
+            # Dynamic fitting: do not arbitrarily cut with len > 28
+            max_val_w = model_col_w - 20
+            cur_font_val = font_val
+            vb = cur_font_val.getbbox(val)
             vw = vb[2] - vb[0]
+            
+            # If text is wider than column, scale down font first so full text is visible
+            if vw > max_val_w:
+                scaled_size = max(13, int(20 * (max_val_w - 8) / vw))
+                cur_font_val = load_font("leelawdb.ttf", scaled_size)
+                vb = cur_font_val.getbbox(val)
+                vw = vb[2] - vb[0]
+                
+            # Only truncate if it still exceeds after scaling down to minimum size
+            if vw > max_val_w:
+                while len(val) > 4 and vw > max_val_w:
+                    val = val[:-2] + ".."
+                    vb = cur_font_val.getbbox(val)
+                    vw = vb[2] - vb[0]
+                    
             val_color = (220, 38, 38, 255) if is_diff_row else (15, 23, 42, 255)
-            draw.text((col_x + (model_col_w - vw) // 2, ry1 + (row_h - 20) // 2), val, font=font_val, fill=val_color)
+            vh = vb[3] - vb[1]
+            draw.text((col_x + (model_col_w - vw) // 2, ry1 + (row_h - vh) // 2 - 1), val, font=cur_font_val, fill=val_color)
 
     last_ry1 = tbl_top + thumb_row_h + (len(ordered_keys) * row_h)
     draw.rectangle([tbl_left + 2, last_ry1, tbl_right - 2, tbl_bottom - 2], fill=(241, 245, 249, 255))
@@ -1609,9 +1627,16 @@ def generate_comparison_card(
     for idx, m in enumerate(processed_items):
         col_x = tbl_left + label_col_w + (idx * model_col_w)
         w_text = m.get('warranty') or "ของแท้ 100% ประกันศูนย์"
-        wb = font_val.getbbox(w_text)
+        cur_w_font = font_val
+        wb = cur_w_font.getbbox(w_text)
         ww = wb[2] - wb[0]
-        draw.text((col_x + (model_col_w - ww) // 2, last_ry1 + (row_h - 20) // 2), w_text, font=font_val, fill=(16, 185, 129, 255))
+        if ww > model_col_w - 20:
+            scaled_w_size = max(13, int(20 * (model_col_w - 28) / ww))
+            cur_w_font = load_font("leelawdb.ttf", scaled_w_size)
+            wb = cur_w_font.getbbox(w_text)
+            ww = wb[2] - wb[0]
+        wh = wb[3] - wb[1]
+        draw.text((col_x + (model_col_w - ww) // 2, last_ry1 + (row_h - wh) // 2 - 1), w_text, font=cur_w_font, fill=(16, 185, 129, 255))
 
     for idx in range(num_models):
         col_x = tbl_left + label_col_w + (idx * model_col_w)
