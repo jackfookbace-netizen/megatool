@@ -1116,7 +1116,8 @@ def delete_custom_product_image(sku: str, image_url: str) -> bool:
 
 def extract_model_label(name, sku):
     clean_name = re.sub(r'\[.*?\]', '', name).strip()
-    words = clean_name.split()
+    norm_name = clean_name.replace('สวิทซ์', 'สวิทช์').replace('สวิตซ์', 'สวิทช์').replace('สวิตช์', 'สวิทช์')
+    words = norm_name.split()
     sku_code = sku.split('-')[-1] if '-' in sku else sku
     model_code = words[0] if words else sku_code
     
@@ -1124,28 +1125,38 @@ def extract_model_label(name, sku):
     model_code = re.sub(r'^[A-Z]\d+[-_]', '', model_code, flags=re.IGNORECASE)
     
     sub = ""
-    bar_m = re.search(r'(\d+\s*บาร์)', clean_name)
-    watt_m = re.search(r'(\d+\s*[wWวัตต์]+)', clean_name)
-    volt_m = re.search(r'(\d+\s*[vVโวลต์]+)', clean_name)
-    inch_m = re.search(r'(\d+\s*นิ้ว)', clean_name)
-    pack_m = re.search(r'(\d+\s*ม้วน)', clean_name)
-    
-    if bar_m:
-        sub = f"แรงดัน {bar_m.group(1)}"
-    elif watt_m:
-        sub = f"กำลังไฟ {watt_m.group(1)}"
-    elif volt_m:
-        sub = f"ระบบ {volt_m.group(1)}"
-    elif inch_m:
-        sub = f"ขนาด {inch_m.group(1)}"
-    elif pack_m:
-        sub = f"แพ็ค {pack_m.group(1)}"
-    elif len(words) > 1:
-        sub = " ".join(words[1:3])
-        if len(sub) > 14:
-            sub = sub[:12] + "..."
-            
-    return model_code, sub
+    # 1. Switch differentiator (e.g. สวิทช์ท้าย, สวิทช์สไลด์) - high priority differentiator!
+    if 'สวิทช์ท้าย' in norm_name or ('ท้าย' in norm_name and any(q in norm_name for q in ['สวิ', 'switch'])):
+        sub = "สวิทช์ท้าย"
+    elif 'สวิทช์สไลด์' in norm_name or ('สไลด์' in norm_name and any(q in norm_name for q in ['สวิ', 'switch'])):
+        sub = "สวิทช์สไลด์"
+    elif 'สวิทช์ข้าง' in norm_name:
+        sub = "สวิทช์ข้าง"
+    elif 'สวิทช์ไก' in norm_name or 'ไกปืน' in norm_name:
+        sub = "สวิทช์ไกปืน"
+    else:
+        bar_m = re.search(r'(\d+\s*บาร์)', norm_name)
+        watt_m = re.search(r'(\d+\s*[wWวัตต์]+)', norm_name)
+        volt_m = re.search(r'(\d+\s*[vVโวลต์]+)', norm_name)
+        inch_m = re.search(r'(\d+\s*นิ้ว)', norm_name)
+        pack_m = re.search(r'(\d+\s*ม้วน)', norm_name)
+        
+        if bar_m:
+            sub = f"แรงดัน {bar_m.group(1)}"
+        elif watt_m:
+            sub = f"กำลังไฟ {watt_m.group(1)}"
+        elif volt_m:
+            sub = f"ระบบ {volt_m.group(1)}"
+        elif inch_m:
+            sub = f"ขนาด {inch_m.group(1)}"
+        elif pack_m:
+            sub = f"แพ็ค {pack_m.group(1)}"
+        elif len(words) > 1:
+            sub = " ".join(words[1:3]).strip('()[]')
+            if len(sub) > 14:
+                sub = sub[:12] + "..."
+                
+    return model_code, sub.strip('()[]')
 
 def clean_warranty(w):
     if not w:
@@ -1217,8 +1228,8 @@ def extract_key_specs(detail):
             k = parts[0].strip()
             v = parts[1].strip()
             if k and v and len(k) < 40 and len(v) < 60:
-                # Hose length first (avoids "สายอัดฉีดแรงดันสูง" matching pressure!)
-                if ('สาย' in k or 'hose' in k.lower()) and 'ความยาวสายฉีด' not in specs:
+                # Hose length (pressure washers only, NOT power cords)
+                if ('สายฉีด' in k or 'สายอัดฉีด' in k or 'hose' in k.lower()) and 'ความยาวสายฉีด' not in specs:
                     m_v = re.search(r'(\d+(?:\.\d+)?)\s*(?:ม\.|เมตร|m\b)', v, re.IGNORECASE)
                     m_k = re.search(r'(\d+(?:\.\d+)?)\s*(?:ม\.|เมตร|m\b)', k, re.IGNORECASE)
                     if m_v:
@@ -1227,6 +1238,12 @@ def extract_key_specs(detail):
                         specs['ความยาวสายฉีด'] = f"{m_k.group(1)} เมตร"
                     elif not any(q in v for q in ['ชิ้น', 'อัน', 'เส้น', 'ชุด', 'กล่อง']):
                         specs['ความยาวสายฉีด'] = v
+                elif ('สายไฟ' in k or 'cord' in k.lower()) and 'ความยาวสายไฟ' not in specs:
+                    m_v = re.search(r'(\d+(?:\.\d+)?)\s*(?:ม\.|เมตร|m\b)', v, re.IGNORECASE)
+                    if m_v:
+                        specs['ความยาวสายไฟ'] = f"{m_v.group(1)} เมตร"
+                    else:
+                        specs['ความยาวสายไฟ'] = v
                 elif 'กำลังมอเตอร์' in k and 'กำลังมอเตอร์' not in specs:
                     specs['กำลังมอเตอร์'] = v
                 elif ('ประเภทมอเตอร์' in k or 'ชนิดมอเตอร์' in k) and 'ประเภทมอเตอร์' not in specs:
@@ -1251,7 +1268,7 @@ def extract_key_specs(detail):
             specs['ประเภทมอเตอร์'] = 'มอเตอร์แปรงถ่าน'
             
         # Free-text hose check if still missing
-        if 'ความยาวสายฉีด' not in specs and ('สายอัดฉีด' in line or 'สายฉีด' in line):
+        if 'ความยาวสายฉีด' not in specs and ('สายอัดฉีด' in line or ('สายฉีด' in line and 'สายไฟ' not in line)):
             m_line = re.search(r'ยาว(?:ถึง)?\s*(\d+(?:\.\d+)?)\s*(?:ม\.|เมตร|m\b)', line, re.IGNORECASE)
             if m_line:
                 specs['ความยาวสายฉีด'] = f"{m_line.group(1)} เมตร"
@@ -1282,6 +1299,18 @@ def extract_key_specs(detail):
             bar_val = int(m_bar.group(1))
             psi_val = round(bar_val * 14.5038)
             specs['แรงดันสูงสุด'] = f"{bar_val} บาร์ ({psi_val:,} PSI)"
+
+    # Switch type extraction (for grinders and power tools)
+    full_text = (detail.get('name', '') + ' ' + clean_desc).replace('สวิทซ์', 'สวิทช์').replace('สวิตซ์', 'สวิทช์').replace('สวิตช์', 'สวิทช์')
+    if 'ตำแหน่งสวิตช์' not in specs:
+        if 'สวิทช์ท้าย' in full_text:
+            specs['ตำแหน่งสวิตช์'] = 'สวิตช์ท้าย (เปิด-ปิดท้ายเครื่อง)'
+        elif 'สวิทช์สไลด์' in full_text:
+            specs['ตำแหน่งสวิตช์'] = 'สวิตช์สไลด์ (เปิด-ปิดด้านบน)'
+        elif 'สวิทช์ข้าง' in full_text:
+            specs['ตำแหน่งสวิตช์'] = 'สวิตช์ข้าง (เปิด-ปิดด้านข้าง)'
+        elif 'สวิทช์ไก' in full_text:
+            specs['ตำแหน่งสวิตช์'] = 'สวิตช์ไกปืน'
 
     # Auto Stop for all pressure washers (verified by user and manufacturer catalog)
     is_pressure_washer = 'เครื่องฉีดน้ำ' in (detail.get('name', '') + clean_desc)
@@ -1322,7 +1351,7 @@ def generate_comparison_card(
     font_title = load_font("leelawdb.ttf", 34)
     font_sub = load_font("leelawdb.ttf", 20)
     font_model = load_font("leelawdb.ttf", 20)
-    font_model_sub = load_font("leelawdb.ttf", 16)
+    font_model_sub = load_font("leelawdb.ttf", 20)
     font_price = load_font("tahomabd.ttf", 26)
     font_label = load_font("leelawdb.ttf", 20)
     font_val = load_font("leelawdb.ttf", 18)
@@ -1384,8 +1413,9 @@ def generate_comparison_card(
     processed_items = []
     all_spec_keys = []
     preferred_order = [
-        'แรงดันสูงสุด', 'กำลังมอเตอร์', 'ประเภทมอเตอร์', 'ระบบตัดการทำงาน', 'อัตราการไหลของน้ำ',
-        'ความยาวสายฉีด', 'น้ำหนักตัวเครื่อง', 'ความเร็วรอบ', 'ขนาดใบตัด/เจียร์'
+        'ตำแหน่งสวิตช์', 'แรงดันสูงสุด', 'กำลังมอเตอร์', 'ประเภทมอเตอร์', 'ระบบตัดการทำงาน',
+        'ขนาดใบตัด/เจียร์', 'ความเร็วรอบ', 'อัตราการไหลของน้ำ', 'ความยาวสายฉีด',
+        'ความยาวสายไฟ', 'น้ำหนักตัวเครื่อง'
     ]
 
     for item in items[:4]:
@@ -1497,11 +1527,40 @@ def generate_comparison_card(
             nw = nb[2] - nb[0]
         draw.text((pill_x1 + (pill_w - nw) // 2, pill_y1 + (32 - (nb[3] - nb[1])) // 2), m_code, font=cur_font_model, fill=(255, 255, 255, 255))
 
-        # Line 2: Subtitle / Spec tag (e.g. แรงดัน 90 บาร์)
+        # Line 2: Subtitle / Spec tag (Enlarged & Highlighted in Red Badge as requested)
         if m['model_sub']:
-            sb = font_model_sub.getbbox(m['model_sub'])
+            sub_text = m['model_sub'].strip('()[]')
+            sb = font_model_sub.getbbox(sub_text)
             sw = sb[2] - sb[0]
-            draw.text((col_x + (model_col_w - sw) // 2, tbl_top + 194), m['model_sub'], font=font_model_sub, fill=(100, 116, 139, 255))
+            sh = sb[3] - sb[1]
+            
+            badge_w = min(model_col_w - 20, sw + 26)
+            badge_h = 30
+            badge_x = col_x + (model_col_w - badge_w) // 2
+            badge_y = tbl_top + 194
+            
+            # Highlight badge: soft red background with subtle red border
+            draw.rounded_rectangle(
+                [badge_x, badge_y, badge_x + badge_w, badge_y + badge_h],
+                radius=6,
+                fill=(254, 242, 242, 255),
+                outline=(248, 113, 113, 255),
+                width=1
+            )
+            cur_font_sub = font_model_sub
+            if sw > badge_w - 12:
+                scaled_sub_size = max(12, int(20 * (badge_w - 14) / sw))
+                cur_font_sub = load_font("leelawdb.ttf", scaled_sub_size)
+                sb = cur_font_sub.getbbox(sub_text)
+                sw = sb[2] - sb[0]
+                sh = sb[3] - sb[1]
+                
+            draw.text(
+                (badge_x + (badge_w - sw) // 2, badge_y + (badge_h - sh) // 2 - 1),
+                sub_text,
+                font=cur_font_sub,
+                fill=(220, 38, 38, 255)
+            )
 
         # Price (only draw if price > 0, otherwise skip cleanly without showing an empty '-' dash)
         if m['price'] and m['price'] > 0:
@@ -1518,20 +1577,31 @@ def generate_comparison_card(
         ry1 = tbl_top + thumb_row_h + (r_idx * row_h)
         ry2 = ry1 + row_h
         
-        bg_color = (255, 255, 255, 255) if r_idx % 2 == 0 else (248, 250, 252, 255)
+        # Check if values in this row are DIFFERENT across models (key differentiator!)
+        row_vals = [m['specs'].get(key, "-") for m in processed_items]
+        non_empty_vals = [v for v in row_vals if v and v != "-"]
+        is_diff_row = len(set(non_empty_vals)) > 1
+        
+        if is_diff_row:
+            bg_color = (254, 242, 242, 255)
+        else:
+            bg_color = (255, 255, 255, 255) if r_idx % 2 == 0 else (248, 250, 252, 255)
+            
         draw.rectangle([tbl_left + 2, ry1, tbl_right - 2, ry2], fill=bg_color)
         draw.line([tbl_left, ry2, tbl_right, ry2], fill=(226, 232, 240, 255), width=1)
 
-        draw.text((tbl_left + 25, ry1 + (row_h - 22) // 2), f"• {key}", font=font_label, fill=(51, 65, 85, 255))
+        label_color = (220, 38, 38, 255) if is_diff_row else (51, 65, 85, 255)
+        draw.text((tbl_left + 25, ry1 + (row_h - 22) // 2), f"• {key}", font=font_label, fill=label_color)
 
         for idx, m in enumerate(processed_items):
             col_x = tbl_left + label_col_w + (idx * model_col_w)
             val = m['specs'].get(key, "-")
-            if len(val) > 26:
-                val = val[:24] + "..."
+            if len(val) > 28:
+                val = val[:26] + "..."
             vb = font_val.getbbox(val)
             vw = vb[2] - vb[0]
-            draw.text((col_x + (model_col_w - vw) // 2, ry1 + (row_h - 20) // 2), val, font=font_val, fill=(15, 23, 42, 255))
+            val_color = (220, 38, 38, 255) if is_diff_row else (15, 23, 42, 255)
+            draw.text((col_x + (model_col_w - vw) // 2, ry1 + (row_h - 20) // 2), val, font=font_val, fill=val_color)
 
     last_ry1 = tbl_top + thumb_row_h + (len(ordered_keys) * row_h)
     draw.rectangle([tbl_left + 2, last_ry1, tbl_right - 2, tbl_bottom - 2], fill=(241, 245, 249, 255))
