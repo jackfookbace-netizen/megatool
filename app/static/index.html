@@ -1960,15 +1960,15 @@
                                         </div>
                                     </div>
 
-                                    <!-- แถบปรับขนาดตัวอักษร และ ตำแหน่งป้ายข้อความ -->
-                                    <div class="p-2.5 bg-white/90 rounded-xl border border-orange-200/70 flex flex-wrap items-center justify-between gap-3 text-xs shadow-2xs">
+                                    <!-- แถบปรับขนาดตัวอักษร, สีตัวอักษร และ ตำแหน่งป้ายข้อความ -->
+                                    <div class="p-2.5 bg-white/95 rounded-xl border border-orange-200/80 flex flex-wrap items-center justify-between gap-3 text-xs shadow-2xs">
                                         <!-- ขนาดตัวอักษร -->
                                         <div class="flex items-center space-x-2">
                                             <span class="text-[11px] font-bold text-slate-700 flex items-center space-x-1">
                                                 <span>🔤 ขนาด:</span>
                                                 <span class="text-orange-600 font-mono font-bold" x-text="collageFontSize + 'px'"></span>
                                             </span>
-                                            <input type="range" min="28" max="54" step="2" x-model.number="collageFontSize" @input="saveCollageSettingsToLocal()"
+                                            <input type="range" min="26" max="76" step="2" x-model.number="collageFontSize" @input="saveCollageSettingsToLocal()"
                                                    class="w-20 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-orange-600">
                                             <div class="flex items-center space-x-1">
                                                 <button type="button" @click="collageFontSize = 30; saveCollageSettingsToLocal()" 
@@ -1977,12 +1977,58 @@
                                                 <button type="button" @click="collageFontSize = 38; saveCollageSettingsToLocal()" 
                                                         :class="collageFontSize === 38 ? 'bg-orange-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
                                                         class="px-1.5 py-0.5 text-[10px] rounded-md transition-all cursor-pointer">ปกติ (38)</button>
-                                                <button type="button" @click="collageFontSize = 44; saveCollageSettingsToLocal()" 
-                                                        :class="collageFontSize === 44 ? 'bg-orange-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
-                                                        class="px-1.5 py-0.5 text-[10px] rounded-md transition-all cursor-pointer">ใหญ่ (44)</button>
-                                                <button type="button" @click="collageFontSize = 50; saveCollageSettingsToLocal()" 
-                                                        :class="collageFontSize === 50 ? 'bg-orange-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
-                                                        class="px-1.5 py-0.5 text-[10px] rounded-md transition-all cursor-pointer">ใหญ่พิเศษ (50)</button>
+                                                <button type="button" @click="collageFontSize = 48; saveCollageSettingsToLocal()" 
+                                                        :class="collageFontSize === 48 ? 'bg-orange-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                                                        class="px-1.5 py-0.5 text-[10px] rounded-md transition-all cursor-pointer">ใหญ่ (48)</button>
+                                                <button type="button" @click="collageFontSize = 60; saveCollageSettingsToLocal()" 
+                                                        :class="collageFontSize === 60 ? 'bg-orange-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                                                        class="px-1.5 py-0.5 text-[10px] rounded-md transition-all cursor-pointer">จัมโบ้ (60)</button>
+                                                <button type="button" @click="collageFontSize = 72; saveCollageSettingsToLocal()" 
+                                                        :class="collageFontSize === 72 ? 'bg-orange-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                                                        class="px-1.5 py-0.5 text-[10px] rounded-md transition-all cursor-pointer">ใหญ่พิเศษ (72)</button>
+                                            </div>
+                                        </div>
+
+                                        <!-- สีตัวอักษร -->
+                                        <div class="flex items-center space-x-1.5">
+                                            <span class="text-[11px] font-bold text-slate-700 flex items-center space-x-1">
+                                                <span>🎨 สีตัวอักษร:</span>
+                                            </span>
+                                            <div class="flex items-center space-x-1">
+                                                <!-- ขาว #FFFFFF -->
+                                                <button type="button" @click="collageTextColor = '#FFFFFF'; saveCollageSettingsToLocal()"
+                                                        :class="collageTextColor.toUpperCase() === '#FFFFFF' ? 'ring-2 ring-orange-500 ring-offset-1 scale-110 shadow-xs' : 'border border-slate-300 hover:scale-105'"
+                                                        class="w-5 h-5 rounded-full bg-white transition-all cursor-pointer" title="สีขาว (ค่าเริ่มต้น)"></button>
+                                                <!-- เหลืองนีออน #FFE600 -->
+                                                <button type="button" @click="collageTextColor = '#FFE600'; saveCollageSettingsToLocal()"
+                                                        :class="collageTextColor.toUpperCase() === '#FFE600' ? 'ring-2 ring-orange-500 ring-offset-1 scale-110 shadow-xs' : 'border border-yellow-300 hover:scale-105'"
+                                                        class="w-5 h-5 rounded-full bg-[#FFE600] transition-all cursor-pointer" title="สีเหลืองเด่น (ยอดนิยม Shopee)"></button>
+                                                <!-- ส้มทอง #F59E0B -->
+                                                <button type="button" @click="collageTextColor = '#F59E0B'; saveCollageSettingsToLocal()"
+                                                        :class="collageTextColor.toUpperCase() === '#F59E0B' ? 'ring-2 ring-orange-500 ring-offset-1 scale-110 shadow-xs' : 'border border-amber-300 hover:scale-105'"
+                                                        class="w-5 h-5 rounded-full bg-[#F59E0B] transition-all cursor-pointer" title="สีส้มทอง"></button>
+                                                <!-- ดำ #0F172A -->
+                                                <button type="button" @click="collageTextColor = '#0F172A'; saveCollageSettingsToLocal()"
+                                                        :class="collageTextColor.toUpperCase() === '#0F172A' ? 'ring-2 ring-orange-500 ring-offset-1 scale-110 shadow-xs' : 'border border-slate-700 hover:scale-105'"
+                                                        class="w-5 h-5 rounded-full bg-slate-900 transition-all cursor-pointer" title="สีดำ"></button>
+                                                <!-- แดง #EF1C25 -->
+                                                <button type="button" @click="collageTextColor = '#EF1C25'; saveCollageSettingsToLocal()"
+                                                        :class="collageTextColor.toUpperCase() === '#EF1C25' ? 'ring-2 ring-orange-500 ring-offset-1 scale-110 shadow-xs' : 'border border-red-300 hover:scale-105'"
+                                                        class="w-5 h-5 rounded-full bg-[#EF1C25] transition-all cursor-pointer" title="สีแดง"></button>
+                                                <!-- เขียวมะนาว #10B981 -->
+                                                <button type="button" @click="collageTextColor = '#10B981'; saveCollageSettingsToLocal()"
+                                                        :class="collageTextColor.toUpperCase() === '#10B981' ? 'ring-2 ring-orange-500 ring-offset-1 scale-110 shadow-xs' : 'border border-emerald-300 hover:scale-105'"
+                                                        class="w-5 h-5 rounded-full bg-[#10B981] transition-all cursor-pointer" title="สีเขียวมะนาว"></button>
+
+                                                <!-- Color Picker กำหนดเอง -->
+                                                <label class="relative flex items-center justify-center cursor-pointer group ml-0.5" title="เลือกสีอื่นๆ ตามใจชอบ">
+                                                    <input type="color" x-model="collageTextColor" @input="saveCollageSettingsToLocal()" class="opacity-0 absolute inset-0 w-full h-full cursor-pointer">
+                                                    <div class="w-5 h-5 rounded-full border border-slate-300 group-hover:scale-105 transition-all flex items-center justify-center shadow-2xs overflow-hidden"
+                                                         :style="`background: ${collageTextColor}`">
+                                                        <span class="text-[9px] text-slate-500 font-bold select-none" x-show="collageTextColor.toUpperCase() === '#FFFFFF'">+</span>
+                                                    </div>
+                                                </label>
+                                                <span class="text-[10px] font-mono text-slate-500 uppercase font-bold" x-text="collageTextColor"></span>
                                             </div>
                                         </div>
 
@@ -2377,6 +2423,7 @@
                 collageModel: '',
                 collageTitle: 'อุปกรณ์มาตรฐานในกล่องครบชุด',
                 collageFontSize: 38,
+                collageTextColor: '#FFFFFF',
                 collagePosition: 'top-left',
                 generatingCollage: false,
                 comparisonCardUrl: null,
@@ -3829,6 +3876,15 @@ toggleListedSort(field) {
                     } else {
                         this.collagePosition = 'top-left';
                     }
+
+                    // 5. Text Color: Restore per SKU or last used
+                    if (savedSettings && savedSettings.textColor) {
+                        this.collageTextColor = savedSettings.textColor;
+                    } else if (lastUsed && lastUsed.textColor) {
+                        this.collageTextColor = lastUsed.textColor;
+                    } else {
+                        this.collageTextColor = '#FFFFFF';
+                    }
                     
                     const existingInQueue = this.selectedItems.find(i => i.sku === sku);
                     if (existingInQueue && existingInQueue.excluded_indices) {
@@ -4000,6 +4056,7 @@ toggleListedSort(field) {
                             title: this.collageTitle,
                             fontSize: this.collageFontSize,
                             position: this.collagePosition,
+                            textColor: this.collageTextColor || '#FFFFFF',
                             updated_at: Date.now()
                         };
                         if (targetSku) {
@@ -4187,7 +4244,8 @@ toggleListedSort(field) {
                                 shop_id: this.activeShopId || 'shop_1',
                             shop_name: this.currentShop ? (this.currentShop.brand_display || this.currentShop.name) : this.shopName,
                                 font_size: this.collageFontSize || 38,
-                                position: this.collagePosition || 'top-left'
+                                position: this.collagePosition || 'top-left',
+                                text_color: this.collageTextColor || '#FFFFFF'
                             })
                         });
                         

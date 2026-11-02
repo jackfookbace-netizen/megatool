@@ -415,7 +415,8 @@ def generate_collage(
     shop_name="MEGATOOL",
     model_text="",
     font_size=38,
-    position="top-left"
+    position="top-left",
+    text_color="#FFFFFF"
 ):
     """
     Combines 2 to 4 product images directly inside the official MEGATOOL shop template:
@@ -430,6 +431,24 @@ def generate_collage(
     CANVAS_SIZE = 1200
     RED = (239, 28, 37, 255)
     WHITE = (255, 255, 255, 255)
+
+    def _parse_rgba(color_val, default=(255, 255, 255, 255)):
+        if not color_val:
+            return default
+        if isinstance(color_val, (tuple, list)):
+            if len(color_val) == 3:
+                return (color_val[0], color_val[1], color_val[2], 255)
+            return tuple(color_val)
+        try:
+            from PIL import ImageColor
+            rgb = ImageColor.getrgb(str(color_val).strip())
+            if len(rgb) == 3:
+                return (rgb[0], rgb[1], rgb[2], 255)
+            return rgb
+        except Exception:
+            return default
+
+    TEXT_COLOR = _parse_rgba(text_color, WHITE)
 
     canvas = Image.new("RGBA", (CANVAS_SIZE, CANVAS_SIZE), WHITE)
     draw = ImageDraw.Draw(canvas)
@@ -530,9 +549,14 @@ def generate_collage(
         pos = "top-left"
 
     base_sz = int(font_size or 38)
-    base_sz = max(26, min(56, base_sz))
+    base_sz = max(24, min(80, base_sz))
 
-    max_total_w = 555 if pos in ("top-left", "top-right") else (540 if pos == "bottom-left" else 780)
+    if pos in ("top-left", "top-right"):
+        max_total_w = 640
+    elif pos == "bottom-left":
+        max_total_w = 555
+    else:
+        max_total_w = 950
     SLATE = (15, 23, 42, 255)
 
     if clean_model and clean_title:
@@ -590,12 +614,12 @@ def generate_collage(
         if pos == "top-left":
             pill_x1 = 45
             pill_y1 = 36 if is_multiline else 39
-            pill_x2 = min(pill_x1 + total_w, 600)
+            pill_x2 = min(pill_x1 + total_w, 645)
             total_w = pill_x2 - pill_x1
             w_right = total_w - w_left
         elif pos == "top-right":
             total_w = min(total_w, max_total_w)
-            pill_x1 = max(600, CANVAS_SIZE - 45 - total_w)
+            pill_x1 = max(540, CANVAS_SIZE - 45 - total_w)
             pill_y1 = 36 if is_multiline else 39
             pill_x2 = CANVAS_SIZE - 45
             total_w = pill_x2 - pill_x1
@@ -621,7 +645,7 @@ def generate_collage(
         hm = bm[3] - bm[1]
         tx_m = pill_x1 + (w_left - wm) // 2
         ty_m = pill_y1 + (pill_h - hm) // 2 - bm[1]
-        draw.text((tx_m, ty_m), clean_model, font=f_m, fill=WHITE)
+        draw.text((tx_m, ty_m), clean_model, font=f_m, fill=TEXT_COLOR)
 
         start_ty = pill_y1 + (pill_h - total_lines_h) // 2
         curr_y = start_ty
@@ -629,7 +653,7 @@ def generate_collage(
             b = line_boxes[i]
             lw = b[2] - b[0]
             lx = pill_x1 + w_left + (w_right - lw) // 2
-            draw.text((lx, curr_y - b[1]), l, font=f_t, fill=WHITE)
+            draw.text((lx, curr_y - b[1]), l, font=f_t, fill=TEXT_COLOR)
             curr_y += ht_line + line_gap
 
     elif clean_model and not clean_title:
@@ -652,11 +676,11 @@ def generate_collage(
         if pos == "top-left":
             pill_x1 = 45
             pill_y1 = 39
-            pill_x2 = min(pill_x1 + total_w, 600)
+            pill_x2 = min(pill_x1 + total_w, 645)
             total_w = pill_x2 - pill_x1
         elif pos == "top-right":
             total_w = min(total_w, max_total_w)
-            pill_x1 = max(600, CANVAS_SIZE - 45 - total_w)
+            pill_x1 = max(540, CANVAS_SIZE - 45 - total_w)
             pill_y1 = 39
             pill_x2 = CANVAS_SIZE - 45
         elif pos == "bottom-left":
@@ -677,7 +701,7 @@ def generate_collage(
         hm = bm[3] - bm[1]
         tx_m = pill_x1 + (total_w - wm) // 2
         ty_m = pill_y1 + (pill_h - hm) // 2 - bm[1]
-        draw.text((tx_m, ty_m), clean_model, font=f_m, fill=WHITE)
+        draw.text((tx_m, ty_m), clean_model, font=f_m, fill=TEXT_COLOR)
 
     elif not clean_model and clean_title:
         # CASE 3: Only Title -> Single solid Slate pill!
@@ -713,11 +737,11 @@ def generate_collage(
         if pos == "top-left":
             pill_x1 = 45
             pill_y1 = 36 if is_multiline else 39
-            pill_x2 = min(pill_x1 + pill_w, 600)
+            pill_x2 = min(pill_x1 + pill_w, 645)
             pill_w = pill_x2 - pill_x1
         elif pos == "top-right":
             pill_w = min(pill_w, max_total_w)
-            pill_x1 = max(600, CANVAS_SIZE - 45 - pill_w)
+            pill_x1 = max(540, CANVAS_SIZE - 45 - pill_w)
             pill_y1 = 36 if is_multiline else 39
             pill_x2 = CANVAS_SIZE - 45
         elif pos == "bottom-left":
@@ -741,7 +765,7 @@ def generate_collage(
             b = line_boxes[i]
             lw = b[2] - b[0]
             lx = pill_x1 + (pill_w - lw) // 2
-            draw.text((lx, curr_y - b[1]), l, font=f_t, fill=WHITE)
+            draw.text((lx, curr_y - b[1]), l, font=f_t, fill=TEXT_COLOR)
             curr_y += ht_line + line_gap
 
     else:
