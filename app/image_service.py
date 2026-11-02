@@ -475,13 +475,12 @@ def generate_collage(
     canvas = Image.new("RGBA", (CANVAS_SIZE, CANVAS_SIZE), WHITE)
     draw = ImageDraw.Draw(canvas)
 
-    # 1. Load and trim images
+    # 1. Load images
     loaded_imgs = []
     for u in image_urls[:4]:
         try:
             raw_im = fetch_image_safe(u)
-            trimmed = trim_white_space(raw_im)
-            loaded_imgs.append(trimmed)
+            loaded_imgs.append(raw_im)
         except Exception as e:
             print("Error loading image for collage:", e)
 
@@ -490,67 +489,63 @@ def generate_collage(
 
     count = len(loaded_imgs)
 
-    # 2. Layout Grid Slots (Safe zones: never intersects with top-right logo or bottom-right ribbon!)
-    # Top bar area: y: 35..130 (Top-left: Title pill, Top-right: MEGATOOL logo)
-    # Bottom-right area: x: 570..1200, y: 920..1200 (Ribbon + ของแท้ 100%)
-    slots = []
-    gap = 20
-
+    # 2. Render Product Image(s)
     if count == 1:
-        # 1 single image: full centered safe area inside template (no card border, no #1 badge)
-        slots.append([45, 145, 1155, 1140])
+        # Single image mode: EXACT identical scaling & centered framing as generate_cover (zero offset, zero shift!)
+        img = loaded_imgs[0]
+        im_w, im_h = img.size
+        scale = min(CANVAS_SIZE / im_w, CANVAS_SIZE / im_h)
+        new_w = int(im_w * scale)
+        new_h = int(im_h * scale)
+        resized_im = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        px = (CANVAS_SIZE - new_w) // 2
+        py = (CANVAS_SIZE - new_h) // 2
+        canvas.paste(resized_im, (px, py), resized_im if resized_im.mode == "RGBA" else None)
+    else:
+        # Multi-image collage mode (2-4 images): trim excess margins and arrange in grid slots
+        trimmed_imgs = [trim_white_space(im) for im in loaded_imgs]
+        slots = []
+        gap = 20
 
-    elif count == 2:
-        # 2 large cards side-by-side
-        w_each = 530
-        slots.append([45, 145, 45 + w_each, 1140])       # Left: large tool
-        slots.append([45 + w_each + gap, 145, 1155, 920]) # Right: accessories (safe above ribbon)
+        if count == 2:
+            w_each = 530
+            slots.append([45, 145, 45 + w_each, 1140])       # Left: large tool
+            slots.append([45 + w_each + gap, 145, 1155, 920]) # Right: accessories (safe above ribbon)
 
-    elif count == 3:
-        # 1 large left (main tool) + 2 right (accessories & box)
-        w_left = 530
-        h_right_each = 365
-        slots.append([45, 145, 45 + w_left, 1140])                                              # Left full height
-        slots.append([45 + w_left + gap, 145, 1155, 145 + h_right_each])                        # Top right
-        slots.append([45 + w_left + gap, 145 + h_right_each + gap, 1155, 145 + (h_right_each * 2) + gap]) # Middle right (stops at y=895, safely above ribbon!)
+        elif count == 3:
+            w_left = 530
+            h_right_each = 365
+            slots.append([45, 145, 45 + w_left, 1140])                                              # Left full height
+            slots.append([45 + w_left + gap, 145, 1155, 145 + h_right_each])                        # Top right
+            slots.append([45 + w_left + gap, 145 + h_right_each + gap, 1155, 145 + (h_right_each * 2) + gap]) # Middle right
 
-    else: # 4 images
-        # 2x2 grid
-        # Col 1 (Left): x: 45..585 (can go down to y=1140)
-        # Col 2 (Right): x: 605..1155 (Top: y: 145..520, Bottom: y: 540..915, strictly above y=920 ribbon!)
-        slots.append([45, 145, 585, 620])   # Slot 1: Top-Left
-        slots.append([605, 145, 1155, 520])  # Slot 2: Top-Right
-        slots.append([45, 640, 585, 1140])  # Slot 3: Bottom-Left
-        slots.append([605, 540, 1155, 915])  # Slot 4: Bottom-Right (Safe above ribbon!)
+        else: # 4 images
+            slots.append([45, 145, 585, 620])   # Slot 1: Top-Left
+            slots.append([605, 145, 1155, 520])  # Slot 2: Top-Right
+            slots.append([45, 640, 585, 1140])  # Slot 3: Bottom-Left
+            slots.append([605, 540, 1155, 915])  # Slot 4: Bottom-Right
 
-    font_num = load_font("tahomabd.ttf", 26)
+        font_num = load_font("tahomabd.ttf", 26)
 
-    # 3. Draw each image inside its slot
-    for idx, (slot, img) in enumerate(zip(slots, loaded_imgs)):
-        sx1, sy1, sx2, sy2 = slot
-        # Draw soft card border only when multiple images are arranged
-        if count > 1:
+        for idx, (slot, img) in enumerate(zip(slots, trimmed_imgs)):
+            sx1, sy1, sx2, sy2 = slot
             draw.rounded_rectangle([sx1, sy1, sx2, sy2], radius=16, fill=(255, 255, 255, 255), outline=(226, 232, 240, 255), width=2)
             pad = 20
-        else:
-            # Single image mode: clean floating product
-            pad = 35
 
-        avail_w = (sx2 - sx1) - (pad * 2)
-        avail_h = (sy2 - sy1) - (pad * 2)
+            avail_w = (sx2 - sx1) - (pad * 2)
+            avail_h = (sy2 - sy1) - (pad * 2)
 
-        im_w, im_h = img.size
-        scale = min(avail_w / im_w, avail_h / im_h)
-        new_w = max(10, int(im_w * scale))
-        new_h = max(10, int(im_h * scale))
-        resized_im = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            im_w, im_h = img.size
+            scale = min(avail_w / im_w, avail_h / im_h)
+            new_w = max(10, int(im_w * scale))
+            new_h = max(10, int(im_h * scale))
+            resized_im = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
-        px = sx1 + (sx2 - sx1 - new_w) // 2
-        py = sy1 + (sy2 - sy1 - new_h) // 2
-        canvas.paste(resized_im, (px, py), resized_im)
+            px = sx1 + (sx2 - sx1 - new_w) // 2
+            py = sy1 + (sy2 - sy1 - new_h) // 2
+            canvas.paste(resized_im, (px, py), resized_im)
 
-        # Number Circle Badge only when multiple images
-        if count > 1:
+            # Number Circle Badge
             badge_r = 20
             bx = sx1 + 16
             by = sy1 + 16
