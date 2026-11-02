@@ -1265,8 +1265,12 @@ def extract_key_specs(detail):
     if 'น้ำหนักตัวเครื่อง' not in specs:
         units = detail.get('conversionUnits', [])
         if units:
-            net_w = units[0].get('netWeight', 0)
-            if net_w:
+            u0 = units[0]
+            gross_w = u0.get('conversionGross', 0)
+            net_w = u0.get('netWeight', 0)
+            if gross_w:
+                specs['น้ำหนักตัวเครื่อง'] = f"{gross_w:.2f} กก."
+            elif net_w:
                 specs['น้ำหนักตัวเครื่อง'] = f"{round(net_w / 1000.0, 2)} กก."
                 
     # 4. Standardize and Balance Specs
@@ -1322,7 +1326,7 @@ def generate_comparison_card(
     all_spec_keys = []
     preferred_order = [
         'แรงดันสูงสุด', 'กำลังมอเตอร์', 'ประเภทมอเตอร์', 'กำลังไฟฟ้า', 'อัตราการไหลของน้ำ',
-        'ความยาวสายฉีด', 'ระบบตัดการทำงาน', 'ความเร็วรอบ', 'ขนาดใบตัด/เจียร์', 'น้ำหนักตัวเครื่อง'
+        'ความยาวสายฉีด', 'น้ำหนักตัวเครื่อง', 'ความเร็วรอบ', 'ขนาดใบตัด/เจียร์'
     ]
 
     for item in items[:4]:
@@ -1371,10 +1375,11 @@ def generate_comparison_card(
             'thumb': thumb_im
         })
 
-    # Sort specs by preferred order
-    ordered_keys = [k for k in preferred_order if k in all_spec_keys]
+    # Sort specs by preferred order (Approach 1: Exclude 'ระบบตัดการทำงาน', use 'น้ำหนักตัวเครื่อง' from KTW)
+    all_spec_keys = [k for k in all_spec_keys if k != 'ระบบตัดการทำงาน']
+    ordered_keys = [k for k in preferred_order if k in all_spec_keys and k != 'ระบบตัดการทำงาน']
     for k in all_spec_keys:
-        if k not in ordered_keys:
+        if k not in ordered_keys and k != 'ระบบตัดการทำงาน':
             ordered_keys.append(k)
     ordered_keys = ordered_keys[:7]
 
