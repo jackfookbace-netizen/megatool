@@ -34,43 +34,57 @@ def clean_html(text):
     return text.strip()
 
 def prioritize_variation_lines(desc_text: str, budget: int = 550) -> str:
-    lines = [l.strip() for l in (desc_text or '').strip().splitlines() if l.strip()]
-    if not lines:
+    raw = (desc_text or '').strip()
+    if not raw:
         return ""
     
-    # If full text already fits within budget, return full lines
-    if sum(len(l) + 1 for l in lines) <= budget:
-        return "\n".join(lines)
-    
+    # Group lines into complete, intact blocks by bullet point (never break up sentences!)
+    lines = [l.strip() for l in raw.splitlines() if l.strip()]
+    if not lines:
+        return ""
+        
+    blocks = []
+    curr_block = []
+    for l in lines:
+        if l.startswith('•') or l.startswith('-') or l.startswith('*') or 'รายละเอียดสินค้า' in l or any(l.startswith(k) for k in ['อุปกรณ์มาตรฐาน', 'คุณสมบัติ']):
+            if curr_block:
+                blocks.append("\n".join(curr_block))
+                curr_block = []
+            curr_block.append(l)
+        else:
+            curr_block.append(l)
+    if curr_block:
+        blocks.append("\n".join(curr_block))
+        
+    full_joined = "\n".join(blocks)
+    if len(full_joined) <= budget:
+        return full_joined
+        
     spec_keywords = [
         'กำลังมอเตอร์', 'แรงดัน', 'ปริมาณน้ำ', 'อัตราการฉีด', 'อัตราการไหล',
         'กำลังไฟฟ้า', 'ประเภทมอเตอร์', 'สายอัดฉีด', 'ความยาวสาย', 'ขนาด',
         'น้ำหนัก', 'อุปกรณ์มาตรฐาน', 'ความเร็วรอบ', 'ขนาดแกน', 'ข้อต่อน้ำ',
-        'ความยาว', 'ความกว้าง', 'ความสูง', 'โวลต์', 'วัตต์', 'บาร์', 'ระบบ'
+        'ความยาว', 'ความกว้าง', 'ความสูง', 'โวลต์', 'วัตต์', 'บาร์', 'ระบบ', 'สวิตช์', 'สวิทช์'
     ]
     
-    title_lines = []
-    spec_lines = []
-    other_lines = []
-    
-    for l in lines:
-        if 'รายละเอียดสินค้า' in l or any(k in l for k in ['เครื่องฉีดน้ำ', 'เครื่องเจียร์', 'สว่าน', 'เลื่อย', 'ปั๊ม']):
-            title_lines.append(l)
-        elif any(k in l for k in spec_keywords):
-            spec_lines.append(l)
-        else:
-            other_lines.append(l)
-            
-    ordered = title_lines + spec_lines + other_lines
+    # Prioritize title, specs, then general marketing bullets in original sequence
     selected = []
     curr = 0
-    for l in ordered:
-        if curr + len(l) + 1 > budget:
-            continue
-        selected.append(l)
-        curr += len(l) + 1
-        
-    return "\n".join(selected)
+    # First pass: title and key specs
+    for b in blocks:
+        is_title = 'รายละเอียดสินค้า' in b or any(k in b for k in ['เครื่องฉีดน้ำ', 'เครื่องเจียร์', 'สว่าน', 'เลื่อย', 'ปั๊ม'])
+        is_spec = any(k in b for k in spec_keywords)
+        if (is_title or is_spec) and curr + len(b) + 1 <= budget:
+            selected.append(b)
+            curr += len(b) + 1
+            
+    # Second pass: fill remaining budget with other intact blocks
+    for b in blocks:
+        if b not in selected and curr + len(b) + 1 <= budget:
+            selected.append(b)
+            curr += len(b) + 1
+            
+    return "\n".join(selected) if selected else "\n".join(blocks[:2])
 
 def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_name, use_template=True):
     import hashlib
@@ -357,14 +371,13 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
             if valid_warranties:
                 actual_war = valid_warranties[0]
                 warranty_section = f"""\n\n【 การรับประกันสินค้าและศูนย์บริการ 】
-• การรับประกัน: ประกันศูนย์แท้ {actual_war} (มีใบรับประกันศูนย์แนบในกล่อง)
-• เงื่อนไข: รับประกันข้อบกพร่องจากการผลิตตามมาตรฐานศูนย์บริการอย่างเป็นทางการ
-• มีทีมงานคอยดูแลและประสานงานศูนย์บริการให้ตลอดอายุการใช้งานครับ"""
+• การรับประกัน: ประกันศูนย์แท้ {actual_war}
+• เงื่อนไขการรับประกัน: ครอบคลุมข้อบกพร่องจากการผลิตตามมาตรฐานศูนย์บริการอย่างเป็นทางการ
+• หากมีข้อสงสัยหรือต้องการส่งตรวจเช็ค สามารถติดต่อประสานงานผ่านร้านค้าได้ตลอดอายุการใช้งานครับ"""
 
             confidence_section = f"""\n\n【 มั่นใจได้เมื่อซื้อกับเรา 】
-• สินค้าของแท้ 100% ส่งตรงจากตัวแทนจำหน่ายมาตรฐาน ตรวจเช็คสภาพเครื่องก่อนส่ง
-• แพ็คห่อแน่นหนาด้วยบับเบิ้ลกันกระแทกอย่างดี ป้องกันความเสียหายระหว่างขนส่ง
-• การันตีเปลี่ยนตัวใหม่ใน 7 วัน หากสินค้ามีปัญหาจากขนส่งหรือเปิดเครื่องไม่ติด
+• สินค้าของแท้ 100% ส่งตรงจากตัวแทนจำหน่ายอย่างเป็นทางการ
+• สินค้าใหม่มือ 1 บรรจุในกล่องแพ็คเกจซีลเรียบร้อย พร้อมส่งถึงมือคุณอย่างปลอดภัย
 • สินค้ามีสต็อกจริงพร้อมส่ง จัดส่งรวดเร็วทุกวัน มีบริการเก็บเงินปลายทาง (COD) ครับ"""
 
             header_text = f"[{group_brand} แท้ 100%] รวมตัวเลือกสินค้าคุณภาพมาตรฐานสากล\nสินค้าของแท้ 100% สต็อกไทย พร้อมส่งทันที\n\n【 รายละเอียดตัวเลือกสินค้าในรายการนี้ 】"
@@ -604,9 +617,9 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
             warranty_section = ""
             if single_war and single_war != '-':
                 warranty_section = f"""\n\n【 การรับประกันสินค้าและศูนย์บริการ 】
-• การรับประกัน: ประกันศูนย์แท้ {single_war} (มีใบรับประกันศูนย์แนบในกล่อง)
-• เงื่อนไขการรับประกัน: รับประกันข้อบกพร่องจากการผลิตตามมาตรฐานศูนย์บริการอย่างเป็นทางการ
-• การดูแลหลังการขาย: หากสินค้ามีปัญหา สามารถติดต่อร้านค้าได้ตลอด มีทีมงานช่วยดูแลและประสานงานศูนย์บริการให้โดยตรงครับ"""
+• การรับประกัน: ประกันศูนย์แท้ {single_war}
+• เงื่อนไขการรับประกัน: ครอบคลุมข้อบกพร่องจากการผลิตตามมาตรฐานศูนย์บริการอย่างเป็นทางการ
+• หากมีข้อสงสัยหรือต้องการส่งตรวจเช็ค สามารถติดต่อประสานงานผ่านร้านค้าได้ตลอดอายุการใช้งานครับ"""
 
             shopee_desc = f"""[{brand} แท้ 100%] {raw_name}
 สินค้าของแท้ 100% สต็อกไทย พร้อมส่งทันที
@@ -617,13 +630,10 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
 【 ข้อมูลจำเพาะ 】
 • แบรนด์: {brand}{warranty_section}
 
-【 มั่นใจได้เมื่อซื้อกับร้านเรา 】
-• สินค้าของแท้ 100% ส่งตรงจากตัวแทนจำหน่ายมาตรฐาน
-• ตรวจเช็คสภาพสินค้าเบื้องต้นก่อนแพ็คส่งทุกชิ้น มั่นใจได้ของสมบูรณ์
-• แพ็คห่อแน่นหนาด้วยบับเบิ้ลกันกระแทกอย่างดี ป้องกันความเสียหายระหว่างขนส่ง
-• การันตีเปลี่ยนตัวใหม่ใน 7 วัน หากสินค้าเสียหายจากการขนส่งหรือเปิดเครื่องไม่ติด
-
-📦 สินค้ามีสต็อกจริงพร้อมส่ง จัดส่งรวดเร็วทุกวัน มีบริการเก็บเงินปลายทาง (COD) ครับ"""
+【 มั่นใจได้เมื่อซื้อกับเรา 】
+• สินค้าของแท้ 100% ส่งตรงจากตัวแทนจำหน่ายอย่างเป็นทางการ
+• สินค้าใหม่มือ 1 บรรจุในกล่องแพ็คเกจซีลเรียบร้อย พร้อมส่งถึงมือคุณอย่างปลอดภัย
+• สินค้ามีสต็อกจริงพร้อมส่ง จัดส่งรวดเร็วทุกวัน มีบริการเก็บเงินปลายทาง (COD) ครับ"""
 
             # Map Category ID using intelligent SEO detector
             cat_id = detect_shopee_category(raw_name, brand)
