@@ -3714,16 +3714,15 @@ toggleListedSort(field) {
                         }
                         return title;
                     } else {
-                        const skuPart = sku ? `รหัส ${sku}` : '';
-                        let parts = [prefix, clean, ...addedKw, trustSuffix, skuPart];
+                        let parts = [prefix, clean, ...addedKw, trustSuffix];
                         let title = parts.filter(Boolean).join(' ');
                         while (title.length > 120 && addedKw.length > 0) {
                             addedKw.pop();
-                            parts = [prefix, clean, ...addedKw, trustSuffix, skuPart];
+                            parts = [prefix, clean, ...addedKw, trustSuffix];
                             title = parts.filter(Boolean).join(' ');
                         }
                         if (title.length > 120) {
-                            title = `${prefix} ${clean} ${trustSuffix} ${skuPart}`.trim();
+                            title = `${prefix} ${clean} ${trustSuffix}`.trim();
                             if (title.length > 120) title = title.substring(0, 117) + '...';
                         }
                         return title;

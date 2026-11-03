@@ -105,7 +105,7 @@ def generate_shop_title(sku: str, raw_name: str, brand: str, shop_id: str = "sho
         prefix_tpl = shop.get("title_prefix", "[{brand} แท้ 100%]")
         prefix = prefix_tpl.format(brand=brand)
         clean_name = raw_name.replace(f"[{brand}]", "").strip()
-        title = f"{prefix} {clean_name} รหัส {sku} {suffix}"
+        title = f"{prefix} {clean_name} {suffix}".strip()
         if len(title) > 120:
             title = title[:117] + "..."
         return title.strip()

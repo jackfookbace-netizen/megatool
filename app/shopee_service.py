@@ -379,7 +379,7 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                 opt_title = p['opt_name']
                 p_sku = p['sku']
                 p_war = f" | รับประกัน: {p['warrenty']}" if (p.get('warrenty') and p['warrenty'] != '-') else ""
-                item_header = f"▶ ตัวเลือก: {opt_title} (รหัส {p_sku}){p_war}"
+                item_header = f"▶ ตัวเลือก: {opt_title}{p_war}"
                 p_desc = p.get('raw_desc', '').strip()
                 formatted_body = prioritize_variation_lines(p_desc, budget=budget_per_item)
                 item_blocks.append(f"{item_header}\n{formatted_body}")
@@ -615,9 +615,7 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
 {raw_desc}
 
 【 ข้อมูลจำเพาะ 】
-• แบรนด์: {brand}
-• รหัสสินค้า (SKU): {sku}
-• บาร์โค้ดสากล (EAN): {ean if ean else '-'}{warranty_section}
+• แบรนด์: {brand}{warranty_section}
 
 【 มั่นใจได้เมื่อซื้อกับร้านเรา 】
 • สินค้าของแท้ 100% ส่งตรงจากตัวแทนจำหน่ายมาตรฐาน

@@ -106,15 +106,14 @@ def build_shopee_seo_title(brand: str, raw_name: str, sku: str = "", is_variatio
             if len(title) > 120:
                 title = title[:117] + "..."
     else:
-        sku_part = f"รหัส {sku}" if sku else ""
-        parts = [prefix, clean_name] + added_kw + [trust_suffix, sku_part]
+        parts = [prefix, clean_name] + added_kw + [trust_suffix]
         title = " ".join([p for p in parts if p])
         while len(title) > 120 and added_kw:
             added_kw.pop()
-            parts = [prefix, clean_name] + added_kw + [trust_suffix, sku_part]
+            parts = [prefix, clean_name] + added_kw + [trust_suffix]
             title = " ".join([p for p in parts if p])
         if len(title) > 120:
-            title = f"{prefix} {clean_name} {trust_suffix} {sku_part}".strip()
+            title = f"{prefix} {clean_name} {trust_suffix}".strip()
             if len(title) > 120:
                 title = title[:117] + "..."
                 
