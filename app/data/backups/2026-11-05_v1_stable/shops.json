@@ -1,0 +1,32 @@
+{
+  "shop_1": {
+    "id": "shop_1",
+    "name": "MEGATOOL (ร้านหลัก)",
+    "code": "SHOP1",
+    "brand_display": "MEGATOOL",
+    "profit_margin": 0.15,
+    "fee_rate": 0.28,
+    "min_profit": 50.0,
+    "title_prefix": "[{brand} แท้ 100%]",
+    "title_suffix": "ของแท้มาตรฐานโรงงาน ประกันศูนย์",
+    "tag": "ร้านหลัก / Official",
+    "theme_color": "orange",
+    "is_default": true,
+    "description": "ร้านค้าหลัก เน้นภาพลักษณ์แบรนด์ทางการ สินค้าแท้ศูนย์ 100% พร้อมบริการหลังการขายครบวงจร"
+  },
+  "shop_2": {
+    "id": "shop_2",
+    "name": "BigPower Tools (ร้านที่ 2)",
+    "code": "SHOP2",
+    "brand_display": "BigPower Tools",
+    "profit_margin": 0.08,
+    "fee_rate": 0.28,
+    "min_profit": 30.0,
+    "title_prefix": "[ส่งด่วนแท้ศูนย์]",
+    "title_suffix": "พร้อมส่งทันที มีสต็อกจริง ออกใบกำกับภาษีได้",
+    "tag": "ร้านที่ 2 / BigPower Tools",
+    "theme_color": "blue",
+    "is_default": false,
+    "description": "ร้านค้าที่ 2 แบรนด์ BigPower Tools ธีมสีกรมท่าน้ำเงิน-ส้ม สินค้าคุณภาพแท้ศูนย์ 100%"
+  }
+}
