@@ -26,24 +26,24 @@ AUTH_DATA = {
 
 # Official wholesale dealer costs and suggested retail prices (Shop: พรเจริญ)
 DEALER_MASTER_COSTS = {
-    "Z053-0073": {"cost": 100.0, "suggested": 150.0},
-    "M011-M9513B": {"cost": 1086.4, "suggested": 1601.0},
-    "P271-PL411C": {"cost": 1490.0, "suggested": 2214.0},
-    "M316-0020": {"cost": 85.0, "suggested": 139.0},
-    "P231-0070AE": {"cost": 2500.0, "suggested": 3590.0},
-    "M011-M5801B": {"cost": 2240.7, "suggested": 3290.0},
-    "I081-T0102EL4": {"cost": 305.0, "suggested": 449.0},
-    "KT-J019-ARC200D+": {"cost": 5650.0, "suggested": 8149.0},
-    "M316-0030": {"cost": 150.0, "suggested": 225.0},
-    "N241-NOVO200": {"cost": 2490.0, "suggested": 3500.0},
-    "M011-M8701B": {"cost": 2725.7, "suggested": 3999.0},
-    "P041-2300": {"cost": 850.0, "suggested": 1263.0},
-    "M011-M0910B": {"cost": 843.9, "suggested": 1249.0},
-    "M011-M0900B": {"cost": 843.9, "suggested": 1249.0},
-    "P171-WARRIOR90": {"cost": 1350.0, "suggested": 2130.0},
-    "P171-WARRIOR101N": {"cost": 1775.0, "suggested": 2531.0},
-    "P171-RANGER120": {"cost": 2150.0, "suggested": 3061.0},
-    "P171-COMMANDO135N": {"cost": 2925.0, "suggested": 4149.0}
+    "Z053-0073": {"cost": 100.0, "suggested": 150.0, "base_ktw": 110.4},
+    "M011-M9513B": {"cost": 1086.4, "suggested": 1601.0, "base_ktw": 1434.4},
+    "P271-PL411C": {"cost": 1490.0, "suggested": 2214.0, "base_ktw": 2016.0},
+    "M316-0020": {"cost": 85.0, "suggested": 139.0, "base_ktw": 124.0},
+    "P231-0070AE": {"cost": 2500.0, "suggested": 3590.0, "base_ktw": 3216.0},
+    "M011-M5801B": {"cost": 2240.7, "suggested": 3290.0, "base_ktw": 2965.6},
+    "I081-T0102EL4": {"cost": 305.0, "suggested": 449.0, "base_ktw": 337.6},
+    "KT-J019-ARC200D+": {"cost": 5650.0, "suggested": 8149.0, "base_ktw": 8224.8},
+    "M316-0030": {"cost": 150.0, "suggested": 225.0, "base_ktw": 206.4},
+    "N241-NOVO200": {"cost": 2490.0, "suggested": 3500.0, "base_ktw": 3652.4},
+    "M011-M8701B": {"cost": 2725.7, "suggested": 3999.0, "base_ktw": 3599.2},
+    "P041-2300": {"cost": 850.0, "suggested": 1263.0, "base_ktw": 1096.0},
+    "M011-M0910B": {"cost": 843.9, "suggested": 1249.0, "base_ktw": 1016.0},
+    "M011-M0900B": {"cost": 843.9, "suggested": 1249.0, "base_ktw": 1117.6},
+    "P171-WARRIOR90": {"cost": 1350.0, "suggested": 2130.0, "base_ktw": 1704.0},
+    "P171-WARRIOR101N": {"cost": 1775.0, "suggested": 2531.0, "base_ktw": 2240.0},
+    "P171-RANGER120": {"cost": 2150.0, "suggested": 3061.0, "base_ktw": 2983.2},
+    "P171-COMMANDO135N": {"cost": 2925.0, "suggested": 4149.0, "base_ktw": 4056.8}
 }
 
 _cached_token = None
@@ -436,15 +436,24 @@ def get_product_detail(sku, is_subfetch=False):
             data = r.json()
             data["ktw_url"] = f"https://shop.ktw.co.th/p/{sku}"
 
-            # Dealer wholesale override (ร้าน พรเจริญ)
+            # Dealer wholesale override (ร้าน พรเจริญ) with dynamic live price increase tracking
+            raw_p = data.get("price")
+            raw_val = float(raw_p.get("value", 0.0)) if (raw_p and isinstance(raw_p, dict) and raw_p.get("value")) else 0.0
+
             clean_up = sku.upper()
             if clean_up in DEALER_MASTER_COSTS:
                 m_info = DEALER_MASTER_COSTS[clean_up]
-                if not data.get("price") or not isinstance(data.get("price"), dict):
-                    data["price"] = {"currencyIso": "THB", "value": m_info["cost"], "wasPrice": m_info["suggested"]}
-                else:
-                    data["price"]["value"] = m_info["cost"]
-                    data["price"]["wasPrice"] = m_info["suggested"]
+                cost = m_info["cost"]
+                sugg = m_info["suggested"]
+                base_ktw = m_info.get("base_ktw", 0.0)
+
+                # If KTW raised their website price above baseline, scale dealer cost up automatically
+                if raw_val > 0 and base_ktw > 0 and raw_val > base_ktw:
+                    scale = raw_val / base_ktw
+                    cost = round(m_info["cost"] * scale, 2)
+                    sugg = round(m_info["suggested"] * scale, 2)
+
+                data["price"] = {"currencyIso": "THB", "value": cost, "wasPrice": sugg}
 
             # Special condition for Z053-0073:
             # 1. 10 rolls @ 10 THB/roll -> cost is 100 THB/pack (10x10)

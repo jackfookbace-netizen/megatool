@@ -115,10 +115,12 @@ def get_all_listed(shop_id: str = "shop_1", refresh_stock: bool = True) -> Dict[
                         if live_stock is not None and item.get("stock") != live_stock:
                             item["stock"] = live_stock
                             needs_save = True
-                        # Only fill cost_price if it was missing/0 (never overwrite existing dealer wholesale cost)
-                        if (item.get("cost_price") is None or float(item.get("cost_price", 0)) <= 0) and sku != "Z053-0073":
-                            live_cost = detail.get("price", {}).get("value")
-                            if live_cost and float(live_cost) > 0:
+                        # Dynamic cost sync: if KTW increases price on shop.ktw.co.th, update ALL shops immediately
+                        live_cost = detail.get("price", {}).get("value")
+                        if live_cost and float(live_cost) > 0:
+                            current_cost = float(item.get("cost_price", 0.0) or 0.0)
+                            # If KTW cost increased or was missing, apply new cost across all shops to protect margin
+                            if float(live_cost) > current_cost or current_cost <= 0:
                                 item["cost_price"] = float(live_cost)
                                 needs_save = True
 

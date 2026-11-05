@@ -2502,7 +2502,7 @@
                 excludeSpares: true,
                 excludeListed: false,
                 bestsellerOnly: false,
-                shopeeFeePercent: 12,
+                shopeeFeePercent: 28,
                 targetMarginPercent: 7,
                 minProfit: 30,
                 shopName: 'MEGATOOL',
@@ -3780,7 +3780,7 @@ toggleListedSort(field) {
                 // Shopee Ledger & Profit Calculation Helpers
                 getShopeeFee(price) {
                     const p = parseFloat(price) || 0;
-                    const fee = parseFloat(this.shopeeFeePercent) || 12;
+                    const fee = parseFloat(this.shopeeFeePercent) || 28;
                     return Math.round(p * (fee / 100));
                 },
 
