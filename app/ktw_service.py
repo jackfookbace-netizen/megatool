@@ -24,6 +24,28 @@ AUTH_DATA = {
     "password": "12341234"
 }
 
+# Official wholesale dealer costs and suggested retail prices (Shop: พรเจริญ)
+DEALER_MASTER_COSTS = {
+    "Z053-0073": {"cost": 100.0, "suggested": 150.0},
+    "M011-M9513B": {"cost": 1086.4, "suggested": 1601.0},
+    "P271-PL411C": {"cost": 1490.0, "suggested": 2214.0},
+    "M316-0020": {"cost": 85.0, "suggested": 139.0},
+    "P231-0070AE": {"cost": 2500.0, "suggested": 3590.0},
+    "M011-M5801B": {"cost": 2240.7, "suggested": 3290.0},
+    "I081-T0102EL4": {"cost": 305.0, "suggested": 449.0},
+    "KT-J019-ARC200D+": {"cost": 5650.0, "suggested": 8149.0},
+    "M316-0030": {"cost": 150.0, "suggested": 225.0},
+    "N241-NOVO200": {"cost": 2490.0, "suggested": 3500.0},
+    "M011-M8701B": {"cost": 2725.7, "suggested": 3999.0},
+    "P041-2300": {"cost": 850.0, "suggested": 1263.0},
+    "M011-M0910B": {"cost": 843.9, "suggested": 1249.0},
+    "M011-M0900B": {"cost": 843.9, "suggested": 1249.0},
+    "P171-WARRIOR90": {"cost": 1350.0, "suggested": 2130.0},
+    "P171-WARRIOR101N": {"cost": 1775.0, "suggested": 2531.0},
+    "P171-RANGER120": {"cost": 2150.0, "suggested": 3061.0},
+    "P171-COMMANDO135N": {"cost": 2925.0, "suggested": 4149.0}
+}
+
 _cached_token = None
 
 def refresh_token():
@@ -138,8 +160,11 @@ def _get_bestsellers_all(final_query, exclude_spare_parts, in_stock_only):
         p_price = item.get('price', {}).get('value', 0)
         p_was_price = item.get('price', {}).get('wasPrice', p_price)
         
-        # Special condition for Z053-0073 (10 rolls @ 10 THB/roll = 100 THB/pack)
-        if p_code == "Z053-0073":
+        # Dealer wholesale override
+        if p_code and p_code.upper() in DEALER_MASTER_COSTS:
+            p_price = DEALER_MASTER_COSTS[p_code.upper()]["cost"]
+            p_was_price = DEALER_MASTER_COSTS[p_code.upper()]["suggested"]
+        elif p_code == "Z053-0073":
             p_price = 100.0
             p_was_price = 100.0
         
@@ -257,8 +282,11 @@ def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_pa
                 p_price = item.get('price', {}).get('value', 0)
                 p_was_price = item.get('price', {}).get('wasPrice', p_price)
 
-                # Special condition for Z053-0073 (10 rolls @ 10 THB/roll = 100 THB/pack)
-                if p_code == "Z053-0073":
+                # Dealer wholesale override
+                if p_code and p_code.upper() in DEALER_MASTER_COSTS:
+                    p_price = DEALER_MASTER_COSTS[p_code.upper()]["cost"]
+                    p_was_price = DEALER_MASTER_COSTS[p_code.upper()]["suggested"]
+                elif p_code == "Z053-0073":
                     p_price = 100.0
                     p_was_price = 100.0
                 
@@ -407,6 +435,16 @@ def get_product_detail(sku, is_subfetch=False):
         if r.status_code == 200:
             data = r.json()
             data["ktw_url"] = f"https://shop.ktw.co.th/p/{sku}"
+
+            # Dealer wholesale override (ร้าน พรเจริญ)
+            clean_up = sku.upper()
+            if clean_up in DEALER_MASTER_COSTS:
+                m_info = DEALER_MASTER_COSTS[clean_up]
+                if not data.get("price") or not isinstance(data.get("price"), dict):
+                    data["price"] = {"currencyIso": "THB", "value": m_info["cost"], "wasPrice": m_info["suggested"]}
+                else:
+                    data["price"]["value"] = m_info["cost"]
+                    data["price"]["wasPrice"] = m_info["suggested"]
 
             # Special condition for Z053-0073:
             # 1. 10 rolls @ 10 THB/roll -> cost is 100 THB/pack (10x10)

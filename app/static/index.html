@@ -1325,7 +1325,7 @@
                                 <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
                                     <span class="text-[11px] text-slate-500 block">ราคาทุน KTW:</span>
                                     <div class="text-base font-bold text-slate-800 mt-0.5 tabular-nums" x-text="'฿' + (activeDetailProduct?.price?.value || 0).toLocaleString()"></div>
-                                    <span class="text-[10px] text-orange-600 font-bold" x-text="'ราคาแนะนำ Shopee: ฿' + (Math.round((activeDetailProduct?.price?.value || 0) * 1.25)).toLocaleString()"></span>
+                                    <span class="text-[10px] text-orange-600 font-bold" x-text="'ราคาแนะนำ Shopee: ฿' + (activeDetailProduct?.price?.wasPrice ? Number(activeDetailProduct.price.wasPrice).toLocaleString() : Math.round((activeDetailProduct?.price?.value || 0) * 1.25).toLocaleString())"></span>
                                 </div>
                             </div>
 
