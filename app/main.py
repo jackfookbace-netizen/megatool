@@ -113,6 +113,7 @@ class AttachShopeeRequest(BaseModel):
     name: Optional[str] = ""
     brand: Optional[str] = ""
     price: Optional[float] = 0.0
+    cost_price: Optional[float] = None
     image_url: Optional[str] = ""
     variation_name: Optional[str] = ""
     shop_id: Optional[str] = "shop_1"
@@ -148,6 +149,7 @@ def api_save_listed(req: AttachShopeeRequest, request: Request, authorization: O
         price=req.price or 0.0,
         image_url=req.image_url or "",
         variation_name=req.variation_name or "",
+        cost_price=req.cost_price,
         shop_id=req.shop_id or "shop_1"
     )
     return {"success": True, "item": item}

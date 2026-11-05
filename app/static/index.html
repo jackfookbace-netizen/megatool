@@ -2502,7 +2502,7 @@
                 excludeSpares: true,
                 excludeListed: false,
                 bestsellerOnly: false,
-                shopeeFeePercent: 28,
+                shopeeFeePercent: 12,
                 targetMarginPercent: 7,
                 minProfit: 30,
                 shopName: 'MEGATOOL',
@@ -3035,6 +3035,14 @@
                         if (res.ok) {
                             const data = await res.json();
                             let serverItems = data.items || [];
+
+                            // One-time cache migration: wipe stale 0-cost / distorted price caches
+                            const SYNC_VERSION = 'v4_exact_master_20261105';
+                            if (localStorage.getItem('megatool_sync_version') !== SYNC_VERSION) {
+                                localStorage.removeItem('megatool_listed_products_backup_shop_1');
+                                localStorage.removeItem('megatool_listed_products_backup_shop_2');
+                                localStorage.setItem('megatool_sync_version', SYNC_VERSION);
+                            }
 
                             // Two-way LocalStorage sync: Protect against Render container restarts & redeploys
                             let localBackup = {};
@@ -3772,7 +3780,7 @@ toggleListedSort(field) {
                 // Shopee Ledger & Profit Calculation Helpers
                 getShopeeFee(price) {
                     const p = parseFloat(price) || 0;
-                    const fee = parseFloat(this.shopeeFeePercent) || 28;
+                    const fee = parseFloat(this.shopeeFeePercent) || 12;
                     return Math.round(p * (fee / 100));
                 },
 

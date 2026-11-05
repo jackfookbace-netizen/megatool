@@ -86,7 +86,7 @@ def get_all_listed(shop_id: str = "shop_1", refresh_stock: bool = True) -> Dict[
                     item["ktw_url"] = f"https://shop.ktw.co.th/p/{sku}"
                     needs_save = True
 
-        # 2. Real-time Live Warehouse Stock & Cost Sync with KTW
+        # 2. Real-time Live Warehouse Stock Sync with KTW (Stock only, NEVER overwrite dealer cost)
         if refresh_stock and (now - _LAST_STOCK_REFRESH > _STOCK_REFRESH_INTERVAL) and len(items) > 0:
             _LAST_STOCK_REFRESH = now
             from concurrent.futures import ThreadPoolExecutor
@@ -115,10 +115,11 @@ def get_all_listed(shop_id: str = "shop_1", refresh_stock: bool = True) -> Dict[
                         if live_stock is not None and item.get("stock") != live_stock:
                             item["stock"] = live_stock
                             needs_save = True
-                        if sku != "Z053-0073":
+                        # Only fill cost_price if it was missing/0 (never overwrite existing dealer wholesale cost)
+                        if (item.get("cost_price") is None or float(item.get("cost_price", 0)) <= 0) and sku != "Z053-0073":
                             live_cost = detail.get("price", {}).get("value")
-                            if live_cost and item.get("cost_price") != live_cost:
-                                item["cost_price"] = live_cost
+                            if live_cost and float(live_cost) > 0:
+                                item["cost_price"] = float(live_cost)
                                 needs_save = True
 
         if needs_save:
@@ -144,6 +145,27 @@ def update_listed_product_price(sku: str, price: float, shop_id: str = "shop_1")
         return items[clean_sku]
     return None
 
+AUTHENTIC_MASTER_COSTS = {
+    "Z053-0073": 100.0,
+    "M011-M9513B": 1086.4,
+    "P271-PL411C": 1490.0,
+    "M316-0020": 85.0,
+    "P231-0070AE": 2500.0,
+    "M011-M5801B": 2240.7,
+    "I081-T0102EL4": 305.0,
+    "KT-J019-ARC200D+": 5650.0,
+    "M316-0030": 150.0,
+    "N241-NOVO200": 2490.0,
+    "M011-M8701B": 2725.7,
+    "P041-2300": 850.0,
+    "M011-M0910B": 843.9,
+    "M011-M0900B": 843.9,
+    "P171-WARRIOR90": 1350.0,
+    "P171-WARRIOR101N": 1775.0,
+    "P171-RANGER120": 2150.0,
+    "P171-COMMANDO135N": 2925.0
+}
+
 def save_listed_product(
     sku: str, 
     shopee_url: str, 
@@ -152,6 +174,7 @@ def save_listed_product(
     price: float = 0.0, 
     image_url: str = "", 
     variation_name: str = "",
+    cost_price: Optional[float] = None,
     shop_id: str = "shop_1"
 ) -> dict:
     from app.ktw_service import get_product_detail, clean_brand_name, extract_product_images
@@ -161,6 +184,12 @@ def save_listed_product(
     if clean_url and not clean_url.startswith("http://") and not clean_url.startswith("https://"):
         clean_url = "https://" + clean_url
         
+    raw_data = _read_all_raw()
+    if shop_id not in raw_data:
+        raw_data[shop_id] = {}
+    items = raw_data[shop_id]
+    existing = items.get(clean_sku, {})
+
     detail = None
     try:
         detail = get_product_detail(clean_sku)
@@ -172,38 +201,52 @@ def save_listed_product(
         real_brand = clean_brand_name(detail.get("manufacturer"), clean_sku)
         imgs = extract_product_images(detail)
         real_img = imgs[0] if imgs else ""
-        cost_val = 100.0 if clean_sku == "Z053-0073" else (detail.get("price", {}).get("value", 0.0) or 0.0)
+        ktw_price = detail.get("price", {}).get("value", 0.0) or 0.0
         stock_val = detail.get("stock", {}).get("stockLevel", 0) or 0
         
-        name = name or real_name
-        brand = brand or real_brand
-        image_url = image_url or real_img
-        if not price or price <= 0:
-            price = calculate_shop_price(cost_val, shop_id)
+        name = name or existing.get("name") or real_name
+        brand = brand or existing.get("brand") or real_brand
+        image_url = image_url or existing.get("image_url") or real_img
     else:
-        cost_val = 100.0 if clean_sku == "Z053-0073" else 0.0
-        stock_val = 0
+        ktw_price = 0.0
+        stock_val = existing.get("stock", 0)
+
+    # Determine accurate wholesale dealer cost (never overwrite with 0)
+    if cost_price is not None and float(cost_price) > 0:
+        cost_val = float(cost_price)
+    elif existing.get("cost_price") and float(existing.get("cost_price", 0)) > 0:
+        cost_val = float(existing.get("cost_price"))
+    elif clean_sku in AUTHENTIC_MASTER_COSTS:
+        cost_val = AUTHENTIC_MASTER_COSTS[clean_sku]
+    elif clean_sku == "Z053-0073":
+        cost_val = 100.0
+    elif ktw_price > 0:
+        cost_val = ktw_price
+    else:
+        cost_val = 0.0
+
+    # Selling price logic: respect explicit price or existing price, never force auto recalculation
+    final_price = float(price or 0.0)
+    if final_price <= 0:
+        final_price = float(existing.get("price", 0.0))
+    if final_price <= 0:
+        final_price = calculate_shop_price(cost_val, shop_id)
         
-    raw_data = _read_all_raw()
-    if shop_id not in raw_data:
-        raw_data[shop_id] = {}
-        
-    items = raw_data[shop_id]
     now_str = datetime.now().isoformat()
     
     item_data = {
         "sku": clean_sku,
-        "shopee_url": clean_url,
-        "variation_name": (variation_name or "").strip(),
+        "shopee_url": clean_url or existing.get("shopee_url", ""),
+        "variation_name": (variation_name or existing.get("variation_name", "")).strip(),
         "name": name or clean_sku,
         "brand": brand or "OTHER",
-        "price": price,
+        "price": final_price,
         "image_url": image_url,
         "cost_price": cost_val,
         "stock": stock_val,
         "ktw_url": f"https://shop.ktw.co.th/p/{clean_sku}",
         "shop_id": shop_id,
-        "created_at": items.get(clean_sku, {}).get("created_at", now_str),
+        "created_at": existing.get("created_at", now_str),
         "updated_at": now_str
     }
     
