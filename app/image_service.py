@@ -479,7 +479,13 @@ def generate_collage(
     """
     CANVAS_SIZE = 1200
     RED = (239, 28, 37, 255)
+    TOOL_NAVY = (15, 62, 104, 255)
+    POWER_ORANGE = (245, 130, 32, 255)
     WHITE = (255, 255, 255, 255)
+
+    is_bigpower = bool(shop_name and ('bigpower' in shop_name.lower() or 'big power' in shop_name.lower() or 'shop2' in shop_name.lower() or 'shop_2' in shop_name.lower()))
+    is_mega = not is_bigpower and (not shop_name or 'mega' in shop_name.lower() or 'zonix' in shop_name.lower() or 'shop1' in shop_name.lower() or 'shop_1' in shop_name.lower())
+    theme_color = TOOL_NAVY if is_bigpower else RED
 
     def _parse_rgba(color_val, default=(255, 255, 255, 255)):
         if not color_val:
@@ -902,50 +908,77 @@ def generate_collage(
         # CASE 4: Neither Model nor Title -> Clean canvas without any pill!
         pass
 
-    # 5. Official MEGATOOL Red Logo (Exact shop template)
+    # 5. Shop Logo & Outer Border (MEGATOOL Red vs BigPower Tools Navy)
     border_w = 22
-    f_prefix = load_font('arialbd.ttf', 84)
-    f_tool = load_font('ariblk.ttf', 84)
+    margin_top = 30 if is_bigpower else 28
 
-    part_prefix = 'MEGA'
-    char_t, char_o1, char_o2, char_l = 'T', 'O', 'O', 'L'
+    if is_bigpower:
+        f_prefix = load_font('arialbd.ttf', 72)
+        f_tool = load_font('ariblk.ttf', 72)
+        part_prefix = "BIGPOWER "
+        char_t, char_o1, char_o2, char_l, char_s = 'T', 'O', 'O', 'L', 'S'
+        w_prefix = draw.textbbox((0, 0), part_prefix, font=f_prefix)[2]
+        w_t = draw.textbbox((0, 0), char_t, font=f_tool)[2]
+        w_o1 = draw.textbbox((0, 0), char_o1, font=f_tool)[2]
+        w_o2 = draw.textbbox((0, 0), char_o2, font=f_tool)[2]
+        w_l = draw.textbbox((0, 0), char_l, font=f_tool)[2]
+        w_s = draw.textbbox((0, 0), char_s, font=f_tool)[2]
+        total_w = w_prefix + w_t + w_o1 + w_o2 + w_l + w_s
+        x_start = 36 if pos == "top-right" else (CANVAS_SIZE - 36 - total_w)
+        y_text = margin_top
 
-    w_prefix = draw.textbbox((0, 0), part_prefix, font=f_prefix)[2]
-    w_t = draw.textbbox((0, 0), char_t, font=f_tool)[2]
-    w_o1 = draw.textbbox((0, 0), char_o1, font=f_tool)[2]
-    w_o2 = draw.textbbox((0, 0), char_o2, font=f_tool)[2]
-    w_l = draw.textbbox((0, 0), char_l, font=f_tool)[2]
+        draw.text((x_start, y_text), part_prefix, fill=theme_color, font=f_prefix)
+        xt = x_start + w_prefix
+        draw.text((xt, y_text), char_t, fill=theme_color, font=f_tool)
+        xo1 = xt + w_t
+        draw.text((xo1, y_text), char_o1, fill=theme_color, font=f_tool)
+        xo2 = xo1 + w_o1
+        draw.text((xo2, y_text), char_o2, fill=theme_color, font=f_tool)
+        xl = xo2 + w_o2
+        draw.text((xl, y_text), char_l, fill=theme_color, font=f_tool)
+        xs = xl + w_l
+        draw.text((xs, y_text), char_s, fill=theme_color, font=f_tool)
 
-    total_w = w_prefix + w_t + w_o1 + w_o2 + w_l
-    margin_top = 28
-
-    if pos == "top-right":
-        x_start = 32
+        o1_box = draw.textbbox((xo1, y_text), char_o1, font=f_tool)
+        o2_box = draw.textbbox((xo2, y_text), char_o2, font=f_tool)
+        arc_left = o1_box[0] + 2
+        arc_right = o2_box[2] - 2
+        arc_top = o1_box[3] - 8
+        arc_bot = o1_box[3] + 22
+        draw.arc([arc_left, arc_top, arc_right, arc_bot], start=12, end=168, fill=POWER_ORANGE, width=6)
     else:
-        margin_right = 32
-        x_start = CANVAS_SIZE - margin_right - total_w
+        f_prefix = load_font('arialbd.ttf', 84)
+        f_tool = load_font('ariblk.ttf', 84)
+        part_prefix = 'MEGA'
+        char_t, char_o1, char_o2, char_l = 'T', 'O', 'O', 'L'
+        w_prefix = draw.textbbox((0, 0), part_prefix, font=f_prefix)[2]
+        w_t = draw.textbbox((0, 0), char_t, font=f_tool)[2]
+        w_o1 = draw.textbbox((0, 0), char_o1, font=f_tool)[2]
+        w_o2 = draw.textbbox((0, 0), char_o2, font=f_tool)[2]
+        w_l = draw.textbbox((0, 0), char_l, font=f_tool)[2]
+        total_w = w_prefix + w_t + w_o1 + w_o2 + w_l
+        x_start = 32 if pos == "top-right" else (CANVAS_SIZE - 32 - total_w)
+        y_text = margin_top
 
-    y_text = margin_top
+        draw.text((x_start, y_text), part_prefix, fill=RED, font=f_prefix)
+        xt = x_start + w_prefix
+        draw.text((xt, y_text), char_t, fill=RED, font=f_tool)
+        xo1 = xt + w_t
+        draw.text((xo1, y_text), char_o1, fill=RED, font=f_tool)
+        xo2 = xo1 + w_o1
+        draw.text((xo2, y_text), char_o2, fill=RED, font=f_tool)
+        xl = xo2 + w_o2
+        draw.text((xl, y_text), char_l, fill=RED, font=f_tool)
 
-    draw.text((x_start, y_text), part_prefix, fill=RED, font=f_prefix)
-    xt = x_start + w_prefix
-    draw.text((xt, y_text), char_t, fill=RED, font=f_tool)
-    xo1 = xt + w_t
-    draw.text((xo1, y_text), char_o1, fill=RED, font=f_tool)
-    xo2 = xo1 + w_o1
-    draw.text((xo2, y_text), char_o2, fill=RED, font=f_tool)
-    xl = xo2 + w_o2
-    draw.text((xl, y_text), char_l, fill=RED, font=f_tool)
+        o1_box = draw.textbbox((xo1, y_text), char_o1, font=f_tool)
+        o2_box = draw.textbbox((xo2, y_text), char_o2, font=f_tool)
+        arc_left = o1_box[0] + 6
+        arc_right = o2_box[2] - 6
+        arc_top = o1_box[3] - 16
+        arc_bot = o1_box[3] + 16
+        draw.arc([arc_left, arc_top, arc_right, arc_bot], start=10, end=170, fill=RED, width=7)
 
-    o1_box = draw.textbbox((xo1, y_text), char_o1, font=f_tool)
-    o2_box = draw.textbbox((xo2, y_text), char_o2, font=f_tool)
-    arc_left = o1_box[0] + 6
-    arc_right = o2_box[2] - 6
-    arc_top = o1_box[3] - 16
-    arc_bot = o1_box[3] + 16
-    draw.arc([arc_left, arc_top, arc_right, arc_bot], start=10, end=170, fill=RED, width=7)
-
-    # 6. Bottom-Right: Slanted Red Ribbon Banner
+    # 6. Bottom-Right: Slanted Ribbon Banner
     banner_h = 120
     y_top = CANVAS_SIZE - banner_h
     y_bot = CANVAS_SIZE
@@ -957,7 +990,7 @@ def generate_collage(
         (CANVAS_SIZE, y_bot),
         (CANVAS_SIZE, y_top),
         (x_slant_top, y_top)
-    ], fill=RED)
+    ], fill=theme_color)
 
     display_banner_text = badge_text or "มีสต็อกพร้อมส่งทันที"
     f_banner = load_font('tahomabd.ttf', 46)
@@ -981,14 +1014,14 @@ def generate_collage(
     num_x = CANVAS_SIZE - 45 - num_w
     thai_x = num_x - 30 - thai_w
 
-    draw.text((thai_x, badge_y), thai_str, fill=RED, font=f_badge_thai, anchor='ls')
-    draw.text((num_x, badge_y), num_str, fill=RED, font=f_badge_num, anchor='ls')
+    draw.text((thai_x, badge_y), thai_str, fill=theme_color, font=f_badge_thai, anchor='ls')
+    draw.text((num_x, badge_y), num_str, fill=theme_color, font=f_badge_num, anchor='ls')
 
-    draw.line([(num_x - 4, badge_y - 64), (num_x + num_w + 4, badge_y - 64)], fill=RED, width=4)
-    draw.line([(num_x - 4, badge_y + 8), (num_x + num_w + 4, badge_y + 8)], fill=RED, width=4)
+    draw.line([(num_x - 4, badge_y - 64), (num_x + num_w + 4, badge_y - 64)], fill=theme_color, width=4)
+    draw.line([(num_x - 4, badge_y + 8), (num_x + num_w + 4, badge_y + 8)], fill=theme_color, width=4)
 
-    # 8. Outer Red Border (drawn LAST so it cleanly frames everything!)
-    draw.rectangle([(0, 0), (CANVAS_SIZE - 1, CANVAS_SIZE - 1)], outline=RED, width=border_w)
+    # 8. Outer Border
+    draw.rectangle([(0, 0), (CANVAS_SIZE - 1, CANVAS_SIZE - 1)], outline=theme_color, width=border_w)
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     canvas.convert('RGB').save(output_path, "JPEG", quality=95)
