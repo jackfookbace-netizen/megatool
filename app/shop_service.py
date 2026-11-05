@@ -23,9 +23,9 @@ DEFAULT_SHOPS = {
     },
     "shop_2": {
         "id": "shop_2",
-        "name": "MEGATOOL Store 2 (สาขา 2)",
+        "name": "BigPower Tools (ร้านที่ 2)",
         "code": "SHOP2",
-        "brand_display": "MEGATOOL ECO",
+        "brand_display": "BigPower Tools",
         "profit_margin": 0.08,
         "fee_rate": 0.28,
         "min_profit": 30.0,

@@ -16,17 +16,17 @@
   },
   "shop_2": {
     "id": "shop_2",
-    "name": "MEGATOOL Store 2 (สาขา 2)",
+    "name": "BigPower Tools (ร้านที่ 2)",
     "code": "SHOP2",
-    "brand_display": "MEGATOOL ECO",
+    "brand_display": "BigPower Tools",
     "profit_margin": 0.08,
     "fee_rate": 0.28,
     "min_profit": 30.0,
     "title_prefix": "[ส่งด่วนแท้ศูนย์]",
     "title_suffix": "พร้อมส่งทันที มีสต็อกจริง ออกใบกำกับภาษีได้",
-    "tag": "สาขา 2 / Eco Outlet",
+    "tag": "ร้านที่ 2 / BigPower Tools",
     "theme_color": "blue",
     "is_default": false,
-    "description": "ร้านสาขาที่ 2 เน้นทำราคาแข่งขัน ดึงลูกค้าสายประหยัด ใช้คีย์เวิร์ดและรูปมุมมองพิเศษเพื่อไม่ให้ซ้ำกับร้านแรก"
+    "description": "ร้านค้าที่ 2 แบรนด์ BigPower Tools ธีมสีกรมท่าน้ำเงิน-ส้ม สินค้าคุณภาพแท้ศูนย์ 100%"
   }
 }

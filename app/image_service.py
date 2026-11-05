@@ -55,9 +55,17 @@ def generate_cover(
     if not overwrite and output_path and os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
         return output_path
 
-    RED = (239, 28, 37, 255) # #EF1C25
+    RED = (239, 28, 37, 255) # #EF1C25 (MEGATOOL Red)
+    TOOL_NAVY = (15, 62, 104, 255) # #0F3E68 (BigPower Tools Navy)
+    POWER_ORANGE = (245, 130, 32, 255) # #F58220 (Tool City Orange)
     WHITE = (255, 255, 255, 255)
     canvas_size = 1200
+
+    # Determine shop branding: MEGATOOL (Red) vs BigPower Tools (Navy Blue)
+    is_bigpower = bool(shop_name and ('bigpower' in shop_name.lower() or 'big power' in shop_name.lower() or 'shop2' in shop_name.lower() or 'shop_2' in shop_name.lower()))
+    is_mega = not is_bigpower and (not shop_name or 'mega' in shop_name.lower() or 'zonix' in shop_name.lower() or 'shop1' in shop_name.lower() or 'shop_1' in shop_name.lower())
+
+    theme_color = TOOL_NAVY if is_bigpower else RED
     
     # 1. Canvas
     canvas = Image.new('RGBA', (canvas_size, canvas_size), WHITE)
@@ -92,12 +100,52 @@ def generate_cover(
 
     # 4. Outer Red Frame (on top of image)
     border_w = 22
-    draw.rectangle([(0, 0), (canvas_size - 1, canvas_size - 1)], outline=RED, width=border_w)
+    draw.rectangle([(0, 0), (canvas_size - 1, canvas_size - 1)], outline=theme_color, width=border_w)
 
-    # 4. Top-Right: Shop Logo (MEGATOOL with curved mustache under 'OO', no S, no dot)
-    is_mega = not shop_name or 'mega' in shop_name.lower() or 'zonix' in shop_name.lower()
-
-    if is_mega:
+    # 4. Top-Right: Shop Logo (MEGATOOL Red vs BigPower Tools Navy)
+    if is_bigpower:
+        # BigPower Tools: 'BIGPOWER' in Arial Bold, 'TOOLS' in Arial Black, Orange Smile under 'OO'
+        f_prefix = load_font('arialbd.ttf', 72)
+        f_tool = load_font('ariblk.ttf', 72)
+        
+        part_prefix = "BIGPOWER "
+        char_t, char_o1, char_o2, char_l, char_s = 'T', 'O', 'O', 'L', 'S'
+        
+        w_prefix = draw.textbbox((0, 0), part_prefix, font=f_prefix)[2]
+        w_t = draw.textbbox((0, 0), char_t, font=f_tool)[2]
+        w_o1 = draw.textbbox((0, 0), char_o1, font=f_tool)[2]
+        w_o2 = draw.textbbox((0, 0), char_o2, font=f_tool)[2]
+        w_l = draw.textbbox((0, 0), char_l, font=f_tool)[2]
+        w_s = draw.textbbox((0, 0), char_s, font=f_tool)[2]
+        
+        total_w = w_prefix + w_t + w_o1 + w_o2 + w_l + w_s
+        margin_right = 36
+        margin_top = 30
+        
+        x_start = canvas_size - margin_right - total_w
+        y_text = margin_top
+        
+        draw.text((x_start, y_text), part_prefix, fill=theme_color, font=f_prefix)
+        xt = x_start + w_prefix
+        draw.text((xt, y_text), char_t, fill=theme_color, font=f_tool)
+        xo1 = xt + w_t
+        draw.text((xo1, y_text), char_o1, fill=theme_color, font=f_tool)
+        xo2 = xo1 + w_o1
+        draw.text((xo2, y_text), char_o2, fill=theme_color, font=f_tool)
+        xl = xo2 + w_o2
+        draw.text((xl, y_text), char_l, fill=theme_color, font=f_tool)
+        xs = xl + w_l
+        draw.text((xs, y_text), char_s, fill=theme_color, font=f_tool)
+        
+        # Tool City Orange Smile Arc under OO with balanced gap
+        o1_box = draw.textbbox((xo1, y_text), char_o1, font=f_tool)
+        o2_box = draw.textbbox((xo2, y_text), char_o2, font=f_tool)
+        arc_left = o1_box[0] + 2
+        arc_right = o2_box[2] - 2
+        arc_top = o1_box[3] - 8
+        arc_bot = o1_box[3] + 22
+        draw.arc([arc_left, arc_top, arc_right, arc_bot], start=12, end=168, fill=POWER_ORANGE, width=6)
+    elif is_mega:
         f_prefix = load_font('arialbd.ttf', 84)
         f_tool = load_font('ariblk.ttf', 84)
 
@@ -171,7 +219,7 @@ def generate_cover(
         (canvas_size, y_bot),
         (canvas_size, y_top),
         (x_slant_top, y_top)
-    ], fill=RED)
+    ], fill=theme_color)
     
     # Text inside ribbon (default: 'มีสต็อกพร้อมส่งทันที')
     display_banner_text = badge_text if (badge_text and badge_text != 'ของแท้ 100%') else "มีสต็อกพร้อมส่งทันที"
@@ -199,12 +247,12 @@ def generate_cover(
     num_x = canvas_size - 45 - num_w
     thai_x = num_x - 30 - thai_w
     
-    draw.text((thai_x, badge_y), thai_str, fill=RED, font=f_badge_thai, anchor='ls')
-    draw.text((num_x, badge_y), num_str, fill=RED, font=f_badge_num, anchor='ls')
+    draw.text((thai_x, badge_y), thai_str, fill=theme_color, font=f_badge_thai, anchor='ls')
+    draw.text((num_x, badge_y), num_str, fill=theme_color, font=f_badge_num, anchor='ls')
     
     line_w = 4
-    draw.line([(num_x - 4, badge_y - 64), (num_x + num_w + 4, badge_y - 64)], fill=RED, width=line_w)
-    draw.line([(num_x - 4, badge_y + 8), (num_x + num_w + 4, badge_y + 8)], fill=RED, width=line_w)
+    draw.line([(num_x - 4, badge_y - 64), (num_x + num_w + 4, badge_y - 64)], fill=theme_color, width=line_w)
+    draw.line([(num_x - 4, badge_y + 8), (num_x + num_w + 4, badge_y + 8)], fill=theme_color, width=line_w)
 
     # 7. Save
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
