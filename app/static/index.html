@@ -2631,14 +2631,42 @@
                         await this.fetchListed();
                         this.fetchDashboardStats();
                         this.search();
+                        await this.fetchCartForShop(this.activeShopId || 'shop_1');
                     }
                     this.$nextTick(() => lucide.createIcons());
                 },
 
                 saveCartToStorage() {
                     try {
+                        const shopId = this.activeShopId || 'shop_1';
                         localStorage.setItem('megatool_selected_items', JSON.stringify(this.selectedItems || []));
+                        localStorage.setItem(`cart_${shopId}`, JSON.stringify(this.selectedItems || []));
+                        fetch('/api/cart', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ shop_id: shopId, items: this.selectedItems || [] })
+                        }).catch(() => {});
                     } catch (e) {}
+                },
+
+                async fetchCartForShop(shopId) {
+                    try {
+                        const res = await fetch(`/api/cart?shop_id=${shopId}`);
+                        const data = await res.json();
+                        if (data && data.success && Array.isArray(data.items) && data.items.length > 0) {
+                            this.selectedItems = data.items;
+                            localStorage.setItem('megatool_selected_items', JSON.stringify(this.selectedItems));
+                            localStorage.setItem(`cart_${shopId}`, JSON.stringify(this.selectedItems));
+                            return;
+                        }
+                        const local = localStorage.getItem(`cart_${shopId}`);
+                        if (local) {
+                            this.selectedItems = JSON.parse(local);
+                            return;
+                        }
+                    } catch (e) {
+                        console.error('Error fetching cart for shop:', e);
+                    }
                 },
 
                 loadCartFromStorage() {
@@ -2871,6 +2899,7 @@
                     this.selectedListedSkus = [];
                     await this.fetchListed();
                     await this.fetchDashboardStats();
+                    await this.fetchCartForShop(shopId);
                     this.$nextTick(() => lucide.createIcons());
                 },
 

@@ -201,6 +201,44 @@ def api_clone_products(req: CloneProductRequest, request: Request, authorization
         cloned_items.append(item)
     return {"success": True, "cloned_count": len(cloned_items), "items": cloned_items}
 
+class SaveCartRequest(BaseModel):
+    shop_id: Optional[str] = "shop_1"
+    items: List[dict]
+
+@app.get("/api/cart")
+def api_get_cart(shop_id: Optional[str] = Query("shop_1")):
+    cart_file = "app/data/cart.json"
+    if os.path.exists(cart_file):
+        try:
+            import json
+            with open(cart_file, "r", encoding="utf-8") as f:
+                cdata = json.load(f)
+                return {"success": True, "items": cdata.get(shop_id, [])}
+        except Exception as e:
+            print("Error reading cart.json:", e)
+    return {"success": True, "items": []}
+
+@app.post("/api/cart")
+def api_save_cart(req: SaveCartRequest):
+    cart_file = "app/data/cart.json"
+    cdata = {}
+    if os.path.exists(cart_file):
+        try:
+            import json
+            with open(cart_file, "r", encoding="utf-8") as f:
+                cdata = json.load(f)
+        except Exception:
+            cdata = {}
+    sid = req.shop_id or "shop_1"
+    cdata[sid] = req.items
+    try:
+        import json
+        with open(cart_file, "w", encoding="utf-8") as f:
+            json.dump(cdata, f, ensure_ascii=False, indent=2)
+        return {"success": True, "saved_count": len(req.items)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/dashboard/stats")
 def api_dashboard_stats(shop_id: Optional[str] = Query("shop_1")):
     return get_dashboard_summary(shop_id=shop_id or "shop_1")
