@@ -329,8 +329,11 @@ def generate_auto_spec_cover(
         category_title = "เครื่องเชื่อมไฟฟ้า"
     elif 'ปั๊ม' in prod_name:
         category_title = "ปั๊มน้ำมาตรฐาน"
+    elif 'เทป' in prod_name or 'TEMFLEX' in prod_name.upper():
+        category_title = "เทปพันสายไฟไวนิล"
     else:
-        clean_p = re.sub(r'\[.*?\]', '', prod_name).strip()
+        clean_p = re.sub(r'^\s*[\(\[]\s*(?:แพ็ค|กล่อง|ชุด|แถม).*?[\)\]]\s*', '', prod_name).strip()
+        clean_p = re.sub(r'\[.*?\]', '', clean_p).strip()
         words = clean_p.split()
         category_title = ' '.join(words[:3]) if words else "เครื่องมือช่างคุณภาพ"
 
@@ -356,14 +359,18 @@ def generate_auto_spec_cover(
         p_val = _get_power_watt().replace('วัตต์', 'W').replace(' ', '').strip()
         b_val = specs_dict.get('ขนาดใบตัด/เจียร์', '100 มม. (4 นิ้ว)')
         hero_pill_text = f"กำลังไฟ {p_val} | ขนาด {b_val}"
+    elif 'เทป' in prod_name or 'TEMFLEX' in prod_name.upper():
+        v_str = specs_dict.get('ทนแรงดันไฟฟ้า', '600 โวลต์')
+        d_str = specs_dict.get('ขนาดหน้ากว้าง', '19 มม. x 10 ม.')
+        hero_pill_text = f"ทนแรงดัน {v_str} | ขนาด {d_str}"
     else:
-        items_spec = list(specs_dict.items())
-        if len(items_spec) >= 2:
-            hero_pill_text = f"{items_spec[0][0]} {items_spec[0][1]} | {items_spec[1][0]} {items_spec[1][1]}"
-        elif len(items_spec) == 1:
-            hero_pill_text = f"{items_spec[0][0]} {items_spec[0][1]}"
+        valid_hero_specs = [(k, v) for k, v in specs_dict.items() if 'น้ำหนัก' not in k and 'เกรด' not in k and 'สภาพ' not in k]
+        if len(valid_hero_specs) >= 2:
+            hero_pill_text = f"{valid_hero_specs[0][0]} {valid_hero_specs[0][1]} | {valid_hero_specs[1][0]} {valid_hero_specs[1][1]}"
+        elif len(valid_hero_specs) == 1:
+            hero_pill_text = f"{valid_hero_specs[0][0]} {valid_hero_specs[0][1]}"
         else:
-            hero_pill_text = "สินค้ารับประกันศูนย์แท้ 100%"
+            hero_pill_text = "สินค้ารับประกันของแท้ 100%"
 
     # 4 Spec Cards
     spec_cards = []
@@ -383,13 +390,17 @@ def generate_auto_spec_cover(
         ]
     else:
         icon_map = {
-            'กำลัง': '⚡', 'มอเตอร์': '⚡', 'วัตต์': '⚡',
+            'แรงดันไฟฟ้า': '⚡', 'กำลัง': '⚡', 'มอเตอร์': '⚡', 'วัตต์': '⚡', 'โวลต์': '⚡',
             'ความเร็ว': '⏱', 'รอบ': '⏱',
             'สวิตช์': '🔘', 'ตำแหน่ง': '🔘',
-            'ขนาด': '📏', 'แกน': '📏', 'ใบ': '📏', 'สาย': '📏',
+            'ขนาด': '📏', 'แกน': '📏', 'ใบ': '📏', 'สาย': '📏', 'กว้าง': '📏', 'ยาว': '📏',
+            'หนา': '📐',
+            'อุณหภูมิ': '🌡️', 'ความร้อน': '🌡️',
             'แรงดัน': '🌊', 'บาร์': '🌊',
             'น้ำ': '💧', 'ไหล': '💧',
             'ระบบ': '🔌', 'Auto': '🔌',
+            'คุณสมบัติ': '🛡️', 'ไม่ลามไฟ': '🛡️',
+            'จำนวน': '📦', 'บรรจุ': '📦', 'แพ็ค': '📦',
             'น้ำหนัก': '⚖️'
         }
         for k, v in specs_dict.items():
@@ -1732,9 +1743,18 @@ def delete_custom_product_image(sku: str, image_url: str) -> bool:
 def extract_model_label(name, sku):
     clean_name = re.sub(r'\[.*?\]', '', name).strip()
     norm_name = clean_name.replace('สวิทซ์', 'สวิทช์').replace('สวิตซ์', 'สวิทช์').replace('สวิตช์', 'สวิทช์')
-    words = norm_name.split()
+    
+    # Strip leading package phrases like (แพ็ค10ม้วน), (กล่อง...), (ชุด...), etc.
+    clean_no_pack = re.sub(r'^\s*[\(\[]\s*(?:แพ็ค|กล่อง|ชุด|แถม|pack|box|set).*?[\)\]]\s*', '', norm_name, flags=re.IGNORECASE).strip()
+    words = clean_no_pack.split() if clean_no_pack else norm_name.split()
     sku_code = sku.split('-')[-1] if '-' in sku else sku
-    model_code = words[0] if words else sku_code
+    
+    # Try finding typical model patterns (e.g. TEMFLEX 150, M0910B, DWE7470, etc.)
+    m_pattern = re.search(r'\b([A-Z0-9]{2,}(?:-[A-Z0-9]+|\s+\d+[A-Z0-9]*))\b', clean_no_pack)
+    if m_pattern:
+        model_code = m_pattern.group(1).strip()
+    else:
+        model_code = words[0] if words else sku_code
     
     # Strip common supplier prefixes like P171-, M011-, KT-, etc.
     model_code = re.sub(r'^[A-Z]\d+[-_]', '', model_code, flags=re.IGNORECASE)
@@ -1833,6 +1853,9 @@ def extract_key_specs(detail):
     clean_desc = re.sub(r'<br\s*/?>', '\n', desc, flags=re.IGNORECASE)
     clean_desc = re.sub(r'</p>', '\n', clean_desc, flags=re.IGNORECASE)
     clean_desc = re.sub(r'<[^>]+>', '', clean_desc)
+    prod_full_name = detail.get('name', '') or ''
+    full_text = (prod_full_name + ' ' + clean_desc).replace('สวิทซ์', 'สวิทช์').replace('สวิตซ์', 'สวิทช์').replace('สวิตช์', 'สวิทช์')
+    is_tape_or_consumable = any(k in full_text.lower() for k in ['เทป', 'temflex', 'scotch', 'กาว', 'สายรัด', 'น้ำยา', 'ซิลิโคน', 'ถุงมือ', 'หน้ากาก', 'แว่นตา', 'ใบมีด'])
 
     for line in clean_desc.split('\n'):
         line = line.strip().lstrip('•').lstrip('-').lstrip('*').strip()
@@ -1893,8 +1916,8 @@ def extract_key_specs(detail):
         specs['กำลังมอเตอร์'] = specs['กำลังไฟฟ้า']
         del specs['กำลังไฟฟ้า']
 
-    # 3. Fallback from conversionUnits if weight missing
-    if 'น้ำหนักตัวเครื่อง' not in specs:
+    # 3. Fallback from conversionUnits if weight missing (ONLY for tools / machines, NEVER for tape/consumables)
+    if not is_tape_or_consumable and 'น้ำหนักตัวเครื่อง' not in specs:
         units = detail.get('conversionUnits', [])
         if units:
             u0 = units[0]
@@ -1932,18 +1955,43 @@ def extract_key_specs(detail):
     if is_pressure_washer:
         specs['ระบบตัดการทำงาน'] = 'ระบบ Auto Stop'
 
-    # User requirement: fill 220V power supply for corded power tools / pressure washers
-    if 'กำลังไฟฟ้า' not in specs and ('วัตต์' in clean_desc or 'กำลังมอเตอร์' in specs or is_pressure_washer):
-        specs['กำลังไฟฟ้า'] = '220 โวลต์ / 1 เฟส'
+    # Tape and Consumable specifications
+    is_tape_or_consumable = any(k in full_text for k in ['เทป', 'TEMFLEX', 'temflex', 'scotch', 'กาว', 'สายรัด', 'น้ำยา', 'ซิลิโคน'])
+    if is_tape_or_consumable:
+        dim_m = re.search(r'กว้าง\s*(\d+[\d.]*)\s*มม\.?\s*ยาว\s*(\d+[\d.]*)\s*ม\.?(?:\s*หนา\s*(\d+[\d.]*)\s*มม\.?)?', clean_desc)
+        if dim_m:
+            specs['ขนาดหน้ากว้าง'] = f"{dim_m.group(1)} มม. x {dim_m.group(2)} ม."
+            if dim_m.group(3):
+                specs['ความหนาเนื้อเทป'] = f"{dim_m.group(3)} มม."
+        
+        volt_m = re.search(r'ทนแรงดันไฟฟ้า(?:ได้)?\s*(\d+[\d.]*)\s*(?:โวลต์|V)', clean_desc, re.IGNORECASE)
+        if volt_m:
+            specs['ทนแรงดันไฟฟ้า'] = f"{volt_m.group(1)} โวลต์"
+            
+        temp_m = re.search(r'ทนอุณหภูมิ(?:สูงสุด)?\s*(\d+[\d.]*)\s*°?\s*C', clean_desc, re.IGNORECASE)
+        if temp_m:
+            specs['ทนอุณหภูมิสูงสุด'] = f"{temp_m.group(1)} °C"
+            
+        if 'Flame Retardant' in clean_desc or 'ไม่เป็นเชื้อไฟ' in clean_desc or 'ไม่ลามไฟ' in clean_desc:
+            specs['คุณสมบัติพิเศษ'] = 'ไม่ลามไฟ (Flame Retardant)'
+            
+        if 'แพ็ค' in (detail.get('name') or '') or 'แถม' in clean_desc:
+            pack_cnt = re.search(r'(\d+)\s*(?:ม้วน|ชิ้น|แพ็ค)', detail.get('name') or '')
+            specs['จำนวนบรรจุ'] = f"แพ็ค {pack_cnt.group(1)} ม้วน" if pack_cnt else "แพ็ค 10 ม้วน"
 
-    # User requirement: 90 bar / compact models use carbon brush motor (แปรงถ่าน)
-    if 'ประเภทมอเตอร์' not in specs:
+    # User requirement: fill 220V power supply ONLY for corded power tools / pressure washers
+    if not is_tape_or_consumable:
+        if 'กำลังไฟฟ้า' not in specs and ('วัตต์' in clean_desc or 'กำลังมอเตอร์' in specs or is_pressure_washer):
+            specs['กำลังไฟฟ้า'] = '220 โวลต์ / 1 เฟส'
+
+    # User requirement: 90 bar / compact pressure washer models use carbon brush motor (แปรงถ่าน)
+    if is_pressure_washer and 'ประเภทมอเตอร์' not in specs:
         m_power = specs.get('กำลังมอเตอร์', '')
         w_match = re.search(r'(\d+[\d,]*)', m_power)
         watt = int(w_match.group(1).replace(',', '')) if w_match else 0
         if watt >= 1800:
             specs['ประเภทมอเตอร์'] = 'มอเตอร์เหนี่ยวนำ'
-        else:
+        elif watt > 0:
             specs['ประเภทมอเตอร์'] = 'มอเตอร์แปรงถ่าน'
 
     return specs
