@@ -372,56 +372,32 @@ def generate_auto_spec_cover(
         else:
             hero_pill_text = "สินค้ารับประกันของแท้ 100%"
 
-    # 4 Spec Cards
+    # Spec Cards - Strictly real data from KTW source only, ZERO hallucinated or made-up fallbacks!
     spec_cards = []
-    if 'เครื่องฉีดน้ำ' in prod_name:
-        spec_cards = [
-            {"icon": "⚡", "label": "กำลังมอเตอร์", "val": specs_dict.get('กำลังมอเตอร์', '1,200 วัตต์')},
-            {"icon": "🌊", "label": "แรงดันสูงสุด", "val": specs_dict.get('แรงดันสูงสุด', '90 บาร์').split('(')[0].strip()},
-            {"icon": "💧", "label": "ปริมาณน้ำ", "val": specs_dict.get('อัตราการไหลของน้ำ', '330 ลิตร/ชั่วโมง')},
-            {"icon": "🔌", "label": "ระบบหยุดอัตโนมัติ", "val": specs_dict.get('ระบบตัดการทำงาน', 'Auto Stop System')}
-        ]
-    elif 'เครื่องเจียร์' in prod_name:
-        spec_cards = [
-            {"icon": "⚡", "label": "กำลังไฟฟ้าที่ใช้", "val": _get_power_watt()},
-            {"icon": "⏱", "label": "ความเร็วรอบตัวเปล่า", "val": specs_dict.get('ความเร็วรอบ', '12,000 รอบ/นาที')},
-            {"icon": "🔘", "label": "ประเภทสวิตช์", "val": specs_dict.get('ตำแหน่งสวิตช์', 'สวิตช์ท้าย ทนทาน').split('(')[0].strip()},
-            {"icon": "📏", "label": "ขนาดแกนหมุน", "val": specs_dict.get('ขนาดแกนเกลียว', 'M10 x 1.5')}
-        ]
-    else:
-        icon_map = {
-            'แรงดันไฟฟ้า': '⚡', 'กำลัง': '⚡', 'มอเตอร์': '⚡', 'วัตต์': '⚡', 'โวลต์': '⚡',
-            'ความเร็ว': '⏱', 'รอบ': '⏱',
-            'สวิตช์': '🔘', 'ตำแหน่ง': '🔘',
-            'ขนาด': '📏', 'แกน': '📏', 'ใบ': '📏', 'สาย': '📏', 'กว้าง': '📏', 'ยาว': '📏',
-            'หนา': '📐',
-            'อุณหภูมิ': '🌡️', 'ความร้อน': '🌡️',
-            'แรงดัน': '🌊', 'บาร์': '🌊',
-            'น้ำ': '💧', 'ไหล': '💧',
-            'ระบบ': '🔌', 'Auto': '🔌',
-            'คุณสมบัติ': '🛡️', 'ไม่ลามไฟ': '🛡️',
-            'จำนวน': '📦', 'บรรจุ': '📦', 'แพ็ค': '📦',
-            'น้ำหนัก': '⚖️'
-        }
-        for k, v in specs_dict.items():
-            if len(spec_cards) >= 4:
+    icon_map = {
+        'แรงดันไฟฟ้า': '⚡', 'กำลัง': '⚡', 'มอเตอร์': '⚡', 'วัตต์': '⚡', 'โวลต์': '⚡',
+        'ความเร็ว': '⏱', 'รอบ': '⏱',
+        'สวิตช์': '🔘', 'ตำแหน่ง': '🔘',
+        'ขนาด': '📏', 'แกน': '📏', 'ใบ': '📏', 'สาย': '📏', 'กว้าง': '📏', 'ยาว': '📏',
+        'หนา': '📐',
+        'อุณหภูมิ': '🌡️', 'ความร้อน': '🌡️',
+        'แรงดัน': '🌊', 'บาร์': '🌊',
+        'น้ำ': '💧', 'ไหล': '💧',
+        'ระบบ': '🔌', 'Auto': '🔌',
+        'คุณสมบัติ': '🛡️', 'ไม่ลามไฟ': '🛡️',
+        'จำนวน': '📦', 'บรรจุ': '📦', 'แพ็ค': '📦',
+        'น้ำหนัก': '⚖️'
+    }
+    for k, v in specs_dict.items():
+        if len(spec_cards) >= 4:
+            break
+        matched_icon = '⚡'
+        for ik, iv in icon_map.items():
+            if ik in k:
+                matched_icon = iv
                 break
-            matched_icon = '⚡'
-            for ik, iv in icon_map.items():
-                if ik in k:
-                    matched_icon = iv
-                    break
-            clean_v = str(v).split('(')[0].strip()
-            spec_cards.append({"icon": matched_icon, "label": k, "val": clean_v})
-        
-        while len(spec_cards) < 4:
-            fallbacks = [
-                {"icon": "⚡", "label": "มาตรฐานกำลังไฟ", "val": "220V / 50Hz"},
-                {"icon": "🛡️", "label": "การรับประกัน", "val": "ประกันศูนย์ไทย"},
-                {"icon": "📦", "label": "สภาพสินค้า", "val": "สินค้าใหม่แกะกล่อง"},
-                {"icon": "⭐", "label": "เกรดสินค้า", "val": "เกรดอุตสาหกรรม แท้ 100%"}
-            ]
-            spec_cards.append(fallbacks[len(spec_cards)])
+        clean_v = str(v).strip()
+        spec_cards.append({"icon": matched_icon, "label": k, "val": clean_v})
 
     prod_img = None
     try:
@@ -541,7 +517,7 @@ def generate_auto_spec_cover(
         div_y = r_y + spec_row_h - 10
         draw.line([(52, div_y), (360, div_y)], fill=DIVIDER_COLOR, width=2)
 
-    trust_card_y = spec_start_y + (4 * spec_row_h) + 16
+    trust_card_y = spec_start_y + (len(spec_cards) * spec_row_h) + 16
     trust_card_w = 440
     trust_card_h = 88
 
