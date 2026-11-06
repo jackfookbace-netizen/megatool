@@ -562,22 +562,22 @@ def generate_auto_spec_cover(
         draw.line([(52, div_y), (330, div_y)], fill=DIVIDER_COLOR, width=2)
 
     trust_card_y = spec_start_y + (len(spec_cards) * spec_row_h) + 12
-    trust_card_w = 295
-    trust_card_h = 80
+    trust_card_w = 310
+    trust_card_h = 76
 
     card_bg = (248, 250, 252, 255) if is_bigpower else (255, 248, 248, 255)
     card_outline = (226, 232, 240, 255) if is_bigpower else (254, 226, 226, 255)
     draw.rounded_rectangle([52, trust_card_y, 52 + trust_card_w, trust_card_y + trust_card_h], radius=10, fill=card_bg, outline=card_outline, width=2)
 
-    shield_cx = 52 + 36
+    shield_cx = 52 + 28
     shield_cy = trust_card_y + trust_card_h // 2
-    draw_vector_shield(canvas, shield_cx, shield_cy, size=46, fill_color=theme_rgb)
+    draw_vector_shield(canvas, shield_cx, shield_cy, size=38, fill_color=theme_rgb)
 
-    trust_txt_x = shield_cx + 34
-    t_line1_y = trust_card_y + 14
-    t_line2_y = trust_card_y + 46
-    draw_razor_thai(canvas, "รับประกันศูนย์ไทย 100%", trust_txt_x, t_line1_y, "Leelawadee UI", 22, bold=True, color=theme_rgb)
-    draw_razor_thai(canvas, "ของแท้ มั่นใจ ตรวจสอบได้", trust_txt_x, t_line2_y, "Leelawadee UI", 18, bold=False, color=TEXT_SLATE)
+    trust_txt_x = 52 + 56
+    t_line1_y = trust_card_y + 13
+    t_line2_y = trust_card_y + 43
+    draw_razor_thai(canvas, "รับประกันศูนย์ไทย 100%", trust_txt_x, t_line1_y, "Leelawadee UI", 20, bold=True, color=theme_rgb)
+    draw_razor_thai(canvas, "ของแท้ มั่นใจ ตรวจสอบได้", trust_txt_x, t_line2_y, "Leelawadee UI", 16, bold=False, color=TEXT_SLATE)
 
     final_rgb = canvas.convert('RGB')
     final_rgb.save(output_path, "JPEG", quality=95)
