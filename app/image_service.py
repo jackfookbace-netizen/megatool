@@ -350,6 +350,20 @@ def generate_auto_spec_cover(
             return elec
         return mot or elec or '540 วัตต์'
 
+    def _spec_priority(item):
+        k, v = item
+        if 'มอเตอร์' in k or 'วัตต์' in str(v) or 'W' in str(v): return 1
+        if 'แรงดันสูงสุด' in k or 'บาร์' in str(v): return 2
+        if 'ขนาด' in k or 'หัว' in k or 'ใบ' in k or 'กว้าง' in k: return 3
+        if 'ความเร็ว' in k or 'รอบ' in str(v): return 4
+        if 'ความยาว' in k or 'เมตร' in str(v): return 5
+        if 'อัตรา' in k or 'น้ำ' in k: return 6
+        if 'สวิตช์' in k or 'ระบบ' in k: return 7
+        if 'แรงดันไฟฟ้า' in k or '220' in str(v): return 8
+        return 10
+
+    sorted_specs = sorted(specs_dict.items(), key=_spec_priority)
+
     # Hero Sub-Pill
     if 'เครื่องฉีดน้ำ' in prod_name:
         p_val = specs_dict.get('แรงดันสูงสุด', '90 บาร์').split('(')[0].strip()
@@ -364,11 +378,13 @@ def generate_auto_spec_cover(
         d_str = specs_dict.get('ขนาดหน้ากว้าง', '19 มม. x 10 ม.')
         hero_pill_text = f"ทนแรงดัน {v_str} | ขนาด {d_str}"
     else:
-        valid_hero_specs = [(k, v) for k, v in specs_dict.items() if 'น้ำหนัก' not in k and 'เกรด' not in k and 'สภาพ' not in k]
+        valid_hero_specs = [(k, v) for k, v in sorted_specs if 'น้ำหนัก' not in k and 'เกรด' not in k and 'สภาพ' not in k and '220' not in str(v) and 'แรงดันไฟฟ้า' not in k]
         if len(valid_hero_specs) >= 2:
             hero_pill_text = f"{valid_hero_specs[0][0]} {valid_hero_specs[0][1]} | {valid_hero_specs[1][0]} {valid_hero_specs[1][1]}"
         elif len(valid_hero_specs) == 1:
             hero_pill_text = f"{valid_hero_specs[0][0]} {valid_hero_specs[0][1]}"
+        elif len(sorted_specs) >= 1:
+            hero_pill_text = f"{sorted_specs[0][0]} {sorted_specs[0][1]}"
         else:
             hero_pill_text = "สินค้ารับประกันของแท้ 100%"
 
@@ -388,9 +404,26 @@ def generate_auto_spec_cover(
         'จำนวน': '📦', 'บรรจุ': '📦', 'แพ็ค': '📦',
         'น้ำหนัก': '⚖️'
     }
-    for k, v in specs_dict.items():
+    # Smart priority sort for real specs: motor power / watts, key dimensions, speed, hose/cable
+    def _spec_priority(item):
+        k, v = item
+        if 'มอเตอร์' in k or 'วัตต์' in str(v) or 'W' in str(v): return 1
+        if 'แรงดันสูงสุด' in k or 'บาร์' in str(v): return 2
+        if 'ขนาด' in k or 'หัว' in k or 'ใบ' in k: return 3
+        if 'ความเร็ว' in k or 'รอบ' in str(v): return 4
+        if 'ความยาว' in k or 'เมตร' in str(v): return 5
+        if 'อัตรา' in k or 'น้ำ' in k: return 6
+        if 'สวิตช์' in k or 'ระบบ' in k: return 7
+        if 'แรงดันไฟฟ้า' in k or '220' in str(v): return 8
+        return 10
+
+    sorted_specs = sorted(specs_dict.items(), key=_spec_priority)
+    for k, v in sorted_specs:
         if len(spec_cards) >= 4:
             break
+        # Don't show redundant 220V voltage if we already have motor power in watts
+        if ('220' in str(v) or 'โวลต์' in str(v)) and any('วัตต์' in sp['val'] or 'W' in sp['val'] for sp in spec_cards):
+            continue
         matched_icon = '⚡'
         for ik, iv in icon_map.items():
             if ik in k:
@@ -420,14 +453,11 @@ def generate_auto_spec_cover(
             pos_x = canvas_size - border_w - 12 - tgt_w
             pos_y = 350 + (420 - tgt_h) // 2
         else:
-            tgt_h = 820
-            scale = tgt_h / ph
+            scale = min(560 / pw, 620 / ph)
             tgt_w = int(pw * scale)
-            if tgt_w > 640:
-                tgt_w = 640
-                tgt_h = int(ph * (640 / pw))
-            pos_x = 510 + (640 - tgt_w) // 2
-            pos_y = 150 + (820 - tgt_h) // 2
+            tgt_h = int(ph * scale)
+            pos_x = canvas_size - border_w - 20 - tgt_w
+            pos_y = 180 + (800 - tgt_h) // 2
 
         shadow_h = 36
         shadow_w = int(tgt_w * 0.76)
@@ -475,18 +505,24 @@ def generate_auto_spec_cover(
 
     row_sub_y = row_model_y + pill_h + 14
     sub_pill_h = 0
+    max_col_w = 380  # Strict column boundary: text NEVER crosses x = 432, product starts at x >= 598 (166px clear gap!)
     if hero_pill_text:
-        h_w, h_h = measure_thai_text(hero_pill_text, "Leelawadee UI", 26, bold=True)
-        h_pad_x = 20
-        h_pad_y = 9
-        full_sub_w = h_w + h_pad_x * 2
+        font_sz = 26
+        h_w, h_h = measure_thai_text(hero_pill_text, "Leelawadee UI", font_sz, bold=True)
+        while (h_w + 40) > max_col_w and font_sz > 16:
+            font_sz -= 2
+            h_w, h_h = measure_thai_text(hero_pill_text, "Leelawadee UI", font_sz, bold=True)
+
+        h_pad_x = 18
+        h_pad_y = 8
+        full_sub_w = min(max_col_w, h_w + h_pad_x * 2)
         sub_pill_h = h_h + h_pad_y * 2
 
         sub_bg = (242, 246, 252, 255) if is_bigpower else (255, 241, 242, 255)
         sub_border = (190, 208, 230, 255) if is_bigpower else (254, 185, 185, 255)
 
         draw.rounded_rectangle([52, row_sub_y, 52 + full_sub_w, row_sub_y + sub_pill_h], radius=8, fill=sub_bg, outline=sub_border, width=2)
-        draw_razor_thai(canvas, hero_pill_text, 52 + h_pad_x, row_sub_y + h_pad_y - 2, "Leelawadee UI", 26, bold=True, color=theme_rgb)
+        draw_razor_thai(canvas, hero_pill_text, 52 + h_pad_x, row_sub_y + h_pad_y - 2, "Leelawadee UI", font_sz, bold=True, color=theme_rgb)
 
     spec_start_y = row_sub_y + sub_pill_h + 30
     spec_row_h = 114
@@ -1725,8 +1761,10 @@ def extract_model_label(name, sku):
     words = clean_no_pack.split() if clean_no_pack else norm_name.split()
     sku_code = sku.split('-')[-1] if '-' in sku else sku
     
-    # Try finding typical model patterns (e.g. TEMFLEX 150, M0910B, DWE7470, etc.)
-    m_pattern = re.search(r'\b([A-Z0-9]{2,}(?:-[A-Z0-9]+|\s+\d+[A-Z0-9]*))\b', clean_no_pack)
+    # Try finding typical model patterns (e.g. TEMFLEX 150, M0910B, CMV-35, WARRIOR-90, etc.)
+    m_pattern = re.search(r'\b([A-Z]{2,}-?[0-9A-Z]+(?:\s+\d+[A-Z0-9]*)?)\b', clean_no_pack, re.IGNORECASE)
+    if not m_pattern:
+        m_pattern = re.search(r'\b([A-Z0-9]{2,}(?:-[A-Z0-9]+|\s+\d+[A-Z0-9]*))\b', clean_no_pack)
     if m_pattern:
         model_code = m_pattern.group(1).strip()
     else:
@@ -1807,7 +1845,9 @@ def extract_key_specs(detail):
             if name and val_str and val_str != '-':
                 if 'กำลังมอเตอร์' in name or 'motor_power' in code:
                     specs['กำลังมอเตอร์'] = val_str
-                elif 'กำลังไฟ' in name or 'power_phase' in code or 'voltage' in code or 'continuous_rating' in code:
+                elif 'voltage' in code or 'แรงดันไฟฟ้า' in name:
+                    specs['แรงดันไฟฟ้า'] = val_str
+                elif 'กำลังไฟ' in name or 'power_phase' in code or 'continuous_rating' in code:
                     specs['กำลังไฟฟ้า'] = val_str
                 elif 'ความเร็วรอบ' in name or 'no_load_speed' in code:
                     specs['ความเร็วรอบ'] = val_str
@@ -1841,7 +1881,10 @@ def extract_key_specs(detail):
             parts = re.split(r'[:：]', line, maxsplit=1)
             k = parts[0].strip()
             v = parts[1].strip()
-            if k and v and len(k) < 40 and len(v) < 60:
+            if k and v and len(k) < 30 and len(v) < 50:
+                # Capture generic catalog bullet points from source
+                if k not in specs and not any(q in k.lower() for q in ['ประกัน', 'เงื่อนไข', 'แถม', 'บริการ']):
+                    specs[k] = v
                 # Hose length (pressure washers only, NOT power cords)
                 if ('สายฉีด' in k or 'สายอัดฉีด' in k or 'hose' in k.lower()) and 'ความยาวสายฉีด' not in specs:
                     m_v = re.search(r'(\d+(?:\.\d+)?)\s*(?:ม\.|เมตร|m\b)', v, re.IGNORECASE)
@@ -1970,6 +2013,18 @@ def extract_key_specs(detail):
         elif watt > 0:
             specs['ประเภทมอเตอร์'] = 'มอเตอร์แปรงถ่าน'
 
+    # Deduplicate similar spec keys
+    if 'ความเร็วรอบ' in specs and 'ความเร็วรอบตัวเปล่า' in specs:
+        del specs['ความเร็วรอบตัวเปล่า']
+    if 'กำลังมอเตอร์' in specs and 'กำลังไฟฟ้า' in specs and 'วัตต์' in specs['กำลังไฟฟ้า']:
+        del specs['กำลังไฟฟ้า']
+    return specs
+
+    # Deduplicate similar spec keys
+    if 'ความเร็วรอบ' in specs and 'ความเร็วรอบตัวเปล่า' in specs:
+        del specs['ความเร็วรอบตัวเปล่า']
+    if 'กำลังมอเตอร์' in specs and 'กำลังไฟฟ้า' in specs and 'วัตต์' in str(specs['กำลังไฟฟ้า']):
+        del specs['กำลังไฟฟ้า']
     return specs
 
 def generate_comparison_card(
