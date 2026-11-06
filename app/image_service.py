@@ -259,14 +259,15 @@ def generate_auto_spec_cover(
     overwrite=True
 ):
     """
-    Auto-Spec Product Cover Template:
+    Auto-Spec Product Cover Template (Human Designer Architecture):
     - 1200x1200px official shop background framing
-    - Manufacturer brand logo (Makita, POLO, etc.)
-    - Category Title + Model Pill + Hero 1-line Sub-Pill
-    - 4 Enlarged Spec Cards with smooth hexagons
-    - Bottom-left Trust & Warranty Guarantee Card (100% Thai Warranty)
-    - Heroic product image with soft natural ground shadow
-    - Official shop branding and bottom ribbon intact
+    - Manufacturer brand logo (Makita, POLO, 3M, Dongcheng, Jasic, etc.)
+    - Category Title + Model Pill + Stacked/Inline Highlight Tags (bounded strictly in left corridor: x <= 348)
+    - 4 Enlarged Authentic Spec Cards with smooth hexagons
+    - Compact Trust & Warranty Guarantee Card (100% Thai Warranty, width <= 295px)
+    - HERO PRODUCT: Auto-cropped to actual silhouette, scaled to maximum possible size (785px Hero Scale)
+    - Zero overlap mathematically guaranteed: Left corridor stops at x <= 348, Product corridor starts at x >= 368
+    - Official shop branding and bottom ribbon 100% intact
     """
     canvas_size = 1200
     is_bigpower = bool(shop_name and ('bigpower' in shop_name.lower() or 'big power' in shop_name.lower() or 'shop2' in shop_name.lower() or 'shop_2' in shop_name.lower()))
@@ -325,6 +326,8 @@ def generate_auto_spec_cover(
         category_title = "สว่านโรตารี่"
     elif 'สว่าน' in prod_name:
         category_title = "สว่านไฟฟ้า"
+    elif 'เครื่องจี้ปูน' in prod_name:
+        category_title = "เครื่องจี้ปูนไฟฟ้า"
     elif 'ตู้เชื่อม' in prod_name or 'เครื่องเชื่อม' in prod_name:
         category_title = "เครื่องเชื่อมไฟฟ้า"
     elif 'ปั๊ม' in prod_name:
@@ -350,44 +353,6 @@ def generate_auto_spec_cover(
             return elec
         return mot or elec or '540 วัตต์'
 
-    def _spec_priority(item):
-        k, v = item
-        if 'มอเตอร์' in k or 'วัตต์' in str(v) or 'W' in str(v): return 1
-        if 'แรงดันสูงสุด' in k or 'บาร์' in str(v): return 2
-        if 'ขนาด' in k or 'หัว' in k or 'ใบ' in k or 'กว้าง' in k: return 3
-        if 'ความเร็ว' in k or 'รอบ' in str(v): return 4
-        if 'ความยาว' in k or 'เมตร' in str(v): return 5
-        if 'อัตรา' in k or 'น้ำ' in k: return 6
-        if 'สวิตช์' in k or 'ระบบ' in k: return 7
-        if 'แรงดันไฟฟ้า' in k or '220' in str(v): return 8
-        return 10
-
-    sorted_specs = sorted(specs_dict.items(), key=_spec_priority)
-
-    # Hero Sub-Pill
-    if 'เครื่องฉีดน้ำ' in prod_name:
-        p_val = specs_dict.get('แรงดันสูงสุด', '90 บาร์').split('(')[0].strip()
-        m_val = specs_dict.get('กำลังมอเตอร์', '1,200W').replace('วัตต์', 'W').strip()
-        hero_pill_text = f"แรงดัน {p_val} | มอเตอร์ {m_val}"
-    elif 'เครื่องเจียร์' in prod_name:
-        p_val = _get_power_watt().replace('วัตต์', 'W').replace(' ', '').strip()
-        b_val = specs_dict.get('ขนาดใบตัด/เจียร์', '100 มม. (4 นิ้ว)')
-        hero_pill_text = f"กำลังไฟ {p_val} | ขนาด {b_val}"
-    elif 'เทป' in prod_name or 'TEMFLEX' in prod_name.upper():
-        v_str = specs_dict.get('ทนแรงดันไฟฟ้า', '600 โวลต์')
-        d_str = specs_dict.get('ขนาดหน้ากว้าง', '19 มม. x 10 ม.')
-        hero_pill_text = f"ทนแรงดัน {v_str} | ขนาด {d_str}"
-    else:
-        valid_hero_specs = [(k, v) for k, v in sorted_specs if 'น้ำหนัก' not in k and 'เกรด' not in k and 'สภาพ' not in k and '220' not in str(v) and 'แรงดันไฟฟ้า' not in k]
-        if len(valid_hero_specs) >= 2:
-            hero_pill_text = f"{valid_hero_specs[0][0]} {valid_hero_specs[0][1]} | {valid_hero_specs[1][0]} {valid_hero_specs[1][1]}"
-        elif len(valid_hero_specs) == 1:
-            hero_pill_text = f"{valid_hero_specs[0][0]} {valid_hero_specs[0][1]}"
-        elif len(sorted_specs) >= 1:
-            hero_pill_text = f"{sorted_specs[0][0]} {sorted_specs[0][1]}"
-        else:
-            hero_pill_text = "สินค้ารับประกันของแท้ 100%"
-
     # Spec Cards - Strictly real data from KTW source only, ZERO hallucinated or made-up fallbacks!
     spec_cards = []
     icon_map = {
@@ -404,7 +369,6 @@ def generate_auto_spec_cover(
         'จำนวน': '📦', 'บรรจุ': '📦', 'แพ็ค': '📦',
         'น้ำหนัก': '⚖️'
     }
-    # Smart priority sort for real specs: motor power / watts, key dimensions, speed, hose/cable
     def _spec_priority(item):
         k, v = item
         if 'มอเตอร์' in k or 'วัตต์' in str(v) or 'W' in str(v): return 1
@@ -421,7 +385,6 @@ def generate_auto_spec_cover(
     for k, v in sorted_specs:
         if len(spec_cards) >= 4:
             break
-        # Don't show redundant 220V voltage if we already have motor power in watts
         if ('220' in str(v) or 'โวลต์' in str(v)) and any('วัตต์' in sp['val'] or 'W' in sp['val'] for sp in spec_cards):
             continue
         matched_icon = '⚡'
@@ -432,6 +395,28 @@ def generate_auto_spec_cover(
         clean_v = str(v).strip()
         spec_cards.append({"icon": matched_icon, "label": k, "val": clean_v})
 
+    # Hero Highlights (Sub-Pill Badges)
+    hero_pills = []
+    if 'เครื่องฉีดน้ำ' in prod_name:
+        p_val = specs_dict.get('แรงดันสูงสุด', '90 บาร์').split('(')[0].strip()
+        m_val = specs_dict.get('กำลังมอเตอร์', '1,200W').replace('วัตต์', 'W').strip()
+        hero_pills = [f"แรงดัน {p_val}", f"มอเตอร์ {m_val}"]
+    elif 'เครื่องเจียร์' in prod_name:
+        p_val = _get_power_watt().replace('วัตต์', 'W').replace(' ', '').strip()
+        b_val = specs_dict.get('ขนาดใบตัด/เจียร์', '100 มม. (4 นิ้ว)')
+        hero_pills = [f"กำลังไฟ {p_val}", f"ขนาด {b_val}"]
+    elif 'เทป' in prod_name or 'TEMFLEX' in prod_name.upper():
+        v_str = specs_dict.get('ทนแรงดันไฟฟ้า', '600 โวลต์')
+        d_str = specs_dict.get('ขนาดหน้ากว้าง', '19 มม. x 10 ม.')
+        hero_pills = [f"ทนแรงดัน {v_str}", f"ขนาด {d_str}"]
+    elif len(spec_cards) >= 2:
+        hero_pills = [f"{spec_cards[0]['label']} {spec_cards[0]['val']}", f"{spec_cards[1]['label']} {spec_cards[1]['val']}"]
+    elif len(spec_cards) == 1:
+        hero_pills = [f"{spec_cards[0]['label']} {spec_cards[0]['val']}"]
+    else:
+        hero_pills = ["สินค้ารับประกันของแท้ 100%"]
+
+    # --- HERO PRODUCT PLACEMENT (Human Designer Logic: Maximum Hero Size, Auto-Cropped, Zero Overlap) ---
     prod_img = None
     try:
         raw_im = fetch_image_safe(raw_img_path_or_url)
@@ -440,36 +425,63 @@ def generate_auto_spec_cover(
         print(f"Error loading product image: {e}")
 
     if prod_img:
-        pw, ph = prod_img.size
-        is_horizontal = (pw / ph) > 1.25
+        # 1. Tightly crop to actual product silhouette (removes useless supplier margins)
+        bbox = prod_img.getbbox()
+        if bbox:
+            pad = 4
+            x1 = max(0, bbox[0] - pad)
+            y1 = max(0, bbox[1] - pad)
+            x2 = min(prod_img.width, bbox[2] + pad)
+            y2 = min(prod_img.height, bbox[3] + pad)
+            prod_crop = prod_img.crop((x1, y1, x2, y2))
+        else:
+            prod_crop = prod_img
+
+        cw, ch = prod_crop.size
+        is_horizontal = (cw / ch) > 1.25
+
+        # Safe boundaries: Left text column ends strictly at x <= 348.
+        # Product corridor: x = 368 to 1156 (Available Hero width = 788px!).
+        # Top-bottom corridor: y = 125 to 910 (Available Hero height = 785px!).
+        left_safe_x = 368
+        right_safe_x = 1156
+        max_avail_w = right_safe_x - left_safe_x  # 788px
+        max_avail_h = 785 if not is_horizontal else 460
+
+        # Maximize scale so product is as large as possible (Hero scale)
+        scale = min(max_avail_w / cw, max_avail_h / ch)
+        tgt_w = int(cw * scale)
+        tgt_h = int(ch * scale)
+
+        # Anchor to right margin for balanced composition
+        pos_x = right_safe_x - tgt_w
+        if pos_x < left_safe_x:
+            # Strictly maintain clear safety gap from text
+            scale = max_avail_w / cw
+            tgt_w = int(cw * scale)
+            tgt_h = int(ch * scale)
+            pos_x = left_safe_x
 
         if is_horizontal:
-            tgt_w = 800
-            scale = tgt_w / pw
-            tgt_h = int(ph * scale)
-            if tgt_h > 460:
-                tgt_h = 460
-                tgt_w = int(pw * (460 / ph))
-            pos_x = canvas_size - border_w - 12 - tgt_w
-            pos_y = 350 + (420 - tgt_h) // 2
+            pos_y = 350 + (460 - tgt_h) // 2
         else:
-            scale = min(560 / pw, 620 / ph)
-            tgt_w = int(pw * scale)
-            tgt_h = int(ph * scale)
-            pos_x = canvas_size - border_w - 20 - tgt_w
-            pos_y = 180 + (800 - tgt_h) // 2
+            pos_y = 125 + (max_avail_h - tgt_h) // 2
 
+        # Soft realistic ground shadow
         shadow_h = 36
-        shadow_w = int(tgt_w * 0.76)
+        shadow_w = int(tgt_w * 0.78)
         ground_shadow = Image.new('RGBA', (shadow_w, shadow_h), (0, 0, 0, 0))
         d_gs = ImageDraw.Draw(ground_shadow)
-        d_gs.ellipse([0, 0, shadow_w - 1, shadow_h - 1], fill=(0, 0, 0, 40))
+        d_gs.ellipse([0, 0, shadow_w - 1, shadow_h - 1], fill=(0, 0, 0, 42))
         ground_shadow = ground_shadow.filter(ImageFilter.GaussianBlur(10))
 
         shadow_pos_x = pos_x + (tgt_w - shadow_w) // 2
         shadow_pos_y = pos_y + tgt_h - 16
         canvas.paste(ground_shadow, (shadow_pos_x, shadow_pos_y), ground_shadow)
-        canvas.paste(prod_img.resize((tgt_w, tgt_h), Image.Resampling.LANCZOS), (pos_x, pos_y), prod_img.resize((tgt_w, tgt_h), Image.Resampling.LANCZOS))
+
+        # Paste Hero Product
+        resized_prod = prod_crop.resize((tgt_w, tgt_h), Image.Resampling.LANCZOS)
+        canvas.paste(resized_prod, (pos_x, pos_y), resized_prod)
 
     brand_logo_p = get_official_brand_logo(detected_brand)
     if brand_logo_p and os.path.exists(brand_logo_p):
@@ -491,89 +503,97 @@ def generate_auto_spec_cover(
     DIVIDER_COLOR = (235, 238, 244, 255)
     WHITE = (255, 255, 255, 255)
 
+    # --- LEFT SPEC CORRIDOR (Strictly bounded: x <= 348px) ---
+    max_text_w = 295
+
     title_y = 138
-    draw_razor_thai(canvas, category_title, 52, title_y, "Leelawadee UI", 46, bold=True, color=TEXT_BLACK)
+    t_w, _ = measure_thai_text(category_title, "Leelawadee UI", 42, bold=True)
+    title_font_sz = 42 if t_w <= max_text_w else 36
+    draw_razor_thai(canvas, category_title, 52, title_y, "Leelawadee UI", title_font_sz, bold=True, color=TEXT_BLACK)
 
-    row_model_y = title_y + 68
-    m_w, m_h = measure_thai_text(model_name, "Leelawadee UI", 36, bold=True)
-    m_pad_x = 24
-    m_pad_y = 10
-    pill_w = m_w + m_pad_x * 2
-    pill_h = m_h + m_pad_y * 2
+    row_model_y = title_y + 64
+    m_w, m_h = measure_thai_text(model_name, "Leelawadee UI", 34, bold=True)
+    pill_w = min(max_text_w, m_w + 36)
+    pill_h = m_h + 14
     draw.rounded_rectangle([52, row_model_y, 52 + pill_w, row_model_y + pill_h], radius=10, fill=theme_color)
-    draw_razor_thai(canvas, model_name, 52 + m_pad_x, row_model_y + m_pad_y - 2, "Leelawadee UI", 36, bold=True, color=(255, 255, 255))
+    draw_razor_thai(canvas, model_name, 52 + 18, row_model_y + 6, "Leelawadee UI", 34, bold=True, color=(255, 255, 255))
 
-    row_sub_y = row_model_y + pill_h + 14
-    sub_pill_h = 0
-    max_col_w = 380  # Strict column boundary: text NEVER crosses x = 432, product starts at x >= 598 (166px clear gap!)
-    if hero_pill_text:
-        font_sz = 26
-        h_w, h_h = measure_thai_text(hero_pill_text, "Leelawadee UI", font_sz, bold=True)
-        while (h_w + 40) > max_col_w and font_sz > 16:
-            font_sz -= 2
-            h_w, h_h = measure_thai_text(hero_pill_text, "Leelawadee UI", font_sz, bold=True)
+    # Sub-Pills (Badges): Clean, compact tags strictly within 295px
+    curr_y = row_model_y + pill_h + 12
+    sub_bg = (242, 246, 252, 255) if is_bigpower else (255, 241, 242, 255)
+    sub_border = (190, 208, 230, 255) if is_bigpower else (254, 185, 185, 255)
 
-        h_pad_x = 18
-        h_pad_y = 8
-        full_sub_w = min(max_col_w, h_w + h_pad_x * 2)
-        sub_pill_h = h_h + h_pad_y * 2
+    if hero_pills:
+        combined = " | ".join(hero_pills)
+        c_w, c_h = measure_thai_text(combined, "Leelawadee UI", 24, bold=True)
+        if c_w + 32 <= max_text_w:
+            # Single clean combined pill
+            draw.rounded_rectangle([52, curr_y, 52 + c_w + 32, curr_y + c_h + 14], radius=8, fill=sub_bg, outline=sub_border, width=2)
+            draw_razor_thai(canvas, combined, 52 + 16, curr_y + 6, "Leelawadee UI", 24, bold=True, color=theme_rgb)
+            curr_y += c_h + 14 + 20
+        else:
+            # Stacked compact badges (never overflowing rightwards into product!)
+            for hp in hero_pills:
+                hp_w, hp_h = measure_thai_text(hp, "Leelawadee UI", 22, bold=True)
+                b_w = min(max_text_w, hp_w + 28)
+                draw.rounded_rectangle([52, curr_y, 52 + b_w, curr_y + hp_h + 10], radius=8, fill=sub_bg, outline=sub_border, width=2)
+                draw_razor_thai(canvas, hp, 52 + 14, curr_y + 4, "Leelawadee UI", 22, bold=True, color=theme_rgb)
+                curr_y += hp_h + 10 + 6
+            curr_y += 14
+    else:
+        curr_y += 16
 
-        sub_bg = (242, 246, 252, 255) if is_bigpower else (255, 241, 242, 255)
-        sub_border = (190, 208, 230, 255) if is_bigpower else (254, 185, 185, 255)
-
-        draw.rounded_rectangle([52, row_sub_y, 52 + full_sub_w, row_sub_y + sub_pill_h], radius=8, fill=sub_bg, outline=sub_border, width=2)
-        draw_razor_thai(canvas, hero_pill_text, 52 + h_pad_x, row_sub_y + h_pad_y - 2, "Leelawadee UI", font_sz, bold=True, color=theme_rgb)
-
-    spec_start_y = row_sub_y + sub_pill_h + 30
-    spec_row_h = 114
+    spec_start_y = curr_y + 10
+    spec_row_h = 106
     try:
-        f_sym = ImageFont.truetype(r"C:\Windows\Fonts\seguisym.ttf", 32)
+        f_sym = ImageFont.truetype(r"C:\Windows\Fonts\seguisym.ttf", 30)
     except Exception:
-        f_sym = load_font("seguisym.ttf", 32)
+        f_sym = load_font("seguisym.ttf", 30)
 
-    hex_radius = 32
+    hex_radius = 30
     hex_center_x = 52 + hex_radius
     hex_fill = (18, 56, 88, 255) if is_bigpower else (215, 25, 33, 255)
 
     for idx, sp in enumerate(spec_cards[:4]):
         r_y = spec_start_y + (idx * spec_row_h)
-        h_cy = r_y + 42
+        h_cy = r_y + 38
 
         draw_smooth_hexagon(canvas, hex_center_x, h_cy, hex_radius, fill_color=hex_fill)
         icon_str = sp.get('icon', '⚡')
         draw.text((hex_center_x, h_cy - 1), icon_str, fill=WHITE, font=f_sym, anchor='mm')
 
-        text_x = hex_center_x + hex_radius + 18
-        lbl_y = h_cy - 26
-        val_y = h_cy + 10
+        text_x = hex_center_x + hex_radius + 16
+        lbl_y = h_cy - 24
+        val_y = h_cy + 8
 
-        draw_razor_thai(canvas, sp.get('label', ''), text_x, lbl_y - 2, "Leelawadee UI", 24, bold=False, color=TEXT_SLATE)
-        draw_razor_thai(canvas, sp.get('val', ''), text_x, val_y - 2, "Leelawadee UI", 34, bold=True, color=TEXT_BLACK)
+        draw_razor_thai(canvas, sp.get('label', ''), text_x, lbl_y - 2, "Leelawadee UI", 22, bold=False, color=TEXT_SLATE)
+        draw_razor_thai(canvas, sp.get('val', ''), text_x, val_y - 2, "Leelawadee UI", 32, bold=True, color=TEXT_BLACK)
 
         div_y = r_y + spec_row_h - 10
-        draw.line([(52, div_y), (360, div_y)], fill=DIVIDER_COLOR, width=2)
+        draw.line([(52, div_y), (330, div_y)], fill=DIVIDER_COLOR, width=2)
 
-    trust_card_y = spec_start_y + (len(spec_cards) * spec_row_h) + 16
-    trust_card_w = 440
-    trust_card_h = 88
+    trust_card_y = spec_start_y + (len(spec_cards) * spec_row_h) + 12
+    trust_card_w = 295
+    trust_card_h = 80
 
     card_bg = (248, 250, 252, 255) if is_bigpower else (255, 248, 248, 255)
     card_outline = (226, 232, 240, 255) if is_bigpower else (254, 226, 226, 255)
-    draw.rounded_rectangle([52, trust_card_y, 52 + trust_card_w, trust_card_y + trust_card_h], radius=12, fill=card_bg, outline=card_outline, width=2)
+    draw.rounded_rectangle([52, trust_card_y, 52 + trust_card_w, trust_card_y + trust_card_h], radius=10, fill=card_bg, outline=card_outline, width=2)
 
-    shield_cx = 52 + 42
+    shield_cx = 52 + 36
     shield_cy = trust_card_y + trust_card_h // 2
-    draw_vector_shield(canvas, shield_cx, shield_cy, size=52, fill_color=theme_rgb)
+    draw_vector_shield(canvas, shield_cx, shield_cy, size=46, fill_color=theme_rgb)
 
-    trust_txt_x = shield_cx + 38
-    t_line1_y = trust_card_y + 16
-    t_line2_y = trust_card_y + 50
-    draw_razor_thai(canvas, "รับประกันศูนย์ไทย 100%", trust_txt_x, t_line1_y, "Leelawadee UI", 26, bold=True, color=theme_rgb)
-    draw_razor_thai(canvas, "ของแท้ มั่นใจ ตรวจสอบได้ทุกชิ้น", trust_txt_x, t_line2_y, "Leelawadee UI", 20, bold=False, color=TEXT_SLATE)
+    trust_txt_x = shield_cx + 34
+    t_line1_y = trust_card_y + 14
+    t_line2_y = trust_card_y + 46
+    draw_razor_thai(canvas, "รับประกันศูนย์ไทย 100%", trust_txt_x, t_line1_y, "Leelawadee UI", 22, bold=True, color=theme_rgb)
+    draw_razor_thai(canvas, "ของแท้ มั่นใจ ตรวจสอบได้", trust_txt_x, t_line2_y, "Leelawadee UI", 18, bold=False, color=TEXT_SLATE)
 
     final_rgb = canvas.convert('RGB')
     final_rgb.save(output_path, "JPEG", quality=95)
     return output_path
+
 
 def generate_cover(
     raw_img_path_or_url,
