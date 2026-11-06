@@ -467,17 +467,6 @@ def generate_auto_spec_cover(
         else:
             pos_y = 125 + (max_avail_h - tgt_h) // 2
 
-        # Soft realistic ground shadow
-        shadow_h = 36
-        shadow_w = int(tgt_w * 0.78)
-        ground_shadow = Image.new('RGBA', (shadow_w, shadow_h), (0, 0, 0, 0))
-        d_gs = ImageDraw.Draw(ground_shadow)
-        d_gs.ellipse([0, 0, shadow_w - 1, shadow_h - 1], fill=(0, 0, 0, 42))
-        ground_shadow = ground_shadow.filter(ImageFilter.GaussianBlur(10))
-
-        shadow_pos_x = pos_x + (tgt_w - shadow_w) // 2
-        shadow_pos_y = pos_y + tgt_h - 16
-        canvas.paste(ground_shadow, (shadow_pos_x, shadow_pos_y), ground_shadow)
 
         # Paste Hero Product
         resized_prod = prod_crop.resize((tgt_w, tgt_h), Image.Resampling.LANCZOS)
