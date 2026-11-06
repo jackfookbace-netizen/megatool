@@ -3,8 +3,10 @@ import io
 import json
 import time
 import re
+import math
+import collections
 import requests
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 def load_font(name: str, size: int):
     # 1. Project bundled fonts in app/fonts/
@@ -31,7 +33,221 @@ def load_font(name: str, size: int):
                 pass
     return ImageFont.load_default()
 
-def generate_cover(
+
+try:
+    import ctypes
+    from ctypes import wintypes
+    gdi32 = ctypes.windll.gdi32
+    user32 = ctypes.windll.user32
+    HAS_GDI = True
+except Exception:
+    HAS_GDI = False
+
+def draw_razor_thai(canvas, text, x, y, font_name="Leelawadee UI", font_size=44, bold=True, color=(0, 0, 0)):
+    if not text:
+        return 0, 0
+
+    if not HAS_GDI:
+        font = load_font("leelawdb.ttf" if bold else "leelawad.ttf", font_size)
+        draw = ImageDraw.Draw(canvas)
+        draw.text((x, y), text, font=font, fill=(color[0], color[1], color[2], 255))
+        b = font.getbbox(text)
+        return b[2] - b[0], b[3] - b[1]
+
+    scale = 2
+    sz_2x = font_size * scale
+    weight = 700 if bold else 400
+
+    hdc_screen = user32.GetDC(0)
+    hdc = gdi32.CreateCompatibleDC(hdc_screen)
+
+    hfont = gdi32.CreateFontW(-sz_2x, 0, 0, 0, weight, 0, 0, 0, 222, 0, 0, 4, 0, font_name)
+    old_font = gdi32.SelectObject(hdc, hfont)
+
+    class SIZE(ctypes.Structure):
+        _fields_ = [("cx", wintypes.LONG), ("cy", wintypes.LONG)]
+    size = SIZE()
+    gdi32.GetTextExtentPoint32W(hdc, text, len(text), ctypes.byref(size))
+
+    pad_top = int(sz_2x * 0.52)
+    pad_bot = int(sz_2x * 0.42)
+    w = size.cx + 40
+    h = size.cy + pad_top + pad_bot
+
+    class BITMAPINFOHEADER(ctypes.Structure):
+        _fields_ = [
+            ("biSize", wintypes.DWORD), ("biWidth", wintypes.LONG), ("biHeight", wintypes.LONG),
+            ("biPlanes", wintypes.WORD), ("biBitCount", wintypes.WORD), ("biCompression", wintypes.DWORD),
+            ("biSizeImage", wintypes.DWORD), ("biXPelsPerMeter", wintypes.LONG), ("biYPelsPerMeter", wintypes.LONG),
+            ("biClrUsed", wintypes.DWORD), ("biClrImportant", wintypes.DWORD)
+        ]
+
+    bmi = BITMAPINFOHEADER()
+    bmi.biSize = ctypes.sizeof(BITMAPINFOHEADER)
+    bmi.biWidth = w
+    bmi.biHeight = -h
+    bmi.biPlanes = 1
+    bmi.biBitCount = 32
+    bmi.biCompression = 0
+
+    ppvBits = ctypes.c_void_p()
+    hbmp = gdi32.CreateDIBSection(hdc, ctypes.byref(bmi), 0, ctypes.byref(ppvBits), 0, 0)
+    old_bmp = gdi32.SelectObject(hdc, hbmp)
+
+    hbrush = gdi32.CreateSolidBrush(0x00000000)
+    rect = wintypes.RECT(0, 0, w, h)
+    user32.FillRect(hdc, ctypes.byref(rect), hbrush)
+    gdi32.DeleteObject(hbrush)
+
+    gdi32.SetBkMode(hdc, 1)
+    gdi32.SetTextColor(hdc, 0x00FFFFFF)
+
+    text_rect = wintypes.RECT(10, pad_top, w, h)
+    user32.DrawTextW(hdc, text, len(text), ctypes.byref(text_rect), 0x00000100 | 0x00000800)
+
+    buf = ctypes.string_at(ppvBits.value, w * h * 4)
+    raw_2x = Image.frombuffer("RGBA", (w, h), buf, "raw", "BGRA", 0, 1).convert("L")
+
+    gdi32.SelectObject(hdc, old_font)
+    gdi32.SelectObject(hdc, old_bmp)
+    gdi32.DeleteObject(hfont)
+    gdi32.DeleteObject(hbmp)
+    gdi32.DeleteDC(hdc)
+    user32.ReleaseDC(0, hdc_screen)
+
+    lut = []
+    for p in range(256):
+        if p < 8:
+            lut.append(0)
+        elif p > 160:
+            lut.append(255)
+        else:
+            lut.append(int(255 * ((p - 8) / (160 - 8)) ** 0.82))
+    alpha_solid = raw_2x.point(lut)
+
+    final_w = w // scale
+    final_h = h // scale
+    alpha_1x = alpha_solid.resize((final_w, final_h), Image.Resampling.LANCZOS)
+
+    text_layer = Image.new("RGBA", (final_w, final_h), (color[0], color[1], color[2], 0))
+    text_layer.putalpha(alpha_1x)
+
+    canvas.paste(text_layer, (x - 5, y - pad_top // scale), text_layer)
+    return size.cx // scale, size.cy // scale
+
+def measure_thai_text(text, font_name="Leelawadee UI", font_size=36, bold=True):
+    if not HAS_GDI:
+        font = load_font("leelawdb.ttf" if bold else "leelawad.ttf", font_size)
+        b = font.getbbox(text)
+        return b[2] - b[0], b[3] - b[1]
+
+    hdc_screen = user32.GetDC(0)
+    hdc = gdi32.CreateCompatibleDC(hdc_screen)
+    weight = 700 if bold else 400
+    hfont = gdi32.CreateFontW(-font_size, 0, 0, 0, weight, 0, 0, 0, 222, 0, 0, 4, 0, font_name)
+    old_font = gdi32.SelectObject(hdc, hfont)
+
+    class SIZE(ctypes.Structure):
+        _fields_ = [("cx", wintypes.LONG), ("cy", wintypes.LONG)]
+    size = SIZE()
+    gdi32.GetTextExtentPoint32W(hdc, text, len(text), ctypes.byref(size))
+
+    gdi32.SelectObject(hdc, old_font)
+    gdi32.DeleteObject(hfont)
+    gdi32.DeleteDC(hdc)
+    user32.ReleaseDC(0, hdc_screen)
+    return size.cx, size.cy
+
+def remove_white_bg(img, threshold=242):
+    img = img.convert('RGBA')
+    w, h = img.size
+    pixels = img.load()
+    visited = set()
+    queue = collections.deque([(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)])
+    for pt in queue:
+        visited.add(pt)
+
+    while queue:
+        x, y = queue.popleft()
+        r, g, b, a = pixels[x, y]
+        if r >= threshold and g >= threshold and b >= threshold:
+            pixels[x, y] = (r, g, b, 0)
+            for nx, ny in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]:
+                if 0 <= nx < w and 0 <= ny < h and (nx, ny) not in visited:
+                    visited.add((nx, ny))
+                    nr, ng, nb, na = pixels[nx, ny]
+                    if nr >= threshold and ng >= threshold and nb >= threshold:
+                        queue.append((nx, ny))
+
+    bbox = img.getbbox()
+    if bbox:
+        return img.crop(bbox)
+    return img
+
+def draw_smooth_hexagon(canvas, cx, cy, radius, fill_color):
+    hex_img = Image.new('RGBA', (radius * 4, radius * 4), (0, 0, 0, 0))
+    d_hex = ImageDraw.Draw(hex_img)
+    pts = []
+    hcx = radius * 2
+    hcy = radius * 2
+    for i in range(6):
+        angle = math.radians(30 + i * 60)
+        px = hcx + radius * 1.8 * math.cos(angle)
+        py = hcy + radius * 1.8 * math.sin(angle)
+        pts.append((px, py))
+    d_hex.polygon(pts, fill=fill_color)
+    hex_scaled = hex_img.resize((radius * 2, radius * 2), Image.Resampling.LANCZOS)
+    canvas.paste(hex_scaled, (cx - radius, cy - radius), hex_scaled)
+
+def draw_vector_shield(canvas, cx, cy, size=52, fill_color=(239, 28, 37)):
+    scale = 4
+    sz = size * scale
+    im = Image.new('RGBA', (sz, sz), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+
+    w = sz * 0.82
+    h = sz * 0.96
+    x0 = (sz - w) / 2
+    y0 = (sz - h) / 2
+    x1 = x0 + w
+    y1 = y0 + h
+
+    pts = [
+        (x0, y0),
+        (x1, y0),
+        (x1, y0 + h * 0.54),
+        (sz / 2, y1),
+        (x0, y0 + h * 0.54)
+    ]
+    d.polygon(pts, fill=fill_color)
+
+    chk = [
+        (sz * 0.35, sz * 0.46),
+        (sz * 0.47, sz * 0.59),
+        (sz * 0.69, sz * 0.33)
+    ]
+    d.line(chk, fill=(255, 255, 255, 255), width=int(scale * 4.5), joint='curve')
+
+    down = im.resize((size, size), Image.Resampling.LANCZOS)
+    canvas.paste(down, (cx - size // 2, cy - size // 2), down)
+
+def get_official_brand_logo(brand_name):
+    if not brand_name:
+        return None
+    b_clean = re.sub(r'[^a-zA-Z0-9]', '', str(brand_name)).upper()
+    official_dir = os.path.abspath("assets/logos/official")
+    candidates = [
+        os.path.join(official_dir, f"{str(brand_name).lower()}_official_clean.png"),
+        os.path.join(official_dir, f"{b_clean}.png"),
+        os.path.join(official_dir, f"{str(brand_name).upper()}.png"),
+        os.path.join(official_dir, f"{str(brand_name).lower()}.png"),
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return None
+
+def generate_auto_spec_cover(
     raw_img_path_or_url,
     output_path,
     brand=None,
@@ -42,6 +258,324 @@ def generate_cover(
     shop_subtitle="เมก้า ทูล",
     overwrite=True
 ):
+    """
+    Auto-Spec Product Cover Template:
+    - 1200x1200px official shop background framing
+    - Manufacturer brand logo (Makita, POLO, etc.)
+    - Category Title + Model Pill + Hero 1-line Sub-Pill
+    - 4 Enlarged Spec Cards with smooth hexagons
+    - Bottom-left Trust & Warranty Guarantee Card (100% Thai Warranty)
+    - Heroic product image with soft natural ground shadow
+    - Official shop branding and bottom ribbon intact
+    """
+    canvas_size = 1200
+    is_bigpower = bool(shop_name and ('bigpower' in shop_name.lower() or 'big power' in shop_name.lower() or 'shop2' in shop_name.lower() or 'shop_2' in shop_name.lower()))
+    official_shop_name = "BIGPOWER TOOLS" if is_bigpower else "MEGATOOL"
+
+    RED = (239, 28, 37, 255)
+    TOOL_NAVY = (15, 62, 104, 255)
+    theme_color = TOOL_NAVY if is_bigpower else RED
+    theme_rgb = (theme_color[0], theme_color[1], theme_color[2])
+
+    temp_dir = os.path.dirname(output_path) or "."
+    os.makedirs(temp_dir, exist_ok=True)
+    temp_white = Image.new('RGB', (canvas_size, canvas_size), (255, 255, 255))
+    temp_white_path = os.path.join(temp_dir, f"_temp_white_{os.getpid()}.png")
+    temp_canvas_path = os.path.join(temp_dir, f"_temp_canvas_{os.getpid()}.png")
+    temp_white.save(temp_white_path)
+
+    generate_cover(
+        temp_white_path,
+        temp_canvas_path,
+        badge_text=badge_text,
+        shop_name=official_shop_name,
+        overwrite=True,
+        template_type="standard"
+    )
+
+    canvas = Image.open(temp_canvas_path).convert('RGBA')
+    draw = ImageDraw.Draw(canvas)
+    border_w = 22
+
+    try:
+        if os.path.exists(temp_white_path): os.remove(temp_white_path)
+        if os.path.exists(temp_canvas_path): os.remove(temp_canvas_path)
+    except Exception:
+        pass
+
+    from app.ktw_service import get_product_detail, detect_brand_from_sku
+    detail = None
+    if sku:
+        try:
+            detail = get_product_detail(sku)
+        except Exception as e:
+            print(f"Error fetching detail for {sku}: {e}")
+
+    prod_name = (detail.get('name') if detail else "") or ""
+    detected_brand = brand or (detail.get('brand') if detail else None) or detect_brand_from_sku(sku) or "MAKITA"
+    specs_dict = extract_key_specs(detail) if detail else {}
+
+    # Category title
+    if 'เครื่องเจียร์' in prod_name or 'ลูกหมู' in prod_name:
+        m_sz = re.search(r'(\d+)\s*(?:นิ้ว|")', prod_name)
+        category_title = f"เครื่องเจียร์ไฟฟ้า {m_sz.group(1)} นิ้ว" if m_sz else "เครื่องเจียร์ไฟฟ้า 4 นิ้ว"
+    elif 'เครื่องฉีดน้ำ' in prod_name:
+        category_title = "เครื่องฉีดน้ำแรงดันสูง"
+    elif 'สว่านโรตารี่' in prod_name:
+        category_title = "สว่านโรตารี่"
+    elif 'สว่าน' in prod_name:
+        category_title = "สว่านไฟฟ้า"
+    elif 'ตู้เชื่อม' in prod_name or 'เครื่องเชื่อม' in prod_name:
+        category_title = "เครื่องเชื่อมไฟฟ้า"
+    elif 'ปั๊ม' in prod_name:
+        category_title = "ปั๊มน้ำมาตรฐาน"
+    else:
+        clean_p = re.sub(r'\[.*?\]', '', prod_name).strip()
+        words = clean_p.split()
+        category_title = ' '.join(words[:3]) if words else "เครื่องมือช่างคุณภาพ"
+
+    # Model Name
+    model_code, _ = extract_model_label(prod_name, sku)
+    model_name = f"รุ่น {model_code}" if not model_code.startswith("รุ่น") else model_code
+
+    def _get_power_watt():
+        mot = specs_dict.get('กำลังมอเตอร์', '')
+        elec = specs_dict.get('กำลังไฟฟ้า', '')
+        if 'วัตต์' in mot or 'W' in mot:
+            return mot
+        if 'วัตต์' in elec or 'W' in elec:
+            return elec
+        return mot or elec or '540 วัตต์'
+
+    # Hero Sub-Pill
+    if 'เครื่องฉีดน้ำ' in prod_name:
+        p_val = specs_dict.get('แรงดันสูงสุด', '90 บาร์').split('(')[0].strip()
+        m_val = specs_dict.get('กำลังมอเตอร์', '1,200W').replace('วัตต์', 'W').strip()
+        hero_pill_text = f"แรงดัน {p_val} | มอเตอร์ {m_val}"
+    elif 'เครื่องเจียร์' in prod_name:
+        p_val = _get_power_watt().replace('วัตต์', 'W').replace(' ', '').strip()
+        b_val = specs_dict.get('ขนาดใบตัด/เจียร์', '100 มม. (4 นิ้ว)')
+        hero_pill_text = f"กำลังไฟ {p_val} | ขนาด {b_val}"
+    else:
+        items_spec = list(specs_dict.items())
+        if len(items_spec) >= 2:
+            hero_pill_text = f"{items_spec[0][0]} {items_spec[0][1]} | {items_spec[1][0]} {items_spec[1][1]}"
+        elif len(items_spec) == 1:
+            hero_pill_text = f"{items_spec[0][0]} {items_spec[0][1]}"
+        else:
+            hero_pill_text = "สินค้ารับประกันศูนย์แท้ 100%"
+
+    # 4 Spec Cards
+    spec_cards = []
+    if 'เครื่องฉีดน้ำ' in prod_name:
+        spec_cards = [
+            {"icon": "⚡", "label": "กำลังมอเตอร์", "val": specs_dict.get('กำลังมอเตอร์', '1,200 วัตต์')},
+            {"icon": "🌊", "label": "แรงดันสูงสุด", "val": specs_dict.get('แรงดันสูงสุด', '90 บาร์').split('(')[0].strip()},
+            {"icon": "💧", "label": "ปริมาณน้ำ", "val": specs_dict.get('อัตราการไหลของน้ำ', '330 ลิตร/ชั่วโมง')},
+            {"icon": "🔌", "label": "ระบบหยุดอัตโนมัติ", "val": specs_dict.get('ระบบตัดการทำงาน', 'Auto Stop System')}
+        ]
+    elif 'เครื่องเจียร์' in prod_name:
+        spec_cards = [
+            {"icon": "⚡", "label": "กำลังไฟฟ้าที่ใช้", "val": _get_power_watt()},
+            {"icon": "⏱", "label": "ความเร็วรอบตัวเปล่า", "val": specs_dict.get('ความเร็วรอบ', '12,000 รอบ/นาที')},
+            {"icon": "🔘", "label": "ประเภทสวิตช์", "val": specs_dict.get('ตำแหน่งสวิตช์', 'สวิตช์ท้าย ทนทาน').split('(')[0].strip()},
+            {"icon": "📏", "label": "ขนาดแกนหมุน", "val": specs_dict.get('ขนาดแกนเกลียว', 'M10 x 1.5')}
+        ]
+    else:
+        icon_map = {
+            'กำลัง': '⚡', 'มอเตอร์': '⚡', 'วัตต์': '⚡',
+            'ความเร็ว': '⏱', 'รอบ': '⏱',
+            'สวิตช์': '🔘', 'ตำแหน่ง': '🔘',
+            'ขนาด': '📏', 'แกน': '📏', 'ใบ': '📏', 'สาย': '📏',
+            'แรงดัน': '🌊', 'บาร์': '🌊',
+            'น้ำ': '💧', 'ไหล': '💧',
+            'ระบบ': '🔌', 'Auto': '🔌',
+            'น้ำหนัก': '⚖️'
+        }
+        for k, v in specs_dict.items():
+            if len(spec_cards) >= 4:
+                break
+            matched_icon = '⚡'
+            for ik, iv in icon_map.items():
+                if ik in k:
+                    matched_icon = iv
+                    break
+            clean_v = str(v).split('(')[0].strip()
+            spec_cards.append({"icon": matched_icon, "label": k, "val": clean_v})
+        
+        while len(spec_cards) < 4:
+            fallbacks = [
+                {"icon": "⚡", "label": "มาตรฐานกำลังไฟ", "val": "220V / 50Hz"},
+                {"icon": "🛡️", "label": "การรับประกัน", "val": "ประกันศูนย์ไทย"},
+                {"icon": "📦", "label": "สภาพสินค้า", "val": "สินค้าใหม่แกะกล่อง"},
+                {"icon": "⭐", "label": "เกรดสินค้า", "val": "เกรดอุตสาหกรรม แท้ 100%"}
+            ]
+            spec_cards.append(fallbacks[len(spec_cards)])
+
+    prod_img = None
+    try:
+        raw_im = fetch_image_safe(raw_img_path_or_url)
+        prod_img = remove_white_bg(raw_im)
+    except Exception as e:
+        print(f"Error loading product image: {e}")
+
+    if prod_img:
+        pw, ph = prod_img.size
+        is_horizontal = (pw / ph) > 1.25
+
+        if is_horizontal:
+            tgt_w = 800
+            scale = tgt_w / pw
+            tgt_h = int(ph * scale)
+            if tgt_h > 460:
+                tgt_h = 460
+                tgt_w = int(pw * (460 / ph))
+            pos_x = canvas_size - border_w - 12 - tgt_w
+            pos_y = 350 + (420 - tgt_h) // 2
+        else:
+            tgt_h = 820
+            scale = tgt_h / ph
+            tgt_w = int(pw * scale)
+            if tgt_w > 640:
+                tgt_w = 640
+                tgt_h = int(ph * (640 / pw))
+            pos_x = 510 + (640 - tgt_w) // 2
+            pos_y = 150 + (820 - tgt_h) // 2
+
+        shadow_h = 36
+        shadow_w = int(tgt_w * 0.76)
+        ground_shadow = Image.new('RGBA', (shadow_w, shadow_h), (0, 0, 0, 0))
+        d_gs = ImageDraw.Draw(ground_shadow)
+        d_gs.ellipse([0, 0, shadow_w - 1, shadow_h - 1], fill=(0, 0, 0, 40))
+        ground_shadow = ground_shadow.filter(ImageFilter.GaussianBlur(10))
+
+        shadow_pos_x = pos_x + (tgt_w - shadow_w) // 2
+        shadow_pos_y = pos_y + tgt_h - 16
+        canvas.paste(ground_shadow, (shadow_pos_x, shadow_pos_y), ground_shadow)
+        canvas.paste(prod_img.resize((tgt_w, tgt_h), Image.Resampling.LANCZOS), (pos_x, pos_y), prod_img.resize((tgt_w, tgt_h), Image.Resampling.LANCZOS))
+
+    brand_logo_p = get_official_brand_logo(detected_brand)
+    if brand_logo_p and os.path.exists(brand_logo_p):
+        try:
+            b_img = Image.open(brand_logo_p).convert('RGBA')
+            bw, bh = b_img.size
+            b_scale = min(260 / bw, 75 / bh)
+            tgt_bw = int(bw * b_scale)
+            tgt_bh = int(bh * b_scale)
+            brand_logo = b_img.resize((tgt_bw, tgt_bh), Image.Resampling.LANCZOS)
+            canvas.paste(brand_logo, (52, 45), brand_logo)
+        except Exception as e:
+            print(f"Error placing brand logo: {e}")
+    else:
+        draw_razor_thai(canvas, str(detected_brand).upper(), 52, 50, "Arial", 42, bold=True, color=theme_rgb)
+
+    TEXT_BLACK = (0, 0, 0)
+    TEXT_SLATE = (70, 80, 95)
+    DIVIDER_COLOR = (235, 238, 244, 255)
+    WHITE = (255, 255, 255, 255)
+
+    title_y = 138
+    draw_razor_thai(canvas, category_title, 52, title_y, "Leelawadee UI", 46, bold=True, color=TEXT_BLACK)
+
+    row_model_y = title_y + 68
+    m_w, m_h = measure_thai_text(model_name, "Leelawadee UI", 36, bold=True)
+    m_pad_x = 24
+    m_pad_y = 10
+    pill_w = m_w + m_pad_x * 2
+    pill_h = m_h + m_pad_y * 2
+    draw.rounded_rectangle([52, row_model_y, 52 + pill_w, row_model_y + pill_h], radius=10, fill=theme_color)
+    draw_razor_thai(canvas, model_name, 52 + m_pad_x, row_model_y + m_pad_y - 2, "Leelawadee UI", 36, bold=True, color=(255, 255, 255))
+
+    row_sub_y = row_model_y + pill_h + 14
+    sub_pill_h = 0
+    if hero_pill_text:
+        h_w, h_h = measure_thai_text(hero_pill_text, "Leelawadee UI", 26, bold=True)
+        h_pad_x = 20
+        h_pad_y = 9
+        full_sub_w = h_w + h_pad_x * 2
+        sub_pill_h = h_h + h_pad_y * 2
+
+        sub_bg = (242, 246, 252, 255) if is_bigpower else (255, 241, 242, 255)
+        sub_border = (190, 208, 230, 255) if is_bigpower else (254, 185, 185, 255)
+
+        draw.rounded_rectangle([52, row_sub_y, 52 + full_sub_w, row_sub_y + sub_pill_h], radius=8, fill=sub_bg, outline=sub_border, width=2)
+        draw_razor_thai(canvas, hero_pill_text, 52 + h_pad_x, row_sub_y + h_pad_y - 2, "Leelawadee UI", 26, bold=True, color=theme_rgb)
+
+    spec_start_y = row_sub_y + sub_pill_h + 30
+    spec_row_h = 114
+    try:
+        f_sym = ImageFont.truetype(r"C:\Windows\Fonts\seguisym.ttf", 32)
+    except Exception:
+        f_sym = load_font("seguisym.ttf", 32)
+
+    hex_radius = 32
+    hex_center_x = 52 + hex_radius
+    hex_fill = (18, 56, 88, 255) if is_bigpower else (215, 25, 33, 255)
+
+    for idx, sp in enumerate(spec_cards[:4]):
+        r_y = spec_start_y + (idx * spec_row_h)
+        h_cy = r_y + 42
+
+        draw_smooth_hexagon(canvas, hex_center_x, h_cy, hex_radius, fill_color=hex_fill)
+        icon_str = sp.get('icon', '⚡')
+        draw.text((hex_center_x, h_cy - 1), icon_str, fill=WHITE, font=f_sym, anchor='mm')
+
+        text_x = hex_center_x + hex_radius + 18
+        lbl_y = h_cy - 26
+        val_y = h_cy + 10
+
+        draw_razor_thai(canvas, sp.get('label', ''), text_x, lbl_y - 2, "Leelawadee UI", 24, bold=False, color=TEXT_SLATE)
+        draw_razor_thai(canvas, sp.get('val', ''), text_x, val_y - 2, "Leelawadee UI", 34, bold=True, color=TEXT_BLACK)
+
+        div_y = r_y + spec_row_h - 10
+        draw.line([(52, div_y), (360, div_y)], fill=DIVIDER_COLOR, width=2)
+
+    trust_card_y = spec_start_y + (4 * spec_row_h) + 16
+    trust_card_w = 440
+    trust_card_h = 88
+
+    card_bg = (248, 250, 252, 255) if is_bigpower else (255, 248, 248, 255)
+    card_outline = (226, 232, 240, 255) if is_bigpower else (254, 226, 226, 255)
+    draw.rounded_rectangle([52, trust_card_y, 52 + trust_card_w, trust_card_y + trust_card_h], radius=12, fill=card_bg, outline=card_outline, width=2)
+
+    shield_cx = 52 + 42
+    shield_cy = trust_card_y + trust_card_h // 2
+    draw_vector_shield(canvas, shield_cx, shield_cy, size=52, fill_color=theme_rgb)
+
+    trust_txt_x = shield_cx + 38
+    t_line1_y = trust_card_y + 16
+    t_line2_y = trust_card_y + 50
+    draw_razor_thai(canvas, "รับประกันศูนย์ไทย 100%", trust_txt_x, t_line1_y, "Leelawadee UI", 26, bold=True, color=theme_rgb)
+    draw_razor_thai(canvas, "ของแท้ มั่นใจ ตรวจสอบได้ทุกชิ้น", trust_txt_x, t_line2_y, "Leelawadee UI", 20, bold=False, color=TEXT_SLATE)
+
+    final_rgb = canvas.convert('RGB')
+    final_rgb.save(output_path, "JPEG", quality=95)
+    return output_path
+
+def generate_cover(
+    raw_img_path_or_url,
+    output_path,
+    brand=None,
+    sku="",
+    badge_text=None,
+    custom_footer=None,
+    shop_name="MEGATOOL",
+    shop_subtitle="เมก้า ทูล",
+    overwrite=True,
+    template_type="standard"
+):
+    if template_type == "auto_spec":
+        return generate_auto_spec_cover(
+            raw_img_path_or_url=raw_img_path_or_url,
+            output_path=output_path,
+            brand=brand,
+            sku=sku,
+            badge_text=badge_text,
+            custom_footer=custom_footer,
+            shop_name=shop_name,
+            shop_subtitle=shop_subtitle,
+            overwrite=overwrite
+        )
     """
     Exact Zupertools Replica Template for Zonix Tools:
     - 1200x1200px Clean White background

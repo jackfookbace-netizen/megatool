@@ -86,7 +86,7 @@ def prioritize_variation_lines(desc_text: str, budget: int = 550) -> str:
             
     return "\n".join(selected) if selected else "\n".join(blocks[:2])
 
-def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_name, use_template=True):
+def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_name, use_template=True, template_type="standard"):
     import hashlib
     import requests
 
@@ -133,7 +133,8 @@ def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_nam
             return (img_idx, raw_img_url)
         return (img_idx, None)
 
-    url_hash = hashlib.md5(f"{raw_img_url}_{brand}_{badge_text}_{shop_name}".encode('utf-8')).hexdigest()[:10]
+    cur_tmpl_type = template_type if img_idx == 0 else "standard"
+    url_hash = hashlib.md5(f"{raw_img_url}_{brand}_{badge_text}_{shop_name}_{cur_tmpl_type}".encode('utf-8')).hexdigest()[:10]
     local_img_path = f"app/static/covers/{sku}_{url_hash}.jpg"
     filename = f"{sku}_{url_hash}.jpg"
     try:
@@ -143,7 +144,8 @@ def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_nam
             brand=brand,
             sku=sku,
             badge_text=badge_text,
-            shop_name=shop_name
+            shop_name=shop_name,
+            template_type=cur_tmpl_type
         )
         # Tier 1: Cloudflare CDN (Freeimage / iili.io)
         uploaded_cdn = upload_to_cdn(local_img_path)
@@ -310,7 +312,8 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                         brand, 
                         badge_text, 
                         shop_name, 
-                        use_template=should_apply_template(u)
+                        use_template=should_apply_template(u),
+                        template_type=item_info.get('template_type', 'standard')
                     ): idx
                     for idx, u in enumerate(raw_images)
                 }
@@ -590,7 +593,8 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                         brand, 
                         badge_text, 
                         shop_name, 
-                        use_template=should_apply_template(u)
+                        use_template=should_apply_template(u),
+                        template_type=item_info.get('template_type', 'standard')
                     ): idx
                     for idx, u in enumerate(raw_images)
                 }

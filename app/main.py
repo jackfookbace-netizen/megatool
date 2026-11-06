@@ -332,14 +332,16 @@ class PreviewRequest(BaseModel):
     badge_text: Optional[str] = None
     custom_footer: Optional[str] = None
     shop_name: Optional[str] = "MEGATOOL"
+    template_type: Optional[str] = "standard"
 
 @app.post("/api/preview-cover")
 def api_preview_cover(req: PreviewRequest):
     import hashlib, re, time
     brand = req.brand or detect_brand_from_sku(req.sku)
     shop_str = re.sub(r'[^a-zA-Z0-9]', '', (req.shop_name or 'MEGATOOL').lower())
-    url_hash = hashlib.md5(f"{req.image_url}_{shop_str}".encode('utf-8')).hexdigest()[:8]
-    output_filename = f"{req.sku}_{shop_str}_{url_hash}_preview.jpg"
+    tmpl_type = req.template_type or "standard"
+    url_hash = hashlib.md5(f"{req.image_url}_{shop_str}_{tmpl_type}_{req.badge_text}".encode('utf-8')).hexdigest()[:8]
+    output_filename = f"{req.sku}_{shop_str}_{tmpl_type}_{url_hash}_preview.jpg"
     output_path = f"app/static/covers/{output_filename}"
     try:
         generate_cover(
@@ -350,7 +352,8 @@ def api_preview_cover(req: PreviewRequest):
             badge_text=req.badge_text,
             custom_footer=req.custom_footer,
             shop_name=req.shop_name or "MEGATOOL",
-            overwrite=True
+            overwrite=True,
+            template_type=tmpl_type
         )
         t_stamp = int(time.time())
         return {"preview_url": f"/static/covers/{output_filename}?t={t_stamp}"}
