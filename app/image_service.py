@@ -650,17 +650,39 @@ def generate_auto_spec_cover(
             print(f"Contact shadow skipped: {e}")
         canvas.paste(resized_prod, (pos_x, pos_y), resized_prod)
 
-    # Official Brand Logo ONLY: If logo file does not exist, DO NOT draw fake text fallback!
+    # Official Brand Logo ONLY: Optical Sizing Standard (Auto-Crop + Perceived Visual Weight)
     brand_logo_p = get_official_brand_logo(detected_brand)
     if brand_logo_p and os.path.exists(brand_logo_p):
         try:
             b_img = Image.open(brand_logo_p).convert('RGBA')
+            # 1. Tightly auto-crop transparent margins so dead space doesn't make logo look tiny
+            alpha_b = b_img.split()[-1]
+            b_bbox = alpha_b.getbbox()
+            if b_bbox:
+                b_img = b_img.crop(b_bbox)
             bw, bh = b_img.size
-            b_scale = min(260 / bw, 75 / bh)
-            tgt_bw = int(bw * b_scale)
-            tgt_bh = int(bh * b_scale)
+            ratio = bw / max(bh, 1)
+
+            # 2. Optical Sizing Logic:
+            # - Wide horizontal logos (ratio >= 2.0): Target area ~16500 px^2, max_w 275, max_h 82
+            # - Square/tall logos (ratio < 2.0): Target area ~12500 px^2, max_h 88
+            max_box_w = 275
+            max_box_h = 82 if ratio >= 1.6 else 88
+            target_area = 16500 if ratio >= 1.6 else 12500
+            scale_area = math.sqrt(target_area / (bw * bh))
+            b_scale = min(scale_area, max_box_w / bw, max_box_h / bh)
+
+            # Ensure minimum legible height for slender letterforms
+            if bh * b_scale < 55 and bw * (55 / bh) <= max_box_w:
+                b_scale = 55 / bh
+
+            tgt_bw = max(1, int(bw * b_scale))
+            tgt_bh = max(1, int(bh * b_scale))
             brand_logo = b_img.resize((tgt_bw, tgt_bh), Image.Resampling.LANCZOS)
-            canvas.paste(brand_logo, (52, 45), brand_logo)
+
+            # 3. Vertically center inside the 40..122 top header zone (baseline aligned with shop header)
+            logo_y = 40 + (82 - tgt_bh) // 2
+            canvas.paste(brand_logo, (52, logo_y), brand_logo)
         except Exception as e:
             print(f"Error placing brand logo: {e}")
 
