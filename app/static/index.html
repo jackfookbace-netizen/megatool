@@ -2453,7 +2453,9 @@
                                                   :class="(item.stock > 0) ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-rose-700 bg-rose-50 border-rose-200'"
                                                   x-text="(item.stock > 0) ? ('สต็อก: ' + item.stock.toLocaleString() + ' ชิ้น') : 'สต็อกคลังหมด (0 ชิ้น)'"></span>
                                             <span>•</span>
-                                            <span class="text-orange-700 bg-orange-50 px-2 py-0.5 rounded-md font-bold text-[11px] border border-orange-200" x-text="(item.selected_images?.length || 1) + ' รูป'"></span>
+                                            <span class="text-orange-700 bg-orange-50 px-2 py-0.5 rounded-md font-bold text-[11px] border border-orange-200" x-text="((item.selected_images && item.selected_images.length > 0) ? item.selected_images.length : (item.all_images?.length || 1)) + ' รูป'"></span>
+                                            <span>•</span>
+                                            <span class="text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md font-bold text-[11px] border border-amber-200" x-text="(item.template_type === 'standard') ? '🏷️ Standard' : '⭐ Auto-Spec'"></span>
                                             <button type="button" @click="showQueueModal = false; openCoverPreview(item, true)" 
                                                     title="คลิกเพื่อแต่งรูปปก หรือรวมรูปเครื่อง+อุปกรณ์เป็นภาพเดียว" 
                                                     class="text-xs px-2.5 py-0.5 rounded-lg font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-all cursor-pointer inline-flex items-center space-x-1 shadow-2xs ml-1">
@@ -2660,7 +2662,7 @@
                 itemShopeeTitle: '',
                 syncingShopeeExcel: false,
                 customUseTemplate: true,
-                coverTemplateType: 'standard',
+                coverTemplateType: 'auto_spec',
                 userManuallyTurnedOffTemplate: false,
                 unframedUrls: [],
                 openedFromCart: false,
@@ -2804,8 +2806,18 @@
                             const parsed = JSON.parse(raw);
                             if (Array.isArray(parsed)) {
                                 for (const item of parsed) {
+                                    if (!item.template_type) {
+                                        item.template_type = 'auto_spec';
+                                    }
+                                    if (item.use_template === undefined) {
+                                        item.use_template = true;
+                                    }
                                     if (item.selected_images) {
                                         item.selected_images = item.selected_images.filter(u => !this.isCollageDeleted(u));
+                                    } else if (item.all_images && item.all_images.length > 0) {
+                                        item.selected_images = [...item.all_images];
+                                    } else if (item.image) {
+                                        item.selected_images = [item.image];
                                     }
                                     if (this.isCollageDeleted(item.image)) {
                                         item.image = item.selected_images?.[0] || '';
@@ -3062,14 +3074,23 @@
 
                 addSingleListedToQueue(item) {
                     const existingIndex = this.selectedItems.findIndex(i => i.sku === item.sku);
+                    const allImgs = (item.all_images && item.all_images.length > 0)
+                        ? [...item.all_images]
+                        : (item.image_url ? [item.image_url] : (item.image ? [item.image] : []));
                     const queueItem = {
                         sku: item.sku,
                         name: item.name,
+                        shopee_title: item.shopee_title || item.name,
+                        custom_model: item.custom_model || '',
                         price: parseFloat(item.price) || 0,
                         brand: item.brand,
-                        image: item.image_url || item.image,
-                        selected_image: item.image_url || item.image,
+                        image: allImgs[0] || item.image_url || item.image,
+                        selected_image: allImgs[0] || item.image_url || item.image,
+                        all_images: allImgs,
+                        selected_images: [...allImgs],
+                        excluded_indices: [],
                         use_template: true,
+                        template_type: item.template_type || 'auto_spec',
                         variation_name: item.variation_name || this.autoCleanOptionName(item.name, item.sku, item.brand),
                         stock: item.stock || 0
                     };
@@ -3097,17 +3118,28 @@
                         return;
                     }
 
-                    this.selectedItems = targetItems.map(item => ({
-                        sku: item.sku,
-                        name: item.name,
-                        price: parseFloat(item.price) || 0,
-                        brand: item.brand,
-                        image: item.image_url || item.image,
-                        selected_image: item.image_url || item.image,
-                        use_template: true,
-                        variation_name: item.variation_name || this.autoCleanOptionName(item.name, item.sku, item.brand),
-                        stock: item.stock || 0
-                    }));
+                    this.selectedItems = targetItems.map(item => {
+                        const allImgs = (item.all_images && item.all_images.length > 0)
+                            ? [...item.all_images]
+                            : (item.image_url ? [item.image_url] : (item.image ? [item.image] : []));
+                        return {
+                            sku: item.sku,
+                            name: item.name,
+                            shopee_title: item.shopee_title || item.name,
+                            custom_model: item.custom_model || '',
+                            price: parseFloat(item.price) || 0,
+                            brand: item.brand,
+                            image: allImgs[0] || item.image_url || item.image,
+                            selected_image: allImgs[0] || item.image_url || item.image,
+                            all_images: allImgs,
+                            selected_images: [...allImgs],
+                            excluded_indices: [],
+                            use_template: true,
+                            template_type: item.template_type || 'auto_spec',
+                            variation_name: item.variation_name || this.autoCleanOptionName(item.name, item.sku, item.brand),
+                            stock: item.stock || 0
+                        };
+                    });
 
                     if (this.selectedItems.length > 1) {
                         const firstBrand = (this.selectedItems[0].brand || '').toLowerCase();
@@ -3767,6 +3799,21 @@ toggleListedSort(field) {
                 },
 
                 openQueueModal() {
+                    this.selectedItems.forEach(item => {
+                        if (!item.template_type) {
+                            item.template_type = 'auto_spec';
+                        }
+                        if (item.use_template === undefined) {
+                            item.use_template = true;
+                        }
+                        if (!item.selected_images || item.selected_images.length === 0) {
+                            if (item.all_images && item.all_images.length > 0) {
+                                item.selected_images = [...item.all_images];
+                            } else if (item.image) {
+                                item.selected_images = [item.image];
+                            }
+                        }
+                    });
                     this.syncParentTitleIfNeeded();
                     this.showQueueModal = true;
                     this.$nextTick(() => lucide.createIcons());
@@ -4026,18 +4073,29 @@ toggleListedSort(field) {
                 },
 
                 toggleSelectItem(p) {
-                    const idx = this.selectedItems.findIndex(item => item.sku === p.sku);
+                    const sku = p.sku || p.code;
+                    const idx = this.selectedItems.findIndex(item => item.sku === sku);
                     if (idx > -1) {
                         this.selectedItems.splice(idx, 1);
                     } else {
+                        const allImgs = (p.all_images && p.all_images.length > 0)
+                            ? [...p.all_images]
+                            : (p.images && p.images.length > 0 ? [...p.images] : (p.image ? [p.image] : []));
                         this.selectedItems.push({
-                            sku: p.sku || p.code,
+                            sku: sku,
                             name: p.name,
+                            shopee_title: p.shopee_title || p.name,
+                            custom_model: p.custom_model || '',
                             price: this.getProductPrice(p),
                             brand: p.brand || p.manufacturer,
-                            image: p.image || (p.images && p.images[0]),
+                            image: allImgs[0] || p.image,
+                            selected_image: allImgs[0] || p.image,
+                            all_images: allImgs,
+                            selected_images: [...allImgs],
+                            excluded_indices: [],
                             use_template: true,
-                            variation_name: this.autoCleanOptionName(p.name, p.sku || p.code, p.brand || p.manufacturer),
+                            template_type: 'auto_spec',
+                            variation_name: this.autoCleanOptionName(p.name, sku, p.brand || p.manufacturer),
                             stock: p.stock?.stockLevel || p.stock || 0
                         });
                     }
@@ -4252,7 +4310,7 @@ toggleListedSort(field) {
                     this.userManuallyTurnedOffTemplate = (existingInQueue && existingInQueue.use_template === false);
                     this.unframedUrls = (existingInQueue && Array.isArray(existingInQueue.unframed_images)) ? [...existingInQueue.unframed_images] : [];
                     this.customUseTemplate = !this.userManuallyTurnedOffTemplate;
-                    this.coverTemplateType = (existingInQueue && existingInQueue.template_type) || localStorage.getItem('megatool_cover_template_type') || 'standard';
+                    this.coverTemplateType = (existingInQueue && existingInQueue.template_type) || localStorage.getItem('megatool_cover_template_type') || 'auto_spec';
 
                     try {
                         const res = await fetch(`/api/product-images/${sku}`, { headers: this.getHeaders() });
@@ -4372,7 +4430,7 @@ toggleListedSort(field) {
                                 brand: brand,
                                 badge_text: this.customBadgeText,
                                 shop_name: this.shopName || (this.currentShop && this.currentShop.brand_display) || (this.activeShopId === 'shop_2' ? 'BigPower Tools' : 'MEGATOOL'),
-                                template_type: this.coverTemplateType || 'standard',
+                                template_type: this.coverTemplateType || 'auto_spec',
                                 custom_model: (this.customCoverModel && this.customCoverModel.trim()) ? this.customCoverModel.trim() : undefined
                             })
                         });
@@ -4766,7 +4824,7 @@ toggleListedSort(field) {
                         this.selectedItems[existingIndex].excluded_indices = [...this.excludedImageIndices];
                         this.selectedItems[existingIndex].badge = this.customBadgeText;
                         this.selectedItems[existingIndex].use_template = itemUseTemplate;
-                        this.selectedItems[existingIndex].template_type = this.coverTemplateType || 'standard';
+                        this.selectedItems[existingIndex].template_type = this.coverTemplateType || 'auto_spec';
                         this.selectedItems[existingIndex].unframed_images = [...this.unframedUrls];
                         this.selectedItems[existingIndex].custom_model = this.customCoverModel;
                         this.selectedItems[existingIndex].shopee_title = this.itemShopeeTitle;
@@ -4784,7 +4842,7 @@ toggleListedSort(field) {
                             excluded_indices: [...this.excludedImageIndices],
                             badge: this.customBadgeText,
                             use_template: itemUseTemplate,
-                            template_type: this.coverTemplateType || 'standard',
+                            template_type: this.coverTemplateType || 'auto_spec',
                             unframed_images: [...this.unframedUrls],
                             stock: this.activePreviewItem.stock?.stockLevel || this.activePreviewItem.stock || 0
                         });

@@ -313,7 +313,7 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                         badge_text, 
                         shop_name, 
                         use_template=should_apply_template(u),
-                        template_type=item_info.get('template_type', 'standard')
+                        template_type=item_info.get('template_type', 'auto_spec')
                     ): idx
                     for idx, u in enumerate(raw_images)
                 }
@@ -594,7 +594,7 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                         badge_text, 
                         shop_name, 
                         use_template=should_apply_template(u),
-                        template_type=item_info.get('template_type', 'standard')
+                        template_type=item_info.get('template_type', 'auto_spec')
                     ): idx
                     for idx, u in enumerate(raw_images)
                 }

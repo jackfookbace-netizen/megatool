@@ -554,37 +554,42 @@ def generate_auto_spec_cover(
     spec_cards = []
     icon_map = {
         'แรงดันไฟฟ้า': '⚡', 'กำลัง': '⚡', 'มอเตอร์': '⚡', 'วัตต์': '⚡', 'โวลต์': '⚡',
+        'กระแส': '⚡', 'แอมป์': '⚡', 'KVA': '⚡', 'เชื่อม': '⚡',
         'ความเร็ว': '⏱', 'รอบ': '⏱',
         'สวิตช์': '🔘', 'ตำแหน่ง': '🔘',
-        'ขนาด': '📏', 'แกน': '📏', 'ใบ': '📏', 'สาย': '📏', 'กว้าง': '📏', 'ยาว': '📏',
+        'ขนาด': '📏', 'แกน': '📏', 'ใบ': '📏', 'สาย': '📏', 'กว้าง': '📏', 'ยาว': '📏', 'ลวด': '📏',
         'หนา': '📐',
+        'แรงบิด': '⚙️', 'ทอร์ค': '⚙️',
         'อุณหภูมิ': '🌡️', 'ความร้อน': '🌡️',
         'แรงดัน': '🌊', 'บาร์': '🌊',
         'น้ำ': '💧', 'ไหล': '💧',
-        'ระบบ': '🔌', 'Auto': '🔌',
+        'ระบบ': '🔌', 'Auto': '🔌', 'IGBT': '🔌', 'Inverter': '🔌',
         'คุณสมบัติ': '🛡️', 'ไม่ลามไฟ': '🛡️',
         'จำนวน': '📦', 'บรรจุ': '📦', 'แพ็ค': '📦',
         'น้ำหนัก': '⚖️'
     }
     def _spec_priority(item):
         k, v = item
+        if 'กระแส' in k or 'แอมป์' in str(v): return 1
         if 'เจาะ' in k or 'ขนาดการเจาะ' in k: return 1
-        if 'มอเตอร์' in k or 'วัตต์' in str(v) or 'W' in str(v): return 2
+        if 'แรงบิด' in k or 'นิวตัน' in str(v): return 1
+        if 'มอเตอร์' in k or 'วัตต์' in str(v) or 'W' in str(v) or 'KVA' in str(v): return 2
         if 'แรงดันสูงสุด' in k or 'บาร์' in str(v): return 3
-        if 'ขนาด' in k or 'หัว' in k or 'ใบ' in k: return 4
+        if 'ขนาด' in k or 'ลวด' in k or 'หัว' in k or 'ใบ' in k: return 4
         if 'ความเร็ว' in k or 'รอบ' in str(v): return 5
         if 'ความยาว' in k or 'เมตร' in str(v): return 6
         if 'อัตรา' in k or 'น้ำ' in k: return 7
         if 'สวิตช์' in k or 'ระบบ' in k: return 8
         if 'เกรด' in k or 'วัสดุ' in k: return 9
         if 'แรงดันไฟฟ้า' in k or '220' in str(v): return 10
-        return 12
+        if 'น้ำหนัก' in k: return 11
+        return 15
 
     sorted_specs = sorted(specs_dict.items(), key=_spec_priority)
     for k, v in sorted_specs:
         if len(spec_cards) >= 4:
             break
-        if ('220' in str(v) or 'โวลต์' in str(v)) and any('วัตต์' in sp['val'] or 'W' in sp['val'] for sp in spec_cards):
+        if ('220' in str(v) or 'โวลต์' in str(v)) and any('วัตต์' in sp['val'] or 'W' in sp['val'] or 'KVA' in sp['val'] or 'แอมป์' in sp['val'] for sp in spec_cards) and len(sorted_specs) > 3:
             continue
         matched_icon = '⚡'
         for ik, iv in icon_map.items():
@@ -600,6 +605,10 @@ def generate_auto_spec_cover(
         p_val = specs_dict.get('แรงดันสูงสุด', '90 บาร์').split('(')[0].strip()
         m_val = specs_dict.get('กำลังมอเตอร์', '1,200W').replace('วัตต์', 'W').strip()
         hero_pills = [f"แรงดัน {p_val}", f"มอเตอร์ {m_val}"]
+    elif 'เครื่องเชื่อม' in prod_name or 'ตู้เชื่อม' in prod_name or 'WELDING' in prod_name.upper():
+        cur = specs_dict.get('กระแสไฟเชื่อม') or '20 - 200 แอมป์'
+        wire = specs_dict.get('ขนาดลวดเชื่อม') or specs_dict.get('ระบบการทำงาน') or 'ลวด 1.6 - 4.0 มม.'
+        hero_pills = [f"กระแสไฟ {cur}", wire if 'ลวด' in wire else f"ขนาดลวด {wire}"]
     elif 'เครื่องเจียร์' in prod_name:
         p_val = _get_power_watt().replace('วัตต์', 'W').replace(' ', '').strip()
         b_val = specs_dict.get('ขนาดใบตัด/เจียร์', '100 มม. (4 นิ้ว)')
@@ -2052,7 +2061,7 @@ def extract_model_label(name, sku, detail=None):
     for src in [name, summary]:
         if not src:
             continue
-        m_explicit = re.search(r'(?:รุ่น|โมเดล|Model)\s*[:\-]?\s*([A-Za-z0-9]+(?:[\-\.\_\+\/][A-Za-z0-9]+)*(?:\s+[A-Za-z0-9\+]+)?)', src, re.IGNORECASE)
+        m_explicit = re.search(r'(?:รุ่น|โมเดล|Model)\s*[:\-]?\s*([A-Za-z0-9\+]+(?:[\-\.\_\+\/][A-Za-z0-9\+]+)*(?:\s+[A-Za-z0-9\+]+)?)', src, re.IGNORECASE)
         if m_explicit:
             cand = m_explicit.group(1).strip().rstrip('.,-()[]')
             if cand.upper() not in UNIT_WORDS and len(cand) >= 2 and not cand.startswith('000'):
@@ -2180,10 +2189,17 @@ def extract_key_specs(detail):
             vals = f.get('featureValues', [])
             val_str = ', '.join([v.get('value', '') for v in vals if v.get('value')])
             if name and val_str and val_str != '-':
-                if 'กำลังมอเตอร์' in name or 'motor_power' in code:
+                if 'current_range' in code or 'กระแสไฟเชื่อม' in name:
+                    specs['กระแสไฟเชื่อม'] = val_str
+                elif 'wire_size' in code or 'ขนาดลวด' in name:
+                    specs['ขนาดลวดเชื่อม'] = val_str
+                elif 'no-load' in code or 'ไร้ภาระ' in name:
+                    pass  # Skip no-load voltage from replacing operating voltage
+                elif 'กำลังมอเตอร์' in name or 'motor_power' in code:
                     specs['กำลังมอเตอร์'] = val_str
-                elif 'voltage' in code or 'แรงดันไฟฟ้า' in name:
-                    specs['แรงดันไฟฟ้า'] = val_str
+                elif 'voltage' in code or 'แรงดันไฟ' in name:
+                    if 'แรงดันไฟฟ้า' not in specs or '220' in val_str:
+                        specs['แรงดันไฟฟ้า'] = val_str
                 elif 'กำลังไฟ' in name or 'power_phase' in code or 'continuous_rating' in code:
                     specs['กำลังไฟฟ้า'] = val_str
                 elif 'ความเร็วรอบ' in name or 'no_load_speed' in code:
@@ -2208,6 +2224,64 @@ def extract_key_specs(detail):
                     specs['วัสดุที่เจาะได้'] = val_str
                 elif 'overall_length' in code or 'ความยาวรวม' in name:
                     specs['ความยาวรวม'] = val_str
+                elif 'torque' in code or 'แรงบิด' in name:
+                    specs['แรงบิดสูงสุด'] = val_str
+
+    # 2. From KTW Automated Summary & Title (covers products with empty description tabs)
+    summary_text = f"{detail.get('summary', '') or ''} {detail.get('name', '') or ''}".strip()
+    if summary_text:
+        if 'กระแสไฟเชื่อม' not in specs:
+            m_cur = re.search(r'(?:กระแสไฟเชื่อม|กระแสเชื่อม|กระแสไฟ)\s*[:：]?\s*([0-9\-\.\s]+(?:\s*แอมป์|A\b))', summary_text, re.IGNORECASE)
+            if m_cur:
+                specs['กระแสไฟเชื่อม'] = m_cur.group(1).strip()
+        if 'ขนาดลวดเชื่อม' not in specs:
+            m_wire = re.search(r'ขนาดลวด(?:ที่ใช้)?\s*[:：]?\s*([0-9\-\.\s]+(?:\s*มม\.|mm\b))', summary_text, re.IGNORECASE)
+            if m_wire:
+                specs['ขนาดลวดเชื่อม'] = m_wire.group(1).strip()
+        if 'กำลังไฟฟ้าเข้า' not in specs:
+            m_kva = re.search(r'กำลังไฟ(?:ฟ้า)?เข้า?\s*[:：]?\s*([0-9\-\.\s]+(?:KVA|kVA|kva|วัตต์|W\b))', summary_text, re.IGNORECASE)
+            if m_kva:
+                specs['กำลังไฟฟ้าเข้า'] = m_kva.group(1).strip()
+        if 'ระบบการทำงาน' not in specs:
+            m_sys = re.search(r'ระบบ\s*[:：]?\s*(IGBT[a-zA-Z0-9\+\s]*|Inverter[a-zA-Z0-9\+\s]*|MMA\b|MIG\b|TIG\b)', summary_text, re.IGNORECASE)
+            if m_sys:
+                specs['ระบบการทำงาน'] = f"ระบบ {m_sys.group(1).strip()}"
+        if 'กำลังมอเตอร์' not in specs and 'กำลังไฟฟ้า' not in specs:
+            m_wat = re.search(r'([0-9,]+(?:\.\d+)?)\s*(?:วัตต์|W\b)', summary_text)
+            if m_wat:
+                specs['กำลังมอเตอร์'] = f"{m_wat.group(1)} วัตต์"
+        if 'แรงดันไฟฟ้า' not in specs:
+            m_vol = re.search(r'แรงดันไฟ(?:ฟ้า)?\s*[:：]?\s*([0-9\-\.\s]+(?:\s*โวลต์|V\b))', summary_text, re.IGNORECASE)
+            if m_vol:
+                specs['แรงดันไฟฟ้า'] = m_vol.group(1).strip()
+        if 'อัตราการไหลของน้ำ' not in specs:
+            m_flw = re.search(r'(?:ปริมาณน้ำ|อัตราการไหล(?:ของน้ำ)?)\s*[:：]?\s*([0-9\-\.\s]+(?:\s*ลิตร\/นาที|L\/min))', summary_text, re.IGNORECASE)
+            if m_flw:
+                specs['อัตราการไหลของน้ำ'] = m_flw.group(1).strip()
+        if 'ระยะส่งสูงสุด' not in specs:
+            m_hd = re.search(r'(?:ส่งสูง|ระยะส่งสูงสุด)\s*[:：]?\s*([0-9\-\.\s]+(?:\s*ม\.|เมตร))', summary_text, re.IGNORECASE)
+            if m_hd:
+                specs['ระยะส่งสูงสุด'] = m_hd.group(1).strip()
+        if 'ขนาดท่อส่ง' not in specs:
+            m_pip = re.search(r'ขนาดท่อ(?:ที่ใช้ได้)?\s*[:：]?\s*([^,\(\)\n]+?(?:นิ้ว|หุน|มม\.))', summary_text, re.IGNORECASE)
+            if m_pip:
+                specs['ขนาดท่อส่ง'] = m_pip.group(1).strip()
+        if 'ขนาดการเจาะ' not in specs:
+            m_drl = re.search(r'ขนาด\s*([0-9\-\.\s]+\s*มม\.)', summary_text)
+            if m_drl:
+                specs['ขนาดการเจาะ'] = m_drl.group(1).strip()
+        if 'ขนาดแกนเกลียว' not in specs:
+            m_shk = re.search(r'แกน\s*([0-9\-\.\s]+\s*มม\.)', summary_text)
+            if m_shk:
+                specs['ขนาดแกนเกลียว'] = m_shk.group(1).strip()
+        if 'แรงบิดสูงสุด' not in specs:
+            m_tor = re.search(r'แรงบิด(?:สูงสุด)?\s*[:：]?\s*([0-9\-\.\s]+(?:\s*นิวตันเมตร|N\.m|Nm\b))', summary_text, re.IGNORECASE)
+            if m_tor:
+                specs['แรงบิดสูงสุด'] = m_tor.group(1).strip()
+        if 'ความเร็วรอบ' not in specs:
+            m_rpm = re.search(r'ความเร็วรอบ\s*[:：]?\s*([0-9,]+(?:\s*-\s*[0-9,]+)?\s*(?:รอบ\/นาที|รอบต่อนาที|RPM|rpm\b))', summary_text, re.IGNORECASE)
+            if m_rpm:
+                specs['ความเร็วรอบ'] = m_rpm.group(1).strip()
 
     # 2. From Description bullet points (POLO, DongCheng, consumables, etc.)
     desc = detail.get('description', '') or ''
