@@ -2291,6 +2291,7 @@
                         <i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i>
                         <h3 class="text-base font-bold text-slate-800">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                         <span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-bold" x-text="selectedItems.length + ' รายการ'"></span>
+                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.10-c</span>
                     </div>
                     <button @click="showQueueModal = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer" title="ปิดหน้าต่าง">
                         <i data-lucide="x" class="w-5 h-5"></i>
@@ -2785,18 +2786,72 @@
                         const data = await res.json();
                         if (data && data.success && Array.isArray(data.items) && data.items.length > 0) {
                             this.selectedItems = data.items;
+                            this.normalizeCartItems();
                             localStorage.setItem('megatool_selected_items', JSON.stringify(this.selectedItems));
                             localStorage.setItem(`cart_${shopId}`, JSON.stringify(this.selectedItems));
+                            this.backfillCartImages();
                             return;
                         }
                         const local = localStorage.getItem(`cart_${shopId}`);
                         if (local) {
                             this.selectedItems = JSON.parse(local);
+                            this.normalizeCartItems();
+                            this.backfillCartImages();
                             return;
                         }
                     } catch (e) {
                         console.error('Error fetching cart for shop:', e);
                     }
+                },
+
+                // Migrate legacy cart items (saved before Auto-Spec / all-images defaults) to the new defaults
+                normalizeCartItems() {
+                    for (const item of (this.selectedItems || [])) {
+                        if (!item.template_type) item.template_type = 'auto_spec';
+                        if (item.use_template === undefined) item.use_template = true;
+                        if (!item.selected_images || item.selected_images.length === 0) {
+                            if (item.all_images && item.all_images.length > 0) {
+                                item.selected_images = [...item.all_images];
+                            } else if (item.image || item.selected_image) {
+                                item.selected_images = [item.selected_image || item.image];
+                            }
+                        }
+                    }
+                },
+
+                // Fetch the full image set (all angles) from KTW for cart items that only carry 1 image
+                async backfillCartImages() {
+                    let changed = false;
+                    for (const item of (this.selectedItems || [])) {
+                        if (item._imgs_filled) continue;
+                        const hasCustom = (item.excluded_indices && item.excluded_indices.length > 0)
+                            || (item.unframed_images && item.unframed_images.length > 0);
+                        if (hasCustom || (item.selected_images && item.selected_images.length > 1)) {
+                            item._imgs_filled = true;
+                            continue;
+                        }
+                        try {
+                            const res = await fetch(`/api/product-images/${encodeURIComponent(item.sku)}`, { headers: this.getHeaders() });
+                            if (!res.ok) continue;
+                            const data = await res.json();
+                            const imgs = (data.images || []).filter(u => !this.isCollageDeleted(u));
+                            if (imgs.length > 0) {
+                                const cover = item.selected_image || item.image;
+                                const ordered = cover && imgs.includes(cover)
+                                    ? [cover, ...imgs.filter(u => u !== cover)]
+                                    : imgs;
+                                item.all_images = ordered;
+                                item.selected_images = [...ordered];
+                                item.selected_image = ordered[0];
+                                item.image = ordered[0];
+                                item._imgs_filled = true;
+                                changed = true;
+                            }
+                        } catch (e) {
+                            console.error('backfillCartImages error', item.sku, e);
+                        }
+                    }
+                    if (changed) this.saveCartToStorage();
                 },
 
                 loadCartFromStorage() {
@@ -3799,21 +3854,8 @@ toggleListedSort(field) {
                 },
 
                 openQueueModal() {
-                    this.selectedItems.forEach(item => {
-                        if (!item.template_type) {
-                            item.template_type = 'auto_spec';
-                        }
-                        if (item.use_template === undefined) {
-                            item.use_template = true;
-                        }
-                        if (!item.selected_images || item.selected_images.length === 0) {
-                            if (item.all_images && item.all_images.length > 0) {
-                                item.selected_images = [...item.all_images];
-                            } else if (item.image) {
-                                item.selected_images = [item.image];
-                            }
-                        }
-                    });
+                    this.normalizeCartItems();
+                    this.backfillCartImages();
                     this.syncParentTitleIfNeeded();
                     this.showQueueModal = true;
                     this.$nextTick(() => lucide.createIcons());
