@@ -299,6 +299,19 @@ def remove_white_bg(img, threshold=242):
         return img.crop(bbox)
     return img
 
+# Shopee overlays its "ส่งฟรี" (free shipping) + "ส่วนลด" (discount) badges on the bottom-left corner of the cover.
+# Measured on a 1200x1200 cover: badges occupy x 0..~700, y ~1030..1200. Keep every important element out of it.
+SHOPEE_BADGE_ZONE = (0, 1030, 705, 1200)
+COVER_SAFE_BOTTOM = 1012   # product / text must end above this line (x < SHOPEE_BADGE_ZONE[2])
+COVER_SAFE_TOP = 135       # keep clear of the shop header
+
+
+def nonwhite_bbox(img, threshold=238):
+    """Bounding box (l, t, r, b) of non-white pixels of an image (None if blank)."""
+    g = img.convert('L').point(lambda v: 255 if v < threshold else 0)
+    return g.getbbox()
+
+
 def resize_hq(img, size):
     """High-quality resize: LANCZOS (+ reducing_gap off) for crisp, alias-free scaling."""
     if img.size == tuple(size):
@@ -694,9 +707,9 @@ def generate_auto_spec_cover(
     spec_top = curr_y + 22
     n_rows = max(1, len(spec_cards[:4]))
     trust_card_h = 84
-    bottom_limit = 1135
+    bottom_limit = COVER_SAFE_BOTTOM - 4   # trust card must end above the Shopee badge zone (y >= 1030)
     avail = bottom_limit - spec_top - trust_card_h - 22
-    spec_row_h = max(118, min(142, avail // n_rows))
+    spec_row_h = max(96, min(142, avail // n_rows))
 
     try:
         f_sym = ImageFont.truetype(r"C:\Windows\Fonts\seguisym.ttf", 28)
@@ -728,10 +741,10 @@ def generate_auto_spec_cover(
             # long value: two balanced lines, still large and readable
             ln1, ln2 = split_two_lines(val)
             v2_sz, _ = fit_hq(max([ln1, ln2], key=len), "bold", 30, 20, val_max_w)
-            draw_hq(canvas, lbl, text_x, h_cy - 16, "medium", l_sz, TEXT_LABEL)
-            draw_hq(canvas, ln1, text_x, h_cy + 18, "bold", v2_sz, theme_rgb)
+            draw_hq(canvas, lbl, text_x, h_cy - 24, "medium", l_sz, TEXT_LABEL)
+            draw_hq(canvas, ln1, text_x, h_cy + 8, "bold", v2_sz, theme_rgb)
             if ln2:
-                draw_hq(canvas, ln2, text_x, h_cy + 18 + int(v2_sz * 1.25), "bold", v2_sz, theme_rgb)
+                draw_hq(canvas, ln2, text_x, h_cy + 8 + int(v2_sz * 1.22), "bold", v2_sz, theme_rgb)
 
         div_y = r_y + spec_row_h - 2
         draw.line([(COL_L, div_y), (COL_R, div_y)], fill=DIVIDER_COLOR, width=2)
@@ -833,11 +846,32 @@ def generate_cover(
     scale = min(canvas_size / w, canvas_size / h)
     new_w = int(w * scale)
     new_h = int(h * scale)
-    resized_raw = resize_hq(raw_img, (new_w, new_h))
-    resized_raw = enhance_product(resized_raw, sharp=0.8, contrast=1.05, color=1.05)
-    
     px = (canvas_size - new_w) // 2
     py = (canvas_size - new_h) // 2
+
+    # 3b. Shopee badge safe-zone: if the product silhouette reaches the bottom-left corner (where Shopee puts the
+    # free-shipping / discount badges), shift it up (and shrink only if needed) so nothing is covered.
+    bb = nonwhite_bbox(raw_img)
+    if bb:
+        k = new_w / float(w)
+        gx0, gy0 = px + bb[0] * k, py + bb[1] * k
+        gx1, gy1 = px + bb[2] * k, py + bb[3] * k
+        if gx0 < SHOPEE_BADGE_ZONE[2] and gy1 > COVER_SAFE_BOTTOM:
+            bh = gy1 - gy0
+            f = min(1.0, (COVER_SAFE_BOTTOM - COVER_SAFE_TOP) / max(bh, 1))
+            if f < 1.0:
+                new_w = max(1, int(new_w * f))
+                new_h = max(1, int(new_h * f))
+                k2 = new_w / float(w)
+                # keep horizontal center of the silhouette, put its bottom on the safe line
+                cx = (gx0 + gx1) / 2.0
+                px = int(cx - ((bb[0] + bb[2]) / 2.0) * k2)
+                py = int(COVER_SAFE_BOTTOM - bb[3] * k2)
+            else:
+                py = int(py - (gy1 - COVER_SAFE_BOTTOM))
+    resized_raw = resize_hq(raw_img, (new_w, new_h))
+    resized_raw = enhance_product(resized_raw, sharp=0.8, contrast=1.05, color=1.05)
+
     canvas.paste(resized_raw, (px, py), resized_raw if resized_raw.mode == 'RGBA' else None)
 
     # 4. Outer Red Frame (on top of image)
