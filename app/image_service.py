@@ -43,6 +43,99 @@ try:
 except Exception:
     HAS_GDI = False
 
+_THAI_UPPER_VOWELS = set("\u0e31\u0e34\u0e35\u0e36\u0e37")   # ั ิ ี ึ ื
+_THAI_TOP_MARKS = set("\u0e48\u0e49\u0e4a\u0e4b\u0e4c")        # ่ ้ ๊ ๋ ์
+
+
+def _thai_split_stacked(text):
+    """Pillow without libraqm has no GPOS mark stacking, so a tone mark that follows an upper vowel
+    (e.g. จี้ นิ้ว ที่ เกี่ยว) collides with the vowel and disappears.
+    Returns (stripped_text, [(index_in_stripped, mark_char)]) with those tone marks pulled out so they can be
+    drawn separately, raised above the vowel."""
+    out = []
+    marks = []
+    n = len(text)
+    for i, ch in enumerate(text):
+        after_upper_vowel = bool(out) and out[-1] in _THAI_UPPER_VOWELS
+        before_sara_am = (i + 1 < n and text[i + 1] == "\u0e33")   # น้ำ ก๊ำ : tone sits above the nikhahit
+        if ch in _THAI_TOP_MARKS and (after_upper_vowel or before_sara_am):
+            marks.append((len(out), ch))
+        else:
+            out.append(ch)
+    return "".join(out), marks
+
+
+def _draw_thai_text(draw, xy, text, font, fill, anchor="ls", lift_ratio=0.2):
+    """draw.text() replacement that renders Thai stacked tone marks correctly without a shaping engine."""
+    stripped, marks = _thai_split_stacked(text)
+    draw.text(xy, stripped, font=font, fill=fill, anchor=anchor)
+    if marks:
+        lift = font.size * lift_ratio
+        for idx, mk in marks:
+            pen = font.getlength(stripped[:idx])
+            draw.text((xy[0] + pen, xy[1] - lift), mk, font=font, fill=fill, anchor=anchor)
+
+
+PROMPT_FILES = {
+    "regular": "Prompt-Regular.ttf",
+    "medium": "Prompt-Medium.ttf",
+    "semibold": "Prompt-SemiBold.ttf",
+    "bold": "Prompt-Bold.ttf",
+}
+
+
+def measure_hq(text, weight="semibold", size=30):
+    """Width in px of text rendered with the Prompt font (same on Windows & Linux)."""
+    f = load_font(PROMPT_FILES[weight], size * 4)
+    return f.getlength(text) / 4.0
+
+
+def draw_hq(canvas, text, x, baseline, weight="semibold", size=30, color=(0, 0, 0)):
+    """Draw Thai/Latin text with the Prompt font: 4x supersampled, LANCZOS downsample, solid alpha curve.
+    (x, baseline) = left edge and text baseline in canvas pixels. Returns rendered width."""
+    if not text:
+        return 0
+    S = 4
+    f = load_font(PROMPT_FILES[weight], size * S)
+    stripped_t, _mk = _thai_split_stacked(text)
+    bb = f.getbbox(stripped_t, anchor="ls")
+    if _mk:
+        bb = (bb[0], min(bb[1], bb[1] - int(size * 0.3 * S)), bb[2], bb[3])
+    pad = 6
+    ox = ((-bb[0]) // S + pad + 1) * S
+    oy = ((-bb[1]) // S + pad + 1) * S
+    w = ox + (bb[2] // S + pad + 2) * S
+    h = oy + (bb[3] // S + pad + 2) * S
+    layer = Image.new("L", (w, h), 0)
+    _draw_thai_text(ImageDraw.Draw(layer), (ox, oy), text, f, 255, anchor="ls")
+    a = layer.resize((w // S, h // S), Image.Resampling.LANCZOS).point(_TEXT_LUT)
+    tl = Image.new("RGBA", a.size, (color[0], color[1], color[2], 0))
+    tl.putalpha(a)
+    canvas.paste(tl, (int(x) - ox // S, int(baseline) - oy // S), tl)
+    return f.getlength(text) / S
+
+
+def fit_hq(text, weight, max_size, min_size, max_w):
+    """Largest font size (<= max_size) whose rendered width fits max_w; returns (size, width)."""
+    for sz in range(max_size, min_size - 1, -1):
+        w = measure_hq(text, weight, sz)
+        if w <= max_w:
+            return sz, w
+    return min_size, measure_hq(text, weight, min_size)
+
+
+def split_two_lines(text):
+    """Split text into 2 balanced lines at a space (prefers a space before '(')."""
+    if "(" in text and text.index("(") > 0:
+        i = text.index("(")
+        return text[:i].strip(), text[i:].strip()
+    words = text.split(" ")
+    if len(words) < 2:
+        return text, ""
+    best = min(range(1, len(words)), key=lambda k: abs(len(" ".join(words[:k])) - len(" ".join(words[k:]))))
+    return " ".join(words[:best]), " ".join(words[best:])
+
+
 TEXT_SS = 4  # text supersampling factor (render at 4x then downsample => razor-sharp edges)
 
 
@@ -70,13 +163,13 @@ def draw_razor_thai(canvas, text, x, y, font_name="Leelawadee UI", font_size=44,
         font_1x = load_font("leelawdb.ttf" if bold else "leelawad.ttf", font_size)
         pad = 8
         tmp = Image.new("L", (8, 8), 0)
-        bb = ImageDraw.Draw(tmp).textbbox((0, 0), text, font=font_hi)
+        bb = ImageDraw.Draw(tmp).textbbox((0, 0), _thai_split_stacked(text)[0], font=font_hi)
         w4 = bb[2] + pad * 2 * scale
         h4 = bb[3] + pad * 2 * scale
         w4 += (-w4) % scale
         h4 += (-h4) % scale
         layer_hi = Image.new("L", (w4, h4), 0)
-        ImageDraw.Draw(layer_hi).text((pad * scale, pad * scale), text, font=font_hi, fill=255)
+        _draw_thai_text(ImageDraw.Draw(layer_hi), (pad * scale, pad * scale), text, font_hi, 255, anchor="la")
         alpha_1x = layer_hi.resize((w4 // scale, h4 // scale), Image.Resampling.LANCZOS).point(_TEXT_LUT)
         text_layer = Image.new("RGBA", alpha_1x.size, (color[0], color[1], color[2], 0))
         text_layer.putalpha(alpha_1x)
@@ -514,7 +607,7 @@ def generate_auto_spec_cover(
         left_safe_x = 368
         right_safe_x = 1156
         max_avail_w = right_safe_x - left_safe_x  # 788px
-        max_avail_h = 785 if not is_horizontal else 460
+        max_avail_h = 835 if not is_horizontal else 460
 
         # Maximize scale so product is as large as possible (Hero scale)
         scale = min(max_avail_w / cw, max_avail_h / ch)
@@ -533,7 +626,7 @@ def generate_auto_spec_cover(
         if is_horizontal:
             pos_y = 350 + (460 - tgt_h) // 2
         else:
-            pos_y = 125 + (max_avail_h - tgt_h) // 2
+            pos_y = 140 + (max_avail_h - tgt_h) // 2
 
 
         # Paste Hero Product (LANCZOS resample + studio sharpen/contrast + thin contact shadow)
@@ -565,97 +658,101 @@ def generate_auto_spec_cover(
     else:
         draw_razor_thai(canvas, str(detected_brand).upper(), 52, 50, "Arial", 42, bold=True, color=theme_rgb)
 
-    TEXT_BLACK = (0, 0, 0)
-    TEXT_SLATE = (45, 52, 66)
-    DIVIDER_COLOR = (222, 227, 236, 255)
+    TEXT_INK = (17, 24, 39)
+    TEXT_LABEL = (55, 63, 78)
+    DIVIDER_COLOR = (196, 202, 212, 255)
     WHITE = (255, 255, 255, 255)
+    COL_L = 52
+    COL_R = 350   # left text column hard limit (product starts at x >= 368)
+    max_text_w = COL_R - COL_L
 
-    # --- LEFT SPEC CORRIDOR (Strictly bounded: x <= 348px) ---
-    max_text_w = 295
+    # --- Title (category) ---
+    t_sz, _tw = fit_hq(category_title, "semibold", 44, 30, max_text_w)
+    draw_hq(canvas, category_title, COL_L, 188, "semibold", t_sz, TEXT_INK)
 
-    title_y = 138
-    t_w, _ = measure_thai_text(category_title, "Leelawadee UI", 42, bold=True)
-    title_font_sz = 42 if t_w <= max_text_w else 36
-    draw_razor_thai(canvas, category_title, 52, title_y, "Leelawadee UI", title_font_sz, bold=True, color=TEXT_BLACK)
+    # --- Model pill ---
+    pill_top = 214
+    pill_h = 62
+    m_sz, m_w = fit_hq(model_name, "semibold", 34, 24, max_text_w - 36)
+    pill_w = int(m_w) + 36
+    draw.rounded_rectangle([COL_L, pill_top, COL_L + pill_w, pill_top + pill_h], radius=12, fill=theme_color)
+    draw_hq(canvas, model_name, COL_L + 18, pill_top + pill_h // 2 + int(m_sz * 0.36), "semibold", m_sz, (255, 255, 255))
 
-    row_model_y = title_y + 64
-    m_w, m_h = measure_thai_text(model_name, "Leelawadee UI", 34, bold=True)
-    pill_w = min(max_text_w, m_w + 36)
-    pill_h = m_h + 14
-    draw.rounded_rectangle([52, row_model_y, 52 + pill_w, row_model_y + pill_h], radius=10, fill=theme_color)
-    draw_razor_thai(canvas, model_name, 52 + 18, row_model_y + 6, "Leelawadee UI", 34, bold=True, color=(255, 255, 255))
+    # --- Highlight sub-pills ---
+    curr_y = pill_top + pill_h + 16
+    sub_bg = (238, 244, 252, 255) if is_bigpower else (255, 238, 239, 255)
+    sub_border = (170, 194, 224, 255) if is_bigpower else (250, 165, 168, 255)
+    for hp in hero_pills[:2]:
+        hp_sz, hp_w = fit_hq(hp, "semibold", 23, 16, max_text_w - 28)
+        ph = 42
+        bw_ = int(hp_w) + 28
+        draw.rounded_rectangle([COL_L, curr_y, COL_L + bw_, curr_y + ph], radius=9, fill=sub_bg, outline=sub_border, width=2)
+        draw_hq(canvas, hp, COL_L + 14, curr_y + ph // 2 + int(hp_sz * 0.36), "semibold", hp_sz, theme_rgb)
+        curr_y += ph + 10
 
-    # Sub-Pills (Badges): Clean, compact tags strictly within 295px
-    curr_y = row_model_y + pill_h + 12
-    sub_bg = (242, 246, 252, 255) if is_bigpower else (255, 241, 242, 255)
-    sub_border = (190, 208, 230, 255) if is_bigpower else (254, 185, 185, 255)
+    # --- Spec rows (hexagon icon + label + big colored value, divider lines between rows) ---
+    spec_top = curr_y + 22
+    n_rows = max(1, len(spec_cards[:4]))
+    trust_card_h = 84
+    bottom_limit = 1135
+    avail = bottom_limit - spec_top - trust_card_h - 22
+    spec_row_h = max(118, min(142, avail // n_rows))
 
-    if hero_pills:
-        combined = " | ".join(hero_pills)
-        c_w, c_h = measure_thai_text(combined, "Leelawadee UI", 24, bold=True)
-        if c_w + 32 <= max_text_w:
-            # Single clean combined pill
-            draw.rounded_rectangle([52, curr_y, 52 + c_w + 32, curr_y + c_h + 14], radius=8, fill=sub_bg, outline=sub_border, width=2)
-            draw_razor_thai(canvas, combined, 52 + 16, curr_y + 6, "Leelawadee UI", 24, bold=True, color=theme_rgb)
-            curr_y += c_h + 14 + 20
-        else:
-            # Stacked compact badges (never overflowing rightwards into product!)
-            for hp in hero_pills:
-                hp_w, hp_h = measure_thai_text(hp, "Leelawadee UI", 22, bold=True)
-                b_w = min(max_text_w, hp_w + 28)
-                draw.rounded_rectangle([52, curr_y, 52 + b_w, curr_y + hp_h + 10], radius=8, fill=sub_bg, outline=sub_border, width=2)
-                draw_razor_thai(canvas, hp, 52 + 14, curr_y + 4, "Leelawadee UI", 22, bold=True, color=theme_rgb)
-                curr_y += hp_h + 10 + 6
-            curr_y += 14
-    else:
-        curr_y += 16
-
-    spec_start_y = curr_y + 10
-    spec_row_h = 106
     try:
-        f_sym = ImageFont.truetype(r"C:\Windows\Fonts\seguisym.ttf", 30)
+        f_sym = ImageFont.truetype(r"C:\Windows\Fonts\seguisym.ttf", 28)
     except Exception:
-        f_sym = load_font("seguisym.ttf", 30)
+        f_sym = load_font("seguisym.ttf", 28)
 
-    hex_radius = 30
-    hex_center_x = 52 + hex_radius
+    hex_radius = 28
+    hex_center_x = COL_L + hex_radius
     hex_fill = (18, 56, 88, 255) if is_bigpower else (215, 25, 33, 255)
+    text_x = hex_center_x + hex_radius + 16
+    val_max_w = COL_R + 4 - text_x
 
     for idx, sp in enumerate(spec_cards[:4]):
-        r_y = spec_start_y + (idx * spec_row_h)
-        h_cy = r_y + 38
+        r_y = spec_top + idx * spec_row_h
+        h_cy = r_y + spec_row_h // 2 - 4
 
         draw_smooth_hexagon(canvas, hex_center_x, h_cy, hex_radius, fill_color=hex_fill)
-        icon_str = sp.get('icon', '⚡')
-        draw.text((hex_center_x, h_cy - 1), icon_str, fill=WHITE, font=f_sym, anchor='mm')
+        draw.text((hex_center_x, h_cy - 1), sp.get('icon', '⚡'), fill=WHITE, font=f_sym, anchor='mm')
 
-        text_x = hex_center_x + hex_radius + 16
-        lbl_y = h_cy - 24
-        val_y = h_cy + 8
+        lbl = sp.get('label', '')
+        val = sp.get('val', '')
+        l_sz, _lw = fit_hq(lbl, "medium", 23, 17, val_max_w)
+        v_sz, v_w = fit_hq(val, "bold", 36, 24, val_max_w)
 
-        draw_razor_thai(canvas, sp.get('label', ''), text_x, lbl_y - 2, "Leelawadee UI", 22, bold=True, color=TEXT_SLATE)
-        draw_razor_thai(canvas, sp.get('val', ''), text_x, val_y - 2, "Leelawadee UI", 32, bold=True, color=TEXT_BLACK)
+        if v_w <= val_max_w and v_sz >= 26:
+            draw_hq(canvas, lbl, text_x, h_cy - 8, "medium", l_sz, TEXT_LABEL)
+            draw_hq(canvas, val, text_x, h_cy + 32, "bold", v_sz, theme_rgb)
+        else:
+            # long value: two balanced lines, still large and readable
+            ln1, ln2 = split_two_lines(val)
+            v2_sz, _ = fit_hq(max([ln1, ln2], key=len), "bold", 30, 20, val_max_w)
+            draw_hq(canvas, lbl, text_x, h_cy - 16, "medium", l_sz, TEXT_LABEL)
+            draw_hq(canvas, ln1, text_x, h_cy + 18, "bold", v2_sz, theme_rgb)
+            if ln2:
+                draw_hq(canvas, ln2, text_x, h_cy + 18 + int(v2_sz * 1.25), "bold", v2_sz, theme_rgb)
 
-        div_y = r_y + spec_row_h - 10
-        draw.line([(52, div_y), (330, div_y)], fill=DIVIDER_COLOR, width=2)
+        div_y = r_y + spec_row_h - 2
+        draw.line([(COL_L, div_y), (COL_R, div_y)], fill=DIVIDER_COLOR, width=2)
 
-    trust_card_y = spec_start_y + (len(spec_cards) * spec_row_h) + 12
-    trust_card_w = 310
-    trust_card_h = 76
+    # --- Trust card ---
+    trust_card_y = spec_top + n_rows * spec_row_h + 22
+    trust_card_w = COL_R + 12 - COL_L
+    card_bg = (247, 250, 253, 255) if is_bigpower else (255, 246, 246, 255)
+    card_outline = (206, 218, 234, 255) if is_bigpower else (250, 205, 207, 255)
+    draw.rounded_rectangle([COL_L, trust_card_y, COL_L + trust_card_w, trust_card_y + trust_card_h], radius=12, fill=card_bg, outline=card_outline, width=2)
 
-    card_bg = (248, 250, 252, 255) if is_bigpower else (255, 248, 248, 255)
-    card_outline = (226, 232, 240, 255) if is_bigpower else (254, 226, 226, 255)
-    draw.rounded_rectangle([52, trust_card_y, 52 + trust_card_w, trust_card_y + trust_card_h], radius=10, fill=card_bg, outline=card_outline, width=2)
-
-    shield_cx = 52 + 28
+    shield_cx = COL_L + 30
     shield_cy = trust_card_y + trust_card_h // 2
-    draw_vector_shield(canvas, shield_cx, shield_cy, size=38, fill_color=theme_rgb)
+    draw_vector_shield(canvas, shield_cx, shield_cy, size=40, fill_color=theme_rgb)
 
-    trust_txt_x = 52 + 56
-    t_line1_y = trust_card_y + 13
-    t_line2_y = trust_card_y + 43
-    draw_razor_thai(canvas, "รับประกันศูนย์ไทย 100%", trust_txt_x, t_line1_y, "Leelawadee UI", 20, bold=True, color=theme_rgb)
-    draw_razor_thai(canvas, "ของแท้ มั่นใจ ตรวจสอบได้", trust_txt_x, t_line2_y, "Leelawadee UI", 17, bold=True, color=TEXT_SLATE)
+    trust_txt_x = COL_L + 62
+    tr_max_w = COL_L + trust_card_w - 14 - trust_txt_x
+    s1_sz, _ = fit_hq("รับประกันศูนย์ไทย 100%", "semibold", 22, 15, tr_max_w)
+    s2_sz, _ = fit_hq("ของแท้ มั่นใจ ตรวจสอบได้", "medium", 18, 13, tr_max_w)
+    draw_hq(canvas, "รับประกันศูนย์ไทย 100%", trust_txt_x, trust_card_y + 38, "semibold", s1_sz, theme_rgb)
+    draw_hq(canvas, "ของแท้ มั่นใจ ตรวจสอบได้", trust_txt_x, trust_card_y + 64, "medium", s2_sz, TEXT_LABEL)
 
     final_rgb = canvas.convert('RGB')
     final_rgb.save(output_path, "JPEG", quality=98, subsampling=0, optimize=True)
