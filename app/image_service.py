@@ -445,7 +445,8 @@ def generate_auto_spec_cover(
     custom_footer=None,
     shop_name="MEGATOOL",
     shop_subtitle="เมก้า ทูล",
-    overwrite=True
+    overwrite=True,
+    custom_model=None
 ):
     """
     Auto-Spec Product Cover Template (Human Designer Architecture):
@@ -534,7 +535,10 @@ def generate_auto_spec_cover(
         category_title = ' '.join(words[:3]) if words else "เครื่องมือช่างคุณภาพ"
 
     # Model Name
-    model_code, _ = extract_model_label(prod_name, sku, detail=detail)
+    if custom_model and str(custom_model).strip():
+        model_code = str(custom_model).strip()
+    else:
+        model_code, _ = extract_model_label(prod_name, sku, detail=detail)
     model_name = f"รุ่น {model_code}" if not model_code.startswith("รุ่น") else model_code
 
     def _get_power_watt():
@@ -822,10 +826,10 @@ def generate_auto_spec_cover(
 
     trust_txt_x = COL_L + 62
     tr_max_w = COL_L + trust_card_w - 14 - trust_txt_x
-    s1_sz, _ = fit_hq("รับประกันศูนย์ไทย 100%", "semibold", 22, 15, tr_max_w)
-    s2_sz, _ = fit_hq("ของแท้ มั่นใจ ตรวจสอบได้", "medium", 18, 13, tr_max_w)
-    draw_hq(canvas, "รับประกันศูนย์ไทย 100%", trust_txt_x, trust_card_y + 38, "semibold", s1_sz, theme_rgb)
-    draw_hq(canvas, "ของแท้ มั่นใจ ตรวจสอบได้", trust_txt_x, trust_card_y + 64, "medium", s2_sz, TEXT_LABEL)
+    s1_sz, _ = fit_hq("จัดส่งด่วนจากไทย 100%", "semibold", 22, 15, tr_max_w)
+    s2_sz, _ = fit_hq("สต็อกไทย ได้รับของรวดเร็ว", "medium", 18, 13, tr_max_w)
+    draw_hq(canvas, "จัดส่งด่วนจากไทย 100%", trust_txt_x, trust_card_y + 38, "semibold", s1_sz, theme_rgb)
+    draw_hq(canvas, "สต็อกไทย ได้รับของรวดเร็ว", trust_txt_x, trust_card_y + 64, "medium", s2_sz, TEXT_LABEL)
 
     final_rgb = canvas.convert('RGB')
     final_rgb.save(output_path, "JPEG", quality=98, subsampling=0, optimize=True)
@@ -842,7 +846,8 @@ def generate_cover(
     shop_name="MEGATOOL",
     shop_subtitle="เมก้า ทูล",
     overwrite=True,
-    template_type="standard"
+    template_type="standard",
+    custom_model=None
 ):
     if template_type == "auto_spec":
         return generate_auto_spec_cover(
@@ -854,7 +859,8 @@ def generate_cover(
             custom_footer=custom_footer,
             shop_name=shop_name,
             shop_subtitle=shop_subtitle,
-            overwrite=overwrite
+            overwrite=overwrite,
+            custom_model=custom_model
         )
     """
     Exact Zupertools Replica Template for Zonix Tools:

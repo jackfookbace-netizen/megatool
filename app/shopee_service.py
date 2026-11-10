@@ -614,8 +614,9 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
 
 
 
-            # Smart Shopee SEO Title
-            shopee_title = build_shopee_seo_title(brand, raw_name, sku, is_variation_group=False)
+            # Smart Shopee SEO Title (Respects user custom edited title if provided)
+            custom_title = (item_info.get('shopee_title') or item_info.get('custom_shopee_title') or '').strip()
+            shopee_title = custom_title if custom_title else build_shopee_seo_title(brand, raw_name, sku, is_variation_group=False)
 
             single_war = (detail.get('warrenty') or '').strip()
             warranty_section = ""
