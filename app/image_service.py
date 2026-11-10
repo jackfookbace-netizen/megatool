@@ -507,7 +507,7 @@ def generate_auto_spec_cover(
 
     # Category title
     if 'ดอกสว่าน' in prod_name or 'เจดีย์' in prod_name:
-        category_title = "ชุดดอกสว่านเจดีย์"
+        category_title = "ชุดดอกสว่านเจดีย์" if ('ชุด' in prod_name or 'SET' in prod_name.upper() or '3 ดอก' in prod_name) else "ดอกสว่านเจดีย์"
     elif 'ใบตัด' in prod_name or 'ใบเจียร์' in prod_name:
         category_title = "ใบตัด / ใบเจียร์คุณภาพ"
     elif 'เครื่องเจียร์' in prod_name or 'ลูกหมู' in prod_name:
@@ -534,7 +534,7 @@ def generate_auto_spec_cover(
         category_title = ' '.join(words[:3]) if words else "เครื่องมือช่างคุณภาพ"
 
     # Model Name
-    model_code, _ = extract_model_label(prod_name, sku)
+    model_code, _ = extract_model_label(prod_name, sku, detail=detail)
     model_name = f"รุ่น {model_code}" if not model_code.startswith("รุ่น") else model_code
 
     def _get_power_watt():
@@ -564,15 +564,17 @@ def generate_auto_spec_cover(
     }
     def _spec_priority(item):
         k, v = item
-        if 'มอเตอร์' in k or 'วัตต์' in str(v) or 'W' in str(v): return 1
-        if 'แรงดันสูงสุด' in k or 'บาร์' in str(v): return 2
-        if 'ขนาด' in k or 'หัว' in k or 'ใบ' in k: return 3
-        if 'ความเร็ว' in k or 'รอบ' in str(v): return 4
-        if 'ความยาว' in k or 'เมตร' in str(v): return 5
-        if 'อัตรา' in k or 'น้ำ' in k: return 6
-        if 'สวิตช์' in k or 'ระบบ' in k: return 7
-        if 'แรงดันไฟฟ้า' in k or '220' in str(v): return 8
-        return 10
+        if 'เจาะ' in k or 'ขนาดการเจาะ' in k: return 1
+        if 'มอเตอร์' in k or 'วัตต์' in str(v) or 'W' in str(v): return 2
+        if 'แรงดันสูงสุด' in k or 'บาร์' in str(v): return 3
+        if 'ขนาด' in k or 'หัว' in k or 'ใบ' in k: return 4
+        if 'ความเร็ว' in k or 'รอบ' in str(v): return 5
+        if 'ความยาว' in k or 'เมตร' in str(v): return 6
+        if 'อัตรา' in k or 'น้ำ' in k: return 7
+        if 'สวิตช์' in k or 'ระบบ' in k: return 8
+        if 'เกรด' in k or 'วัสดุ' in k: return 9
+        if 'แรงดันไฟฟ้า' in k or '220' in str(v): return 10
+        return 12
 
     sorted_specs = sorted(specs_dict.items(), key=_spec_priority)
     for k, v in sorted_specs:
@@ -720,7 +722,7 @@ def generate_auto_spec_cover(
     # --- Model pill ---
     pill_top = 214
     pill_h = 62
-    m_sz, m_w = fit_hq(model_name, "semibold", 34, 24, max_text_w - 36)
+    m_sz, m_w = fit_hq(model_name, "semibold", 34, 18, max_text_w - 36)
     pill_w = int(m_w) + 36
     draw.rounded_rectangle([COL_L, pill_top, COL_L + pill_w, pill_top + pill_h], radius=12, fill=theme_color)
     draw_hq(canvas, model_name, COL_L + 18, pill_top + pill_h // 2 + int(m_sz * 0.36), "semibold", m_sz, (255, 255, 255))
@@ -2029,27 +2031,75 @@ def delete_custom_product_image(sku: str, image_url: str) -> bool:
 # FEATURE 2: AUTO SPEC COMPARISON MATRIX CARD
 # ==============================================================================
 
-def extract_model_label(name, sku):
-    clean_name = re.sub(r'\[.*?\]', '', name).strip()
+def extract_model_label(name, sku, detail=None):
+    clean_name = re.sub(r'\[.*?\]', '', name or '').strip()
     norm_name = clean_name.replace('สวิทซ์', 'สวิทช์').replace('สวิตซ์', 'สวิทช์').replace('สวิตช์', 'สวิทช์')
     
-    # Strip leading package phrases like (แพ็ค10ม้วน), (กล่อง...), (ชุด...), etc.
-    clean_no_pack = re.sub(r'^\s*[\(\[]\s*(?:แพ็ค|กล่อง|ชุด|แถม|pack|box|set).*?[\)\]]\s*', '', norm_name, flags=re.IGNORECASE).strip()
-    words = clean_no_pack.split() if clean_no_pack else norm_name.split()
-    sku_code = sku.split('-')[-1] if '-' in sku else sku
+    summary = (detail.get('summary') if detail else '') or ''
+    keywords = (detail.get('keywords') if detail else []) or []
     
-    # Try finding typical model patterns (e.g. TEMFLEX 150, M0910B, CMV-35, WARRIOR-90, etc.)
-    m_pattern = re.search(r'\b([A-Z]{2,}-?[0-9A-Z]+(?:\s+\d+[A-Z0-9]*)?)\b', clean_no_pack, re.IGNORECASE)
-    if not m_pattern:
-        m_pattern = re.search(r'\b([A-Z0-9]{2,}(?:-[A-Z0-9]+|\s+\d+[A-Z0-9]*))\b', clean_no_pack)
-    if m_pattern:
-        model_code = m_pattern.group(1).strip()
-    else:
+    UNIT_WORDS = {'MM', 'CM', 'M', 'KG', 'G', 'W', 'V', 'HP', 'L', 'BAR', 'PSI', 'PC', 'PCS', 'SET', 'INCH', 'ใหม่'}
+
+    model_code = None
+
+    # 1. Check summary / name for explicit 'รุ่น ...'
+    for src in [name, summary]:
+        if not src:
+            continue
+        m_explicit = re.search(r'(?:รุ่น|โมเดล|Model)\s*[:\-]?\s*([A-Za-z0-9]+(?:[\-\.\_\+\/][A-Za-z0-9]+)*(?:\s+[A-Za-z0-9\+]+)?)', src, re.IGNORECASE)
+        if m_explicit:
+            cand = m_explicit.group(1).strip().rstrip('.,-()[]')
+            if cand.upper() not in UNIT_WORDS and len(cand) >= 2 and not cand.startswith('000'):
+                model_code = cand
+                break
+
+    if not model_code:
+        # Strip leading packaging and size specifications (e.g. 4-32 MM, 10 มม., 1/2", 12", 24T, etc.)
+        core_text = re.sub(r'^\s*[\(\[]\s*(?:แพ็ค|กล่อง|ชุด|แถม|pack|box|set).*?[\)\]]\s*', '', norm_name, flags=re.IGNORECASE).strip()
+        core_text = re.sub(r'^\s*\d+(?:[\.\-\/]\d+)?\s*(?:MM|มม\.?|นิ้ว|\"|CM|ซม\.?|M|เมตร|T)\b\s*', '', core_text, flags=re.IGNORECASE).strip()
+
+        # 2. Check if name starts with a model code (e.g. K-101, 8119-2PE, M0910B, VOM351, MIG160D+, TD001GZ02)
+        m_lead = re.match(r'^([A-Za-z0-9]+(?:[\-\_\+\/][A-Za-z0-9]+)+|[A-Za-z]{1,4}[0-9]+[A-Za-z0-9\+\/]*|[0-9]{2,}[A-Za-z]+[A-Za-z0-9\-\+\/]*)', core_text)
+        if m_lead and m_lead.group(1).strip().upper() not in UNIT_WORDS:
+            model_code = m_lead.group(1).strip()
+
+    if not model_code:
+        # 3. Check for English/Series model phrase in name (e.g. STEP DRILL HSSทอง, TEMFLEX 150, SANDFLEX)
+        m_series = re.search(r'\b([A-Z]{2,}(?:\s+[A-Z0-9\-\+\/]+)+(?:ทอง|เงิน|ดำ|แดง|เหลือง|ขาว|น้ำเงิน|เขียว)?)\b', core_text)
+        if m_series:
+            cand = m_series.group(1).strip()
+            tokens = [t for t in cand.split() if t.upper() not in UNIT_WORDS]
+            if len(tokens) >= 1:
+                model_code = ' '.join(tokens)
+
+    if not model_code and keywords:
+        # 4. Check keywords for recognized series name (e.g. 'Step Drill HSS')
+        for kw in keywords:
+            if kw and re.search(r'^[A-Za-z]{2,}(?:\s+[A-Za-z0-9\-\+]+)+$', kw):
+                if any(w.lower() in clean_name.lower() for w in kw.split()):
+                    model_code = kw.upper()
+                    break
+
+    if not model_code and sku:
+        # 5. Check SKU suffix if it is alphanumeric (e.g. D021-DSM23100B -> DSM23-100B, P011-WARRIOR90 -> WARRIOR-90)
+        sku_parts = sku.split('-')
+        if len(sku_parts) >= 2:
+            sku_suffix = sku_parts[-1].strip()
+            if re.search(r'[A-Za-z]', sku_suffix) and re.search(r'[0-9]', sku_suffix):
+                m_dsm = re.match(r'^([A-Za-z]+\d+)(\d{3}[A-Za-z]*)$', sku_suffix)
+                if m_dsm:
+                    model_code = f'{m_dsm.group(1)}-{m_dsm.group(2)}'
+                else:
+                    model_code = sku_suffix
+
+    if not model_code:
+        words = norm_name.split()
+        sku_code = sku.split('-')[-1] if '-' in sku else sku
         model_code = words[0] if words else sku_code
-    
-    # Strip common supplier prefixes like P171-, M011-, KT-, etc.
-    model_code = re.sub(r'^[A-Z]\d+[-_]', '', model_code, flags=re.IGNORECASE)
-    
+
+    # Strip supplier prefix if present (e.g. P171-, M011-)
+    model_code = re.sub(r'^[A-Z]\d+[-_]', '', model_code, flags=re.IGNORECASE).strip()
+
     sub = ""
     # 1. Switch differentiator (e.g. สวิทช์ท้าย, สวิทช์สไลด์) - high priority differentiator!
     if 'สวิทช์ท้าย' in norm_name or ('ท้าย' in norm_name and any(q in norm_name for q in ['สวิ', 'switch'])):
@@ -2064,8 +2114,9 @@ def extract_model_label(name, sku):
         bar_m = re.search(r'(\d+\s*บาร์)', norm_name)
         watt_m = re.search(r'(\d+\s*[wWวัตต์]+)', norm_name)
         volt_m = re.search(r'(\d+\s*[vVโวลต์]+)', norm_name)
-        inch_m = re.search(r'(\d+\s*นิ้ว)', norm_name)
-        pack_m = re.search(r'(\d+\s*ม้วน)', norm_name)
+        inch_m = re.search(r'(\d+(?:/\d+)?\s*(?:นิ้ว|\"))', norm_name)
+        mm_m = re.search(r'(\d+(?:[\.\-]\d+)?\s*(?:มม\.?|MM))', norm_name)
+        pack_m = re.search(r'(\d+\s*(?:ม้วน|ชิ้น|ดอก|แพ็ค|ชุด))', norm_name)
         
         if bar_m:
             sub = f"แรงดัน {bar_m.group(1)}"
@@ -2075,9 +2126,12 @@ def extract_model_label(name, sku):
             sub = f"ระบบ {volt_m.group(1)}"
         elif inch_m:
             sub = f"ขนาด {inch_m.group(1)}"
+        elif mm_m:
+            sub = f"ขนาด {mm_m.group(1)}"
         elif pack_m:
-            sub = f"แพ็ค {pack_m.group(1)}"
-        elif len(words) > 1:
+            sub = f"บรรจุ {pack_m.group(1)}"
+        elif len(norm_name.split()) > 1:
+            words = norm_name.split()
             sub = " ".join(words[1:3]).strip('()[]')
             if len(sub) > 14:
                 sub = sub[:12] + "..."
@@ -2140,6 +2194,14 @@ def extract_key_specs(detail):
                     specs['แรงดันสูงสุด'] = val_str
                 elif 'อัตราการไหล' in name or 'ปริมาณน้ำ' in name or 'flow_rate' in code:
                     specs['อัตราการไหลของน้ำ'] = val_str
+                elif 'step_drill' in code or 'เจาะคว้าน' in name or 'ความสามารถในการเจาะ' in name:
+                    specs['ขนาดการเจาะ'] = val_str
+                elif 'grade' in code or 'เกรด' in name:
+                    specs['เกรดวัสดุ'] = val_str
+                elif 'applications_drill' in code or 'วัสดุที่เจาะ' in name:
+                    specs['วัสดุที่เจาะได้'] = val_str
+                elif 'overall_length' in code or 'ความยาวรวม' in name:
+                    specs['ความยาวรวม'] = val_str
 
     # 2. From Description bullet points (POLO, DongCheng, consumables, etc.)
     desc = detail.get('description', '') or ''
@@ -2416,7 +2478,7 @@ def generate_comparison_card(
                 print(f"Error fetching thumb for {sku}:", e)
 
         raw_name = item.get('name') or item.get('raw_name') or item.get('opt_name') or (detail.get('name') if detail else sku)
-        model_code, model_sub = extract_model_label(raw_name, sku)
+        model_code, model_sub = extract_model_label(raw_name, sku, detail=detail)
 
         raw_price = item.get('price') or item.get('sale_price') or 0
         try:
