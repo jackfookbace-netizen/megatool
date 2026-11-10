@@ -6,7 +6,7 @@ import re
 import math
 import collections
 import requests
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 
 def load_font(name: str, size: int):
     # 1. Project bundled fonts in app/fonts/
@@ -183,6 +183,52 @@ def remove_white_bg(img, threshold=242):
     if bbox:
         return img.crop(bbox)
     return img
+
+def resize_hq(img, size):
+    """High-quality resize: LANCZOS (+ reducing_gap off) for crisp, alias-free scaling."""
+    if img.size == tuple(size):
+        return img.copy()
+    return img.resize(tuple(size), Image.Resampling.LANCZOS)
+
+
+def enhance_product(img, sharp=1.0, contrast=1.07, color=1.08):
+    """Studio-style enhancement on RGB channels only (alpha untouched):
+    sharpen edges (unsharp mask), boost contrast and color so tools look rich and glossy.
+    Also anti-aliases the cut-out edge so the silhouette is smooth (no jagged steps)."""
+    img = img.convert('RGBA')
+    r, g, b, a = img.split()
+    rgb = Image.merge('RGB', (r, g, b))
+    rgb = ImageEnhance.Contrast(rgb).enhance(contrast)
+    rgb = ImageEnhance.Color(rgb).enhance(color)
+    rgb = rgb.filter(ImageFilter.UnsharpMask(radius=1.4, percent=int(70 * sharp), threshold=2))
+    # soften only the alpha edge (0.6px) for a smooth, natural cut-out outline
+    a = a.filter(ImageFilter.GaussianBlur(0.6))
+    out = rgb.convert('RGBA')
+    out.putalpha(a)
+    return out
+
+
+def make_contact_shadow(prod_rgba, opacity=0.30):
+    """Thin contact shadow that only exists directly under the lowest pixels of the product.
+    Shape is derived from the product's own silhouette (no long gray bar).
+    Returns (shadow_rgba, offset_y_from_product_bottom)."""
+    alpha = prod_rgba.split()[-1]
+    w, h = alpha.size
+    band_h = max(6, int(h * 0.035))
+    band = alpha.crop((0, h - band_h, w, h))
+    # collapse the bottom band into a flat footprint
+    foot_h = 9
+    foot = band.resize((w, foot_h), Image.Resampling.BILINEAR)
+    foot = foot.point(lambda v: 255 if v > 90 else 0)
+    pad = 14
+    layer = Image.new('L', (w + pad * 2, foot_h + pad * 2), 0)
+    layer.paste(foot, (pad, pad))
+    layer = layer.filter(ImageFilter.GaussianBlur(4.5))
+    layer = layer.point(lambda v: int(v * opacity))
+    shadow = Image.new('RGBA', layer.size, (30, 30, 30, 0))
+    shadow.putalpha(layer)
+    return shadow, pad
+
 
 def draw_smooth_hexagon(canvas, cx, cy, radius, fill_color):
     hex_img = Image.new('RGBA', (radius * 4, radius * 4), (0, 0, 0, 0))
@@ -468,8 +514,15 @@ def generate_auto_spec_cover(
             pos_y = 125 + (max_avail_h - tgt_h) // 2
 
 
-        # Paste Hero Product
-        resized_prod = prod_crop.resize((tgt_w, tgt_h), Image.Resampling.LANCZOS)
+        # Paste Hero Product (LANCZOS resample + studio sharpen/contrast + thin contact shadow)
+        resized_prod = resize_hq(prod_crop, (tgt_w, tgt_h))
+        resized_prod = enhance_product(resized_prod)
+        try:
+            shadow_img, sh_pad = make_contact_shadow(resized_prod)
+            sh_y = pos_y + tgt_h - sh_pad - 2
+            canvas.paste(shadow_img, (pos_x - sh_pad, sh_y), shadow_img)
+        except Exception as e:
+            print(f"Contact shadow skipped: {e}")
         canvas.paste(resized_prod, (pos_x, pos_y), resized_prod)
 
     brand_logo_p = get_official_brand_logo(detected_brand)
@@ -658,7 +711,8 @@ def generate_cover(
     scale = min(canvas_size / w, canvas_size / h)
     new_w = int(w * scale)
     new_h = int(h * scale)
-    resized_raw = raw_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+    resized_raw = resize_hq(raw_img, (new_w, new_h))
+    resized_raw = enhance_product(resized_raw, sharp=0.8, contrast=1.05, color=1.05)
     
     px = (canvas_size - new_w) // 2
     py = (canvas_size - new_h) // 2
