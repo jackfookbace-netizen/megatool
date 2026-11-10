@@ -3,7 +3,7 @@ import sys
 import threading
 import uuid
 import time
-from fastapi import FastAPI, Query, HTTPException, Request, Response, Depends, Header
+from fastapi import FastAPI, Query, HTTPException, Request, Response, Depends, Header, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
@@ -26,6 +26,10 @@ from app.listed_service import (
     get_all_listed, get_listed_product, save_listed_product,
     delete_listed_product, get_dashboard_summary, update_listed_product_price,
     clone_product_to_shop
+)
+from app.title_service import (
+    save_custom_shopee_title, get_custom_shopee_title,
+    get_all_custom_shopee_titles, import_shopee_titles_from_excel
 )
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -324,6 +328,29 @@ class DeleteCustomImageRequest(BaseModel):
 def api_delete_custom_image(req: DeleteCustomImageRequest):
     removed = delete_custom_product_image(req.sku, req.image_url)
     return {"status": "ok", "removed": removed}
+
+class SaveCustomTitleRequest(BaseModel):
+    sku: str
+    title: str
+    source: Optional[str] = "manual"
+
+@app.get("/api/shopee/custom-titles")
+def api_get_custom_titles():
+    return {"success": True, "titles": get_all_custom_shopee_titles()}
+
+@app.post("/api/shopee/save-custom-title")
+def api_save_custom_title(req: SaveCustomTitleRequest):
+    ok = save_custom_shopee_title(req.sku, req.title, source=req.source or "manual")
+    return {"success": ok}
+
+@app.post("/api/shopee/import-titles-excel")
+async def api_import_titles_excel(file: UploadFile = File(...)):
+    try:
+        content = await file.read()
+        res = import_shopee_titles_from_excel(content, filename=file.filename or "")
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 class PreviewRequest(BaseModel):
     sku: str

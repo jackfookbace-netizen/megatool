@@ -934,6 +934,18 @@
                             <span x-text="selectedListedSkus.length > 0 ? `ส่งออกที่เลือก (${selectedListedSkus.length}) เป็น Excel ใหม่` : `ส่งออกทั้งหมด (${listedProducts.length}) เป็น Excel ใหม่`"></span>
                         </button>
 
+                        <!-- Hidden file input for Shopee Excel import -->
+                        <input type="file" x-ref="shopeeExcelInput" @change="handleShopeeExcelUpload($event)" accept=".xlsx, .xls" class="hidden">
+                        
+                        <!-- Sync Titles from Shopee Button -->
+                        <button type="button" @click="$refs.shopeeExcelInput.click()" :disabled="syncingShopeeExcel"
+                                class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                                title="อัปโหลดไฟล์ Excel ที่ดาวน์โหลดจาก Shopee (เช่น Mass Update Basic Info) เพื่อซิงค์ชื่อสินค้าล่าสุดที่แก้ไขบน Shopee กลับเข้ามาในระบบอย่างถาวร">
+                            <i data-lucide="upload-cloud" class="w-3.5 h-3.5" x-show="!syncingShopeeExcel"></i>
+                            <span x-show="syncingShopeeExcel" class="animate-spin">⏳</span>
+                            <span x-text="syncingShopeeExcel ? 'กำลังซิงค์ชื่อ...' : '📥 ซิงค์ชื่อล่าสุดจาก Shopee (Excel)'"></span>
+                        </button>
+
                         <!-- Batch Clone Button -->
                         <button @click="openBatchCloneModal()" x-show="selectedListedSkus.length > 0"
                                 class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer">
@@ -2484,7 +2496,7 @@
                                 <span class="font-bold text-orange-800 bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-200 shrink-0 inline-flex items-center space-x-1">
                                     <span>🛍️ ชื่อสินค้าบน Shopee:</span>
                                 </span>
-                                <input type="text" x-model="item.shopee_title" @input="saveCartToStorage()" :placeholder="item.name" maxlength="120"
+                                <input type="text" x-model="item.shopee_title" @input="saveCartToStorage(); saveItemShopeeTitle(item)" :placeholder="item.name" maxlength="120"
                                        class="flex-1 px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-800 text-xs font-medium outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 shadow-2xs">
                                 <span class="text-[11px] text-slate-400 shrink-0 font-mono" x-text="((item.shopee_title || item.name || '').length) + ' / 120'"></span>
                             </div>
@@ -2646,6 +2658,7 @@
                 customBadgeText: 'มีสต็อกพร้อมส่งทันที',
                 customCoverModel: '',
                 itemShopeeTitle: '',
+                syncingShopeeExcel: false,
                 customUseTemplate: true,
                 coverTemplateType: 'standard',
                 userManuallyTurnedOffTemplate: false,
@@ -4525,6 +4538,49 @@ toggleListedSort(field) {
                     if (it) {
                         it.shopee_title = this.itemShopeeTitle;
                         this.saveCartToStorage();
+                    }
+                    if (sku && this.itemShopeeTitle) {
+                        fetch('/api/shopee/save-custom-title', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ sku: sku, title: this.itemShopeeTitle, source: 'web_edit' })
+                        }).catch(e => console.error('Error saving custom title:', e));
+                    }
+                },
+
+                saveItemShopeeTitle(item) {
+                    if (!item || !item.sku || !item.shopee_title) return;
+                    fetch('/api/shopee/save-custom-title', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sku: item.sku, title: item.shopee_title, source: 'cart_edit' })
+                    }).catch(e => console.error('Error saving custom title:', e));
+                },
+
+                async handleShopeeExcelUpload(event) {
+                    const file = event.target.files && event.target.files[0];
+                    if (!file) return;
+                    this.syncingShopeeExcel = true;
+                    try {
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        const res = await fetch('/api/shopee/import-titles-excel', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.success) {
+                            alert(`✅ ซิงค์ชื่อล่าสุดจาก Shopee สำเร็จแล้วทั้งหมด ${data.updated_count} รายการ!\n\nระบบได้บันทึกชื่อสินค้าเหล่านี้เป็นชื่อล่าสุดอย่างถาวรแล้วครับ`);
+                            await this.fetchListedProducts();
+                        } else {
+                            alert(`เกิดข้อผิดพลาด: ${data.error || data.detail || 'ไม่สามารถอ่านไฟล์ได้'}`);
+                        }
+                    } catch (e) {
+                        alert('เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + e);
+                    } finally {
+                        this.syncingShopeeExcel = false;
+                        event.target.value = '';
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                     }
                 },
 
