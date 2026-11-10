@@ -650,6 +650,7 @@ def generate_auto_spec_cover(
             print(f"Contact shadow skipped: {e}")
         canvas.paste(resized_prod, (pos_x, pos_y), resized_prod)
 
+    # Official Brand Logo ONLY: If logo file does not exist, DO NOT draw fake text fallback!
     brand_logo_p = get_official_brand_logo(detected_brand)
     if brand_logo_p and os.path.exists(brand_logo_p):
         try:
@@ -662,8 +663,6 @@ def generate_auto_spec_cover(
             canvas.paste(brand_logo, (52, 45), brand_logo)
         except Exception as e:
             print(f"Error placing brand logo: {e}")
-    else:
-        draw_razor_thai(canvas, str(detected_brand).upper(), 52, 50, "Arial", 42, bold=True, color=theme_rgb)
 
     TEXT_INK = (17, 24, 39)
     TEXT_LABEL = (55, 63, 78)
