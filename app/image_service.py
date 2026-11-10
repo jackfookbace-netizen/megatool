@@ -200,9 +200,9 @@ def enhance_product(img, sharp=1.0, contrast=1.07, color=1.08):
     rgb = Image.merge('RGB', (r, g, b))
     rgb = ImageEnhance.Contrast(rgb).enhance(contrast)
     rgb = ImageEnhance.Color(rgb).enhance(color)
-    rgb = rgb.filter(ImageFilter.UnsharpMask(radius=1.4, percent=int(70 * sharp), threshold=2))
+    rgb = rgb.filter(ImageFilter.UnsharpMask(radius=1.2, percent=int(70 * sharp), threshold=4))
     # soften only the alpha edge (0.6px) for a smooth, natural cut-out outline
-    a = a.filter(ImageFilter.GaussianBlur(0.6))
+    a = a.filter(ImageFilter.GaussianBlur(0.5))
     out = rgb.convert('RGBA')
     out.putalpha(a)
     return out
@@ -516,7 +516,10 @@ def generate_auto_spec_cover(
 
         # Paste Hero Product (LANCZOS resample + studio sharpen/contrast + thin contact shadow)
         resized_prod = resize_hq(prod_crop, (tgt_w, tgt_h))
-        resized_prod = enhance_product(resized_prod)
+        # Adaptive sharpening: heavily upscaled (low-res) sources get gentler sharpening to avoid amplifying noise/halos
+        up = max(tgt_w / max(cw, 1), tgt_h / max(ch, 1))
+        adaptive_sharp = 1.0 if up <= 1.0 else max(0.35, 1.0 / up)
+        resized_prod = enhance_product(resized_prod, sharp=adaptive_sharp)
         try:
             shadow_img, sh_pad = make_contact_shadow(resized_prod)
             sh_y = pos_y + tgt_h - sh_pad - 2
