@@ -43,25 +43,54 @@ try:
 except Exception:
     HAS_GDI = False
 
+TEXT_SS = 4  # text supersampling factor (render at 4x then downsample => razor-sharp edges)
+
+
+def _text_alpha_curve(p):
+    """Alpha curve for text edges: removes faint fringe, makes strokes solid and dark (no washed-out look)."""
+    if p < 6:
+        return 0
+    if p > 200:
+        return 255
+    return int(255 * ((p - 6) / (200 - 6)) ** 0.72)
+
+
+_TEXT_LUT = [_text_alpha_curve(i) for i in range(256)]
+
+
 def draw_razor_thai(canvas, text, x, y, font_name="Leelawadee UI", font_size=44, bold=True, color=(0, 0, 0)):
     if not text:
         return 0, 0
 
+    scale = TEXT_SS
+
     if not HAS_GDI:
-        font = load_font("leelawdb.ttf" if bold else "leelawad.ttf", font_size)
-        draw = ImageDraw.Draw(canvas)
-        draw.text((x, y), text, font=font, fill=(color[0], color[1], color[2], 255))
-        b = font.getbbox(text)
+        # Linux / Render path: supersampled FreeType rendering (4x) -> LANCZOS downsample -> solid alpha curve
+        font_hi = load_font("leelawdb.ttf" if bold else "leelawad.ttf", font_size * scale)
+        font_1x = load_font("leelawdb.ttf" if bold else "leelawad.ttf", font_size)
+        pad = 8
+        tmp = Image.new("L", (8, 8), 0)
+        bb = ImageDraw.Draw(tmp).textbbox((0, 0), text, font=font_hi)
+        w4 = bb[2] + pad * 2 * scale
+        h4 = bb[3] + pad * 2 * scale
+        w4 += (-w4) % scale
+        h4 += (-h4) % scale
+        layer_hi = Image.new("L", (w4, h4), 0)
+        ImageDraw.Draw(layer_hi).text((pad * scale, pad * scale), text, font=font_hi, fill=255)
+        alpha_1x = layer_hi.resize((w4 // scale, h4 // scale), Image.Resampling.LANCZOS).point(_TEXT_LUT)
+        text_layer = Image.new("RGBA", alpha_1x.size, (color[0], color[1], color[2], 0))
+        text_layer.putalpha(alpha_1x)
+        canvas.paste(text_layer, (x - pad, y - pad), text_layer)
+        b = font_1x.getbbox(text)
         return b[2] - b[0], b[3] - b[1]
 
-    scale = 2
-    sz_2x = font_size * scale
+    sz_hi = font_size * scale
     weight = 700 if bold else 400
 
     hdc_screen = user32.GetDC(0)
     hdc = gdi32.CreateCompatibleDC(hdc_screen)
 
-    hfont = gdi32.CreateFontW(-sz_2x, 0, 0, 0, weight, 0, 0, 0, 222, 0, 0, 4, 0, font_name)
+    hfont = gdi32.CreateFontW(-sz_hi, 0, 0, 0, weight, 0, 0, 0, 222, 0, 0, 4, 0, font_name)
     old_font = gdi32.SelectObject(hdc, hfont)
 
     class SIZE(ctypes.Structure):
@@ -69,10 +98,14 @@ def draw_razor_thai(canvas, text, x, y, font_name="Leelawadee UI", font_size=44,
     size = SIZE()
     gdi32.GetTextExtentPoint32W(hdc, text, len(text), ctypes.byref(size))
 
-    pad_top = int(sz_2x * 0.52)
-    pad_bot = int(sz_2x * 0.42)
-    w = size.cx + 40
+    pad_top = int(sz_hi * 0.52)
+    pad_bot = int(sz_hi * 0.42)
+    pad_left = 5 * scale
+    w = size.cx + 20 * scale + pad_left
     h = size.cy + pad_top + pad_bot
+    w += (-w) % scale
+    h += (-h) % scale
+    pad_top -= pad_top % scale  # keep vertical offset an exact multiple of the scale
 
     class BITMAPINFOHEADER(ctypes.Structure):
         _fields_ = [
@@ -102,11 +135,11 @@ def draw_razor_thai(canvas, text, x, y, font_name="Leelawadee UI", font_size=44,
     gdi32.SetBkMode(hdc, 1)
     gdi32.SetTextColor(hdc, 0x00FFFFFF)
 
-    text_rect = wintypes.RECT(10, pad_top, w, h)
+    text_rect = wintypes.RECT(pad_left, pad_top, w, h)
     user32.DrawTextW(hdc, text, len(text), ctypes.byref(text_rect), 0x00000100 | 0x00000800)
 
     buf = ctypes.string_at(ppvBits.value, w * h * 4)
-    raw_2x = Image.frombuffer("RGBA", (w, h), buf, "raw", "BGRA", 0, 1).convert("L")
+    raw_hi = Image.frombuffer("RGBA", (w, h), buf, "raw", "BGRA", 0, 1).convert("L")
 
     gdi32.SelectObject(hdc, old_font)
     gdi32.SelectObject(hdc, old_bmp)
@@ -115,21 +148,10 @@ def draw_razor_thai(canvas, text, x, y, font_name="Leelawadee UI", font_size=44,
     gdi32.DeleteDC(hdc)
     user32.ReleaseDC(0, hdc_screen)
 
-    lut = []
-    for p in range(256):
-        if p < 8:
-            lut.append(0)
-        elif p > 160:
-            lut.append(255)
-        else:
-            lut.append(int(255 * ((p - 8) / (160 - 8)) ** 0.82))
-    alpha_solid = raw_2x.point(lut)
+    # Downsample 4x -> 1x with LANCZOS, then apply solid alpha curve (crisp + dark strokes)
+    alpha_1x = raw_hi.resize((w // scale, h // scale), Image.Resampling.LANCZOS).point(_TEXT_LUT)
 
-    final_w = w // scale
-    final_h = h // scale
-    alpha_1x = alpha_solid.resize((final_w, final_h), Image.Resampling.LANCZOS)
-
-    text_layer = Image.new("RGBA", (final_w, final_h), (color[0], color[1], color[2], 0))
+    text_layer = Image.new("RGBA", alpha_1x.size, (color[0], color[1], color[2], 0))
     text_layer.putalpha(alpha_1x)
 
     canvas.paste(text_layer, (x - 5, y - pad_top // scale), text_layer)
@@ -544,8 +566,8 @@ def generate_auto_spec_cover(
         draw_razor_thai(canvas, str(detected_brand).upper(), 52, 50, "Arial", 42, bold=True, color=theme_rgb)
 
     TEXT_BLACK = (0, 0, 0)
-    TEXT_SLATE = (70, 80, 95)
-    DIVIDER_COLOR = (235, 238, 244, 255)
+    TEXT_SLATE = (45, 52, 66)
+    DIVIDER_COLOR = (222, 227, 236, 255)
     WHITE = (255, 255, 255, 255)
 
     # --- LEFT SPEC CORRIDOR (Strictly bounded: x <= 348px) ---
@@ -611,7 +633,7 @@ def generate_auto_spec_cover(
         lbl_y = h_cy - 24
         val_y = h_cy + 8
 
-        draw_razor_thai(canvas, sp.get('label', ''), text_x, lbl_y - 2, "Leelawadee UI", 22, bold=False, color=TEXT_SLATE)
+        draw_razor_thai(canvas, sp.get('label', ''), text_x, lbl_y - 2, "Leelawadee UI", 22, bold=True, color=TEXT_SLATE)
         draw_razor_thai(canvas, sp.get('val', ''), text_x, val_y - 2, "Leelawadee UI", 32, bold=True, color=TEXT_BLACK)
 
         div_y = r_y + spec_row_h - 10
@@ -633,10 +655,10 @@ def generate_auto_spec_cover(
     t_line1_y = trust_card_y + 13
     t_line2_y = trust_card_y + 43
     draw_razor_thai(canvas, "รับประกันศูนย์ไทย 100%", trust_txt_x, t_line1_y, "Leelawadee UI", 20, bold=True, color=theme_rgb)
-    draw_razor_thai(canvas, "ของแท้ มั่นใจ ตรวจสอบได้", trust_txt_x, t_line2_y, "Leelawadee UI", 16, bold=False, color=TEXT_SLATE)
+    draw_razor_thai(canvas, "ของแท้ มั่นใจ ตรวจสอบได้", trust_txt_x, t_line2_y, "Leelawadee UI", 17, bold=True, color=TEXT_SLATE)
 
     final_rgb = canvas.convert('RGB')
-    final_rgb.save(output_path, "JPEG", quality=95)
+    final_rgb.save(output_path, "JPEG", quality=98, subsampling=0, optimize=True)
     return output_path
 
 
@@ -880,7 +902,7 @@ def generate_cover(
     # 7. Save
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     final_img = canvas.convert('RGB')
-    final_img.save(output_path, 'JPEG', quality=95)
+    final_img.save(output_path, 'JPEG', quality=98, subsampling=0, optimize=True)
     return output_path
 
 import threading
@@ -1647,7 +1669,7 @@ def generate_collage(
     draw.rectangle([(0, 0), (CANVAS_SIZE - 1, CANVAS_SIZE - 1)], outline=theme_color, width=border_w)
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-    canvas.convert('RGB').save(output_path, "JPEG", quality=95)
+    canvas.convert('RGB').save(output_path, "JPEG", quality=98, subsampling=0, optimize=True)
     return output_path
 
 
@@ -2412,5 +2434,5 @@ def generate_comparison_card(
     out_dir = os.path.dirname(output_path)
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
-    canvas.convert('RGB').save(output_path, "JPEG", quality=92)
+    canvas.convert('RGB').save(output_path, "JPEG", quality=98, subsampling=0, optimize=True)
     return output_path
