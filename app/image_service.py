@@ -273,30 +273,45 @@ def measure_thai_text(text, font_name="Leelawadee UI", font_size=36, bold=True):
     user32.ReleaseDC(0, hdc_screen)
     return size.cx, size.cy
 
-def remove_white_bg(img, threshold=242):
+def remove_white_bg(img, threshold=235):
+    """Accurately removes white background using 8-directional border floodfill,
+    filtering out compression dust specks so blister packs & white products crop cleanly."""
     img = img.convert('RGBA')
     w, h = img.size
     pixels = img.load()
     visited = set()
-    queue = collections.deque([(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)])
-    for pt in queue:
-        visited.add(pt)
+    queue = collections.deque()
+    # Seed all 4 outer borders
+    for x in range(w):
+        queue.append((x, 0)); queue.append((x, h - 1))
+        visited.add((x, 0)); visited.add((x, h - 1))
+    for y in range(h):
+        queue.append((0, y)); queue.append((w - 1, y))
+        visited.add((0, y)); visited.add((w - 1, y))
 
+    neighbors = [(1,0), (-1,0), (0,1), (0,-1), (1,1), (-1,-1), (1,-1), (-1,1)]
     while queue:
         x, y = queue.popleft()
         r, g, b, a = pixels[x, y]
         if r >= threshold and g >= threshold and b >= threshold:
             pixels[x, y] = (r, g, b, 0)
-            for nx, ny in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]:
+            for dx, dy in neighbors:
+                nx, ny = x + dx, y + dy
                 if 0 <= nx < w and 0 <= ny < h and (nx, ny) not in visited:
                     visited.add((nx, ny))
                     nr, ng, nb, na = pixels[nx, ny]
                     if nr >= threshold and ng >= threshold and nb >= threshold:
                         queue.append((nx, ny))
 
-    bbox = img.getbbox()
+    # Clean isolated noise specks from alpha mask before computing bounding box
+    alpha = img.split()[-1]
+    alpha_clean = alpha.filter(ImageFilter.MinFilter(3)).filter(ImageFilter.MaxFilter(3))
+    bbox = alpha_clean.getbbox()
     if bbox:
         return img.crop(bbox)
+    bbox_raw = img.getbbox()
+    if bbox_raw:
+        return img.crop(bbox_raw)
     return img
 
 # Shopee overlays its "ส่งฟรี" (free shipping) + "ส่วนลด" (discount) badges on the bottom-left corner of the cover.
@@ -491,7 +506,11 @@ def generate_auto_spec_cover(
     specs_dict = extract_key_specs(detail) if detail else {}
 
     # Category title
-    if 'เครื่องเจียร์' in prod_name or 'ลูกหมู' in prod_name:
+    if 'ดอกสว่าน' in prod_name or 'เจดีย์' in prod_name:
+        category_title = "ชุดดอกสว่านเจดีย์"
+    elif 'ใบตัด' in prod_name or 'ใบเจียร์' in prod_name:
+        category_title = "ใบตัด / ใบเจียร์คุณภาพ"
+    elif 'เครื่องเจียร์' in prod_name or 'ลูกหมู' in prod_name:
         m_sz = re.search(r'(\d+)\s*(?:นิ้ว|")', prod_name)
         category_title = f"เครื่องเจียร์ไฟฟ้า {m_sz.group(1)} นิ้ว" if m_sz else "เครื่องเจียร์ไฟฟ้า 4 นิ้ว"
     elif 'เครื่องฉีดน้ำ' in prod_name:
@@ -706,36 +725,53 @@ def generate_auto_spec_cover(
     draw.rounded_rectangle([COL_L, pill_top, COL_L + pill_w, pill_top + pill_h], radius=12, fill=theme_color)
     draw_hq(canvas, model_name, COL_L + 18, pill_top + pill_h // 2 + int(m_sz * 0.36), "semibold", m_sz, (255, 255, 255))
 
-    # --- Highlight sub-pills ---
+    # --- Highlight sub-pills (Max 2 compact badges, strictly <= max_text_w, never overlapping product) ---
     curr_y = pill_top + pill_h + 16
     sub_bg = (238, 244, 252, 255) if is_bigpower else (255, 238, 239, 255)
     sub_border = (170, 194, 224, 255) if is_bigpower else (250, 165, 168, 255)
-    for hp in hero_pills[:2]:
-        hp_sz, hp_w = fit_hq(hp, "semibold", 23, 16, max_text_w - 28)
-        ph = 42
-        bw_ = int(hp_w) + 28
-        draw.rounded_rectangle([COL_L, curr_y, COL_L + bw_, curr_y + ph], radius=9, fill=sub_bg, outline=sub_border, width=2)
-        draw_hq(canvas, hp, COL_L + 14, curr_y + ph // 2 + int(hp_sz * 0.36), "semibold", hp_sz, theme_rgb)
-        curr_y += ph + 10
 
-    # --- Spec rows (hexagon icon + label + big colored value, divider lines between rows) ---
-    spec_top = curr_y + 22
+    clean_pills = []
+    for hp in hero_pills[:2]:
+        hp_clean = hp.strip()
+        # If long comma-separated list, take the concise first item
+        if ',' in hp_clean and len(hp_clean) > 24:
+            hp_clean = hp_clean.split(',')[0].strip()
+        # Truncate clean without awkward ellipsis if possible
+        if len(hp_clean) > 26:
+            hp_clean = hp_clean[:25].rstrip(' ,-/')
+        clean_pills.append(hp_clean)
+
+    for hp in clean_pills:
+        hp_sz, hp_w = fit_hq(hp, "semibold", 20, 17, max_text_w - 28)
+        ph = 38
+        bw_ = min(max_text_w, int(hp_w) + 26)
+        draw.rounded_rectangle([COL_L, curr_y, COL_L + bw_, curr_y + ph], radius=8, fill=sub_bg, outline=sub_border, width=2)
+        draw_hq(canvas, hp, COL_L + 13, curr_y + ph // 2 + int(hp_sz * 0.36), "semibold", hp_sz, theme_rgb)
+        curr_y += ph + 8
+
+    # --- Spec rows (Standardized Typography & Height) ---
+    spec_top = curr_y + 16
     n_rows = max(1, len(spec_cards[:4]))
     trust_card_h = 84
     bottom_limit = COVER_SAFE_BOTTOM - 4   # trust card must end above the Shopee badge zone (y >= 1030)
-    avail = bottom_limit - spec_top - trust_card_h - 22
-    spec_row_h = max(96, min(142, avail // n_rows))
+    avail = bottom_limit - spec_top - trust_card_h - 18
+    spec_row_h = max(96, min(136, avail // n_rows))
 
     try:
-        f_sym = ImageFont.truetype(r"C:\Windows\Fonts\seguisym.ttf", 28)
+        f_sym = ImageFont.truetype(r"C:\Windows\Fonts\seguisym.ttf", 26)
     except Exception:
-        f_sym = load_font("seguisym.ttf", 28)
+        f_sym = load_font("seguisym.ttf", 26)
 
-    hex_radius = 28
+    hex_radius = 26
     hex_center_x = COL_L + hex_radius
     hex_fill = (18, 56, 88, 255) if is_bigpower else (215, 25, 33, 255)
-    text_x = hex_center_x + hex_radius + 16
-    val_max_w = COL_R + 4 - text_x
+    text_x = hex_center_x + hex_radius + 14
+    val_max_w = COL_R - text_x  # strictly within 350 - text_x (~256px)
+
+    # Standardized consistent font sizes across all specs
+    STD_LABEL_SZ = 20
+    STD_VAL_SZ = 28
+    STD_VAL_2LINE_SZ = 22
 
     for idx, sp in enumerate(spec_cards[:4]):
         r_y = spec_top + idx * spec_row_h
@@ -746,24 +782,31 @@ def generate_auto_spec_cover(
 
         lbl = sp.get('label', '')
         val = sp.get('val', '')
-        l_sz, _lw = fit_hq(lbl, "medium", 23, 17, val_max_w)
-        v_sz, v_w = fit_hq(val, "bold", 36, 24, val_max_w)
+        # Clean up commas with repeating speed words
+        if 'รอบ/นาที' in val and val.count('รอบ/นาที') > 1:
+            # Shorten repetitive speed lists to first and last
+            speeds = [s.strip() for s in val.split(',') if s.strip()]
+            if len(speeds) >= 2:
+                val = f"{speeds[0]} / {speeds[-1]}"
 
-        if v_w <= val_max_w and v_sz >= 26:
+        # Always use standardized label size 20 (shrink slightly only if super long label)
+        l_sz, _ = fit_hq(lbl, "medium", STD_LABEL_SZ, 16, val_max_w)
+
+        # Check if 1-line standard value fits:
+        v_sz, v_w = fit_hq(val, "bold", STD_VAL_SZ, 24, val_max_w)
+        if v_w <= val_max_w and v_sz >= 24:
             draw_hq(canvas, lbl, text_x, h_cy - 8, "medium", l_sz, TEXT_LABEL)
-            draw_hq(canvas, val, text_x, h_cy + 32, "bold", v_sz, theme_rgb)
+            draw_hq(canvas, val, text_x, h_cy + 30, "bold", v_sz, theme_rgb)
         else:
-            # long value: two balanced lines, still large and readable
+            # 2 balanced lines with standardized size 22
             ln1, ln2 = split_two_lines(val)
-            v2_sz, _ = fit_hq(max([ln1, ln2], key=len), "bold", 30, 20, val_max_w)
-            draw_hq(canvas, lbl, text_x, h_cy - 24, "medium", l_sz, TEXT_LABEL)
-            draw_hq(canvas, ln1, text_x, h_cy + 8, "bold", v2_sz, theme_rgb)
+            draw_hq(canvas, lbl, text_x, h_cy - 22, "medium", l_sz, TEXT_LABEL)
+            draw_hq(canvas, ln1, text_x, h_cy + 6, "bold", STD_VAL_2LINE_SZ, theme_rgb)
             if ln2:
-                draw_hq(canvas, ln2, text_x, h_cy + 8 + int(v2_sz * 1.22), "bold", v2_sz, theme_rgb)
+                draw_hq(canvas, ln2, text_x, h_cy + 6 + int(STD_VAL_2LINE_SZ * 1.25), "bold", STD_VAL_2LINE_SZ, theme_rgb)
 
         div_y = r_y + spec_row_h - 2
         draw.line([(COL_L, div_y), (COL_R, div_y)], fill=DIVIDER_COLOR, width=2)
-
     # --- Trust card ---
     trust_card_y = spec_top + n_rows * spec_row_h + 22
     trust_card_w = COL_R + 12 - COL_L
