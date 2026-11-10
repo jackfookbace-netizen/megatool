@@ -612,34 +612,28 @@ def generate_auto_spec_cover(
             prod_crop = prod_img
 
         cw, ch = prod_crop.size
-        is_horizontal = (cw / ch) > 1.25
 
-        # Safe boundaries: Left text column ends strictly at x <= 348.
-        # Product corridor: x = 368 to 1156 (Available Hero width = 788px!).
-        # Top-bottom corridor: y = 125 to 910 (Available Hero height = 785px!).
-        left_safe_x = 368
-        right_safe_x = 1156
-        max_avail_w = right_safe_x - left_safe_x  # 788px
-        max_avail_h = 835 if not is_horizontal else 460
+        # Exact White Space Bounding Box (User defined Center):
+        # 1. Left: after last character of left spec text corridor (+ margin gap) -> x = 365
+        # 2. Right: inside right red frame (1200 - border_w 22 - inner margin 14) -> x = 1164
+        # 3. Top: below shop header / logo (header baseline + curve ends at ~125 + gap) -> y = 140
+        # 4. Bottom: above top of "ของแท้ 100%" badge text (badge top is at ~995 - gap) -> y = 985
+        box_left = 365
+        box_right = 1164
+        box_top = 140
+        box_bottom = 985
 
-        # Maximize scale so product is as large as possible (Hero scale)
-        scale = min(max_avail_w / cw, max_avail_h / ch)
+        box_w = box_right - box_left   # 799 px
+        box_h = box_bottom - box_top   # 845 px
+
+        # Hero scale: fit cleanly inside the white box while maximizing size
+        scale = min(box_w / cw, box_h / ch)
         tgt_w = int(cw * scale)
         tgt_h = int(ch * scale)
 
-        # Anchor to right margin for balanced composition
-        pos_x = right_safe_x - tgt_w
-        if pos_x < left_safe_x:
-            # Strictly maintain clear safety gap from text
-            scale = max_avail_w / cw
-            tgt_w = int(cw * scale)
-            tgt_h = int(ch * scale)
-            pos_x = left_safe_x
-
-        if is_horizontal:
-            pos_y = 350 + (460 - tgt_h) // 2
-        else:
-            pos_y = 140 + (max_avail_h - tgt_h) // 2
+        # Perfect Mathematical Center:
+        pos_x = box_left + (box_w - tgt_w) // 2
+        pos_y = box_top + (box_h - tgt_h) // 2
 
 
         # Paste Hero Product (LANCZOS resample + studio sharpen/contrast + thin contact shadow)
