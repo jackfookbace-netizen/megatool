@@ -644,8 +644,18 @@ def generate_auto_spec_cover(
         except Exception as e:
             print(f"Error placing brand logo: {e}")
 
-    TEXT_INK = (17, 24, 39)
-    TEXT_LABEL = (55, 63, 78)
+    if is_bigpower:
+        TEXT_INK = (17, 24, 39)
+        TEXT_LABEL = (55, 63, 78)
+        trust_s1_color = theme_rgb
+        trust_s2_color = TEXT_LABEL
+    else:
+        # Shop 1: MEGATOOL - Solid crisp black typography for all auto-spec details & specs
+        TEXT_INK = (0, 0, 0)
+        TEXT_LABEL = (35, 35, 35)
+        trust_s1_color = (0, 0, 0)
+        trust_s2_color = (55, 55, 55)
+
     DIVIDER_COLOR = (196, 202, 212, 255)
     WHITE = (255, 255, 255, 255)
     COL_L = 52
@@ -685,7 +695,7 @@ def generate_auto_spec_cover(
         ph = 38
         bw_ = min(max_text_w, int(hp_w) + 26)
         draw.rounded_rectangle([COL_L, curr_y, COL_L + bw_, curr_y + ph], radius=8, fill=sub_bg, outline=sub_border, width=2)
-        draw_hq(canvas, hp, COL_L + 13, curr_y + ph // 2 + int(hp_sz * 0.36), "semibold", hp_sz, theme_rgb)
+        draw_hq(canvas, hp, COL_L + 13, curr_y + ph // 2 + int(hp_sz * 0.36), "semibold", hp_sz, TEXT_INK)
         curr_y += ph + 8
 
     # --- Spec rows (Standardized Typography & Height) ---
@@ -735,14 +745,14 @@ def generate_auto_spec_cover(
         v_sz, v_w = fit_hq(val, "bold", STD_VAL_SZ, 24, val_max_w)
         if v_w <= val_max_w and v_sz >= 24:
             draw_hq(canvas, lbl, text_x, h_cy - 8, "medium", l_sz, TEXT_LABEL)
-            draw_hq(canvas, val, text_x, h_cy + 30, "bold", v_sz, theme_rgb)
+            draw_hq(canvas, val, text_x, h_cy + 30, "bold", v_sz, TEXT_INK)
         else:
             # 2 balanced lines with standardized size 22
             ln1, ln2 = split_two_lines(val)
             draw_hq(canvas, lbl, text_x, h_cy - 22, "medium", l_sz, TEXT_LABEL)
-            draw_hq(canvas, ln1, text_x, h_cy + 6, "bold", STD_VAL_2LINE_SZ, theme_rgb)
+            draw_hq(canvas, ln1, text_x, h_cy + 6, "bold", STD_VAL_2LINE_SZ, TEXT_INK)
             if ln2:
-                draw_hq(canvas, ln2, text_x, h_cy + 6 + int(STD_VAL_2LINE_SZ * 1.25), "bold", STD_VAL_2LINE_SZ, theme_rgb)
+                draw_hq(canvas, ln2, text_x, h_cy + 6 + int(STD_VAL_2LINE_SZ * 1.25), "bold", STD_VAL_2LINE_SZ, TEXT_INK)
 
         div_y = r_y + spec_row_h - 2
         draw.line([(COL_L, div_y), (COL_R, div_y)], fill=DIVIDER_COLOR, width=2)
@@ -761,8 +771,8 @@ def generate_auto_spec_cover(
     tr_max_w = COL_L + trust_card_w - 14 - trust_txt_x
     s1_sz, _ = fit_hq(trust_s1, "semibold", 22, 15, tr_max_w)
     s2_sz, _ = fit_hq(trust_s2, "medium", 18, 13, tr_max_w)
-    draw_hq(canvas, trust_s1, trust_txt_x, trust_card_y + 38, "semibold", s1_sz, theme_rgb)
-    draw_hq(canvas, trust_s2, trust_txt_x, trust_card_y + 64, "medium", s2_sz, TEXT_LABEL)
+    draw_hq(canvas, trust_s1, trust_txt_x, trust_card_y + 38, "semibold", s1_sz, trust_s1_color)
+    draw_hq(canvas, trust_s2, trust_txt_x, trust_card_y + 64, "medium", s2_sz, trust_s2_color)
 
     final_rgb = canvas.convert('RGB')
     final_rgb.save(output_path, "JPEG", quality=98, subsampling=0, optimize=True)
