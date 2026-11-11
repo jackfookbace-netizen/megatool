@@ -1840,7 +1840,10 @@
                                 <div class="flex items-center space-x-1.5">
                                     <span class="font-semibold text-slate-700">รูปที่จะส่งเข้า Shopee:</span>
                                     <span class="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 text-[11px]"
-                                          x-text="((activePreviewItem?.all_images?.length || 1) - excludedImageIndices.length) + ' / ' + (activePreviewItem?.all_images?.length || 1) + ' รูป'">
+                                          x-text="((activeCustomCoverUrl ? 1 : 0) + (activePreviewItem?.all_images?.length || 1) - excludedImageIndices.length) + ' รูป'">
+                                    </span>
+                                    <span x-show="activeCustomCoverUrl" class="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-md border border-orange-200">
+                                        👑 ใช้รูปแต่งแถวล่างเป็นปก #1
                                     </span>
                                 </div>
                                 <div class="flex items-center space-x-2 text-[11px]">
@@ -1863,7 +1866,7 @@
                             </div>
 
                             <p class="text-[11px] text-slate-500 mb-2 px-1 flex items-center justify-between">
-                                <span>💡 คลิกปุ่ม <strong class="text-orange-600 font-mono">◀ / ▶</strong> เพื่อย้ายสลับลำดับรูป (รูปที่ 1 ปก, รูปที่ 2, 3...) หรือคลิกรูปเพื่อดูพรีวิว</span>
+                                <span>💡 คลิกปุ่ม <strong class="text-orange-600 font-mono">◀ / ▶</strong> เพื่อย้ายลำดับรูป หรือคลิก <strong class="text-rose-600">✕</strong> บนรูปต้นฉบับที่ซ้ำกับรูปปกเพื่อตัดออกได้เลย</span>
                                 <span class="font-bold text-orange-600 font-mono" x-text="'กำลังดูพรีวิว: รูปที่ #' + (selectedImageIndex + 1)"></span>
                             </p>
 
@@ -1879,16 +1882,16 @@
                                                 class="w-14 h-14 rounded-xl border-2 p-1 flex items-center justify-center transition-all cursor-pointer relative overflow-hidden">
                                             <img :src="img" @error="onImageLoadError(idx, img)" class="max-h-full max-w-full object-contain pointer-events-none">
                                             
-                                            <!-- Cover Badge for Slot 0 -->
-                                            <span x-show="idx === 0 && !isImageExcluded(idx)" 
+                                            <!-- Cover Badge for Slot 0 (Shows only when NO custom cover is active) -->
+                                            <span x-show="idx === 0 && !isImageExcluded(idx) && !activeCustomCoverUrl" 
                                                   class="absolute bottom-0 inset-x-0 bg-orange-600 text-white text-[8px] py-0.5 text-center font-bold tracking-tight">
                                                 #1 รูปปก
                                             </span>
 
-                                            <!-- Order Badge for other slots -->
-                                            <span x-show="idx > 0 && !isImageExcluded(idx)" 
+                                            <!-- Order Badge when Custom Cover IS active, or for subsequent slots -->
+                                            <span x-show="!isImageExcluded(idx) && (idx > 0 || activeCustomCoverUrl)" 
                                                   class="absolute bottom-0 inset-x-0 bg-slate-800/80 text-white text-[8px] py-0.5 text-center font-bold font-mono tracking-tight"
-                                                  x-text="'#' + (idx + 1)">
+                                                  x-text="activeCustomCoverUrl ? ('รูปที่ #' + (idx + 1)) : ('#' + (idx + 1))">
                                             </span>
 
                                             <!-- Unframed Badge -->
@@ -1977,7 +1980,7 @@
                                                 <!-- Active Badge -->
                                                 <span x-show="isActiveCustomCover(cImg)" 
                                                       class="absolute bottom-0 inset-x-0 bg-emerald-600 text-white text-[8px] py-0.5 text-center font-bold tracking-tight shadow">
-                                                    ✓ ใช้เป็นปก
+                                                    👑 #1 ปก Shopee
                                                 </span>
                                                 <span x-show="!isActiveCustomCover(cImg)" 
                                                       class="absolute bottom-0 inset-x-0 bg-slate-900/70 text-white text-[7px] py-0.5 text-center font-semibold tracking-tight opacity-0 group-hover:opacity-100 transition-opacity">
@@ -2373,7 +2376,7 @@
                         <i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i>
                         <h3 class="text-base font-bold text-slate-800">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                         <span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-bold" x-text="selectedItems.length + ' รายการ'"></span>
-                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.11-g</span>
+                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.11-h</span>
                     </div>
                     <button @click="showQueueModal = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer" title="ปิดหน้าต่าง">
                         <i data-lucide="x" class="w-5 h-5"></i>
