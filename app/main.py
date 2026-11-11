@@ -7,7 +7,7 @@ from fastapi import FastAPI, Query, HTTPException, Request, Response, Depends, H
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 try:
     sys.stdout.reconfigure(encoding='utf-8')
