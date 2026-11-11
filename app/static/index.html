@@ -1975,7 +1975,7 @@
                                                     @click="selectCustomCoverAsActive(cImg)"
                                                     :class="isActiveCustomCover(cImg) ? 'border-orange-500 ring-2 ring-orange-400 bg-orange-50 scale-105 shadow-md' : 'border-slate-200 bg-white hover:border-orange-300 opacity-80 hover:opacity-100'"
                                                     class="w-16 h-16 rounded-xl border-2 p-1 flex items-center justify-center transition-all cursor-pointer relative overflow-hidden">
-                                                <img :src="cImg.url || cImg" class="max-h-full max-w-full object-contain pointer-events-none">
+                                                <img :src="cImg.url || cImg" @error="onSavedCoverImageError(cImg, cIdx)" class="max-h-full max-w-full object-contain pointer-events-none">
                                                 
                                                 <!-- Active Badge -->
                                                 <span x-show="isActiveCustomCover(cImg)" 
@@ -2376,7 +2376,7 @@
                         <i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i>
                         <h3 class="text-base font-bold text-slate-800">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                         <span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-bold" x-text="selectedItems.length + ' รายการ'"></span>
-                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.11-h</span>
+                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.11-i</span>
                     </div>
                     <button @click="showQueueModal = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer" title="ปิดหน้าต่าง">
                         <i data-lucide="x" class="w-5 h-5"></i>
@@ -2506,7 +2506,7 @@
 
                                     <!-- ภาพหน้าปกย่อ -->
                                     <div class="relative shrink-0">
-                                        <img :src="item.image" class="w-13 h-13 sm:w-14 sm:h-14 object-contain rounded-xl border border-slate-200 p-1 bg-white shadow-2xs">
+                                        <img :src="item.image" @error="onCartItemImageError(item, $event)" class="w-13 h-13 sm:w-14 sm:h-14 object-contain rounded-xl border border-slate-200 p-1 bg-white shadow-2xs">
                                         <span x-show="index === 0 && exportMode === 'variations' && selectedItems.length > 1"
                                               class="absolute -top-1.5 -left-1.5 bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.2 rounded-full shadow-xs uppercase select-none">
                                             ปกหลัก
@@ -4397,28 +4397,33 @@ toggleListedSort(field) {
                         this.activeCustomCoverUrl = null;
                     }
 
-                    // Background sync of saved covers from server
+                    // Background sync of saved covers from server (authoritative check)
                     if (sku) {
                         fetch(`/api/saved-covers/${encodeURIComponent(sku)}`)
                             .then(r => r.ok ? r.json() : null)
                             .then(data => {
-                                if (data && Array.isArray(data.covers) && data.covers.length > 0) {
-                                    const map = new Map();
-                                    data.covers.forEach(c => {
-                                        const u = typeof c === 'object' ? c.url : c;
-                                        if (u) map.set(u.split('?')[0], c);
-                                    });
-                                    (this.savedCoverImages || []).forEach(c => {
-                                        const u = typeof c === 'object' ? c.url : c;
-                                        if (u && !map.has(u.split('?')[0])) map.set(u.split('?')[0], c);
-                                    });
-                                    this.savedCoverImages = Array.from(map.values());
+                                if (data && Array.isArray(data.covers)) {
+                                    this.savedCoverImages = data.covers;
                                     try {
                                         let all = JSON.parse(localStorage.getItem('megatool_saved_covers') || '{}');
                                         all[sku] = this.savedCoverImages;
                                         localStorage.setItem('megatool_saved_covers', JSON.stringify(all));
                                     } catch (e) {}
-                                    if (!this.renderedCoverUrl && this.savedCoverImages.length > 0) {
+
+                                    const validUrls = new Set(this.savedCoverImages.map(c => (typeof c === 'object' ? c.url : c).split('?')[0]));
+                                    if (this.renderedCoverUrl && this.renderedCoverUrl.includes('/static/covers/')) {
+                                        const curClean = this.renderedCoverUrl.split('?')[0];
+                                        if (!validUrls.has(curClean)) {
+                                            if (this.savedCoverImages.length > 0) {
+                                                const first = typeof this.savedCoverImages[0] === 'object' ? this.savedCoverImages[0].url : this.savedCoverImages[0];
+                                                this.renderedCoverUrl = first;
+                                                this.activeCustomCoverUrl = first;
+                                            } else {
+                                                this.renderedCoverUrl = null;
+                                                this.activeCustomCoverUrl = null;
+                                            }
+                                        }
+                                    } else if (!this.renderedCoverUrl && this.savedCoverImages.length > 0) {
                                         const first = typeof this.savedCoverImages[0] === 'object' ? this.savedCoverImages[0].url : this.savedCoverImages[0];
                                         this.renderedCoverUrl = first;
                                         this.activeCustomCoverUrl = first;
@@ -4991,6 +4996,56 @@ toggleListedSort(field) {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ sku: sku, url: url })
                         }).catch(() => {});
+                    }
+                },
+
+                onSavedCoverImageError(cImg, cIdx) {
+                    const url = typeof cImg === 'object' ? cImg.url : cImg;
+                    if (!url) return;
+                    const cleanUrl = url.split('?')[0];
+                    const sku = this.activePreviewItem?.sku || this.activePreviewItem?.code;
+                    
+                    // Filter out the broken image automatically
+                    this.savedCoverImages = (this.savedCoverImages || []).filter(c => {
+                        const u = typeof c === 'object' ? c.url : c;
+                        return (u || '').split('?')[0] !== cleanUrl;
+                    });
+                    
+                    if (sku) {
+                        try {
+                            let all = JSON.parse(localStorage.getItem('megatool_saved_covers') || '{}');
+                            all[sku] = this.savedCoverImages;
+                            localStorage.setItem('megatool_saved_covers', JSON.stringify(all));
+                        } catch (e) {}
+                        
+                        fetch('/api/saved-covers', {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ sku: sku, url: url })
+                        }).catch(() => {});
+                    }
+                    
+                    // If broken cover was selected, fall back to next available or original
+                    if (this.renderedCoverUrl && this.renderedCoverUrl.split('?')[0] === cleanUrl) {
+                        if (this.savedCoverImages.length > 0) {
+                            this.selectCustomCoverAsActive(this.savedCoverImages[0]);
+                        } else {
+                            this.renderedCoverUrl = null;
+                            this.activeCustomCoverUrl = null;
+                        }
+                    }
+                },
+
+                onCartItemImageError(item, event) {
+                    if (!item) return;
+                    const fallback = (item.all_images && item.all_images[0]) || (item.selected_images && item.selected_images.find(u => u && !u.includes('_preview') && !u.includes('/static/covers/'))) || '';
+                    if (fallback && item.image !== fallback) {
+                        item.image = fallback;
+                        item.selected_image = fallback;
+                        if (event && event.target) {
+                            event.target.src = fallback;
+                        }
+                        this.saveCartToStorage();
                     }
                 },
 
