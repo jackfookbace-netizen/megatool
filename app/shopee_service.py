@@ -93,7 +93,10 @@ def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_nam
     is_already_framed = (
         not use_template or 
         'collage_' in str(raw_img_url) or 
-        'comparison_' in str(raw_img_url)
+        'comparison_' in str(raw_img_url) or
+        '_preview' in str(raw_img_url) or
+        'custom_cover_' in str(raw_img_url) or
+        '/static/covers/' in str(raw_img_url)
     )
 
     if is_already_framed:

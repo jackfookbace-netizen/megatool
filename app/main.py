@@ -430,6 +430,99 @@ def api_save_cover_customizations(req: CoverCustomizationRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+SAVED_COVERS_FILE = "app/data/saved_covers.json"
+
+def _load_saved_covers_db() -> dict:
+    if os.path.exists(SAVED_COVERS_FILE):
+        try:
+            import json
+            with open(SAVED_COVERS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def _save_saved_covers_db(db: dict):
+    os.makedirs(os.path.dirname(SAVED_COVERS_FILE), exist_ok=True)
+    import json
+    with open(SAVED_COVERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(db, f, ensure_ascii=False, indent=2)
+
+class SaveCoverRequest(BaseModel):
+    sku: str
+    url: str
+    specs: Optional[Dict[str, Any]] = None
+
+@app.get("/api/saved-covers/{sku}")
+def api_get_saved_covers(sku: str):
+    db = _load_saved_covers_db()
+    items = db.get(sku, [])
+    valid_items = []
+    for it in items:
+        u = it.get("url") if isinstance(it, dict) else str(it)
+        if "/static/covers/" in u:
+            fname = u.split("/static/covers/")[-1].split("?")[0]
+            if not os.path.exists(f"app/static/covers/{fname}"):
+                continue
+        valid_items.append(it if isinstance(it, dict) else {"url": u, "created_at": None})
+    return {"success": True, "sku": sku, "covers": valid_items}
+
+@app.post("/api/saved-covers")
+def api_save_cover_entry(req: SaveCoverRequest):
+    if not req.sku or not req.url:
+        raise HTTPException(status_code=400, detail="Missing sku or url")
+    db = _load_saved_covers_db()
+    if req.sku not in db:
+        db[req.sku] = []
+    
+    clean_url = req.url.split("?")[0]
+    exists = False
+    for existing in db[req.sku]:
+        existing_url = (existing.get("url") if isinstance(existing, dict) else str(existing)).split("?")[0]
+        if existing_url == clean_url:
+            exists = True
+            if isinstance(existing, dict) and req.specs:
+                existing["specs"] = req.specs
+            break
+            
+    if not exists:
+        from datetime import datetime
+        db[req.sku].insert(0, {
+            "url": req.url,
+            "specs": req.specs or {},
+            "created_at": datetime.now().isoformat()
+        })
+        db[req.sku] = db[req.sku][:15]
+        
+    _save_saved_covers_db(db)
+    return {"success": True, "covers": db[req.sku]}
+
+class DeleteCoverRequest(BaseModel):
+    sku: str
+    url: str
+
+@app.delete("/api/saved-covers")
+def api_delete_saved_cover(req: DeleteCoverRequest):
+    if not req.sku or not req.url:
+        raise HTTPException(status_code=400, detail="Missing sku or url")
+    db = _load_saved_covers_db()
+    if req.sku in db:
+        clean_target = req.url.split("?")[0]
+        db[req.sku] = [
+            it for it in db[req.sku]
+            if (it.get("url") if isinstance(it, dict) else str(it)).split("?")[0] != clean_target
+        ]
+        _save_saved_covers_db(db)
+    if "/static/covers/" in req.url:
+        fname = req.url.split("/static/covers/")[-1].split("?")[0]
+        fpath = f"app/static/covers/{fname}"
+        if os.path.exists(fpath):
+            try:
+                os.remove(fpath)
+            except Exception:
+                pass
+    return {"success": True}
+
 @app.post("/api/preview-cover")
 def api_preview_cover(req: PreviewRequest):
     import hashlib, re, time
@@ -459,7 +552,35 @@ def api_preview_cover(req: PreviewRequest):
             custom_trust_s2=req.custom_trust_s2
         )
         t_stamp = int(time.time())
-        return {"preview_url": f"/static/covers/{output_filename}?t={t_stamp}"}
+        preview_url = f"/static/covers/{output_filename}?t={t_stamp}"
+
+        # Auto-register newly generated cover into saved_covers.json
+        try:
+            from datetime import datetime
+            db = _load_saved_covers_db()
+            if req.sku not in db:
+                db[req.sku] = []
+            clean_url = f"/static/covers/{output_filename}"
+            exists = any((c.get("url") if isinstance(c, dict) else str(c)).split("?")[0] == clean_url for c in db[req.sku])
+            if not exists:
+                db[req.sku].insert(0, {
+                    "url": clean_url,
+                    "specs": {
+                        "custom_category": req.custom_category,
+                        "custom_model": req.custom_model,
+                        "custom_hero_pills": req.custom_hero_pills,
+                        "custom_spec_cards": req.custom_spec_cards,
+                        "custom_trust_s1": req.custom_trust_s1,
+                        "custom_trust_s2": req.custom_trust_s2
+                    },
+                    "created_at": datetime.now().isoformat()
+                })
+                db[req.sku] = db[req.sku][:15]
+                _save_saved_covers_db(db)
+        except Exception as e:
+            print("Auto-save cover failed:", e)
+
+        return {"preview_url": preview_url}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
