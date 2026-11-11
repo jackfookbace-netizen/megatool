@@ -2140,6 +2140,50 @@
 
                         <!-- TAB 2: KTW PRODUCT RAW DETAILS -->
                         <div x-show="coverActiveTab === 'ktw'" class="space-y-3 overflow-y-auto pr-1 flex-1 min-h-0">
+                            <!-- Live Selected Specs Summary Bar with Single Apply Button -->
+                            <div class="sticky top-0 z-10 p-3 bg-white/95 backdrop-blur-sm border-2 border-orange-300 rounded-2xl shadow-md space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-slate-800 flex items-center space-x-1">
+                                        <span>🎯 สเปกที่จะใส่ลงในรูปปก (เลือกได้ตามใจชอบ แล้วกดปุ่มอัปเดตครั้งเดียว):</span>
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[11px]">
+                                    <div class="p-1.5 bg-slate-50 border border-slate-200 rounded-lg">
+                                        <div class="flex items-center justify-between text-[10px]">
+                                            <span class="font-bold text-orange-600">การ์ด #1:</span>
+                                            <span class="text-slate-400 truncate max-w-[55px]" x-text="customSpecCards[0]?.label || ''"></span>
+                                        </div>
+                                        <span class="text-slate-800 font-bold truncate block mt-0.5" x-text="customSpecCards[0]?.val || '(ยังไม่เลือก)'"></span>
+                                    </div>
+                                    <div class="p-1.5 bg-slate-50 border border-slate-200 rounded-lg">
+                                        <div class="flex items-center justify-between text-[10px]">
+                                            <span class="font-bold text-orange-600">การ์ด #2:</span>
+                                            <span class="text-slate-400 truncate max-w-[55px]" x-text="customSpecCards[1]?.label || ''"></span>
+                                        </div>
+                                        <span class="text-slate-800 font-bold truncate block mt-0.5" x-text="customSpecCards[1]?.val || '(ยังไม่เลือก)'"></span>
+                                    </div>
+                                    <div class="p-1.5 bg-slate-50 border border-slate-200 rounded-lg">
+                                        <div class="flex items-center justify-between text-[10px]">
+                                            <span class="font-bold text-orange-600">การ์ด #3:</span>
+                                            <span class="text-slate-400 truncate max-w-[55px]" x-text="customSpecCards[2]?.label || ''"></span>
+                                        </div>
+                                        <span class="text-slate-800 font-bold truncate block mt-0.5" x-text="customSpecCards[2]?.val || '(ยังไม่เลือก)'"></span>
+                                    </div>
+                                    <div class="p-1.5 bg-slate-50 border border-slate-200 rounded-lg">
+                                        <div class="flex items-center justify-between text-[10px]">
+                                            <span class="font-bold text-orange-600">การ์ด #4:</span>
+                                            <span class="text-slate-400 truncate max-w-[55px]" x-text="customSpecCards[3]?.label || ''"></span>
+                                        </div>
+                                        <span class="text-slate-800 font-bold truncate block mt-0.5" x-text="customSpecCards[3]?.val || '(ยังไม่เลือก)'"></span>
+                                    </div>
+                                </div>
+                                <button type="button" @click="coverActiveTab = 'edit'; generatePreviewCover()"
+                                        class="w-full py-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white text-xs font-bold rounded-xl shadow transition-all flex items-center justify-center space-x-1.5 cursor-pointer">
+                                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-200"></i>
+                                    <span>⚡ นำสเปกทั้ง 4 ช่องนี้ไปสร้างรูปปก Auto-Spec ทันที</span>
+                                </button>
+                            </div>
+
                             <!-- KTW Product Header -->
                             <div class="p-3 bg-blue-50 border border-blue-200 rounded-2xl">
                                 <h4 class="text-xs font-bold text-slate-900 leading-snug" x-text="coverKtwDetail?.name || activePreviewItem?.name"></h4>
@@ -2168,7 +2212,7 @@
                             <div class="p-3 bg-white border border-slate-200 rounded-2xl space-y-2 shadow-2xs">
                                 <div class="flex items-center justify-between">
                                     <span class="text-xs font-bold text-slate-800">⚙️ คุณสมบัติทางเทคนิค (SAP Specifications):</span>
-                                    <span class="text-[10px] text-slate-400">คลิกปุ่มเพื่อใส่ในการ์ดสเปก</span>
+                                    <span class="text-[10px] text-slate-400">กด #1 - #4 เพื่อเลือกใส่แต่ละช่อง</span>
                                 </div>
 
                                 <div class="space-y-3">
@@ -2183,25 +2227,29 @@
                                                             <span class="font-bold text-slate-800 ml-1 text-xs" x-text="feat.value"></span>
                                                         </div>
                                                         <div class="flex items-center space-x-1 shrink-0">
-                                                            <button type="button" @click="copyKtwSpecToCard(feat.name, feat.value, 0); coverActiveTab = 'edit'"
-                                                                    title="ใส่ในการ์ดช่องที่ 1"
-                                                                    class="px-1.5 py-0.5 bg-slate-100 hover:bg-orange-600 hover:text-white rounded text-[10px] font-bold text-slate-700 transition-colors cursor-pointer">
-                                                                #1
+                                                            <button type="button" @click="copyKtwSpecToCard(feat.name, feat.value, 0)"
+                                                                    title="เลือกใส่การ์ดช่องที่ 1"
+                                                                    :class="customSpecCards[0]?.val === feat.value ? 'bg-orange-600 text-white font-bold ring-2 ring-orange-300' : 'bg-slate-100 hover:bg-orange-100 text-slate-700'"
+                                                                    class="px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer">
+                                                                <span x-text="customSpecCards[0]?.val === feat.value ? '✓ #1' : '#1'"></span>
                                                             </button>
-                                                            <button type="button" @click="copyKtwSpecToCard(feat.name, feat.value, 1); coverActiveTab = 'edit'"
-                                                                    title="ใส่ในการ์ดช่องที่ 2"
-                                                                    class="px-1.5 py-0.5 bg-slate-100 hover:bg-orange-600 hover:text-white rounded text-[10px] font-bold text-slate-700 transition-colors cursor-pointer">
-                                                                #2
+                                                            <button type="button" @click="copyKtwSpecToCard(feat.name, feat.value, 1)"
+                                                                    title="เลือกใส่การ์ดช่องที่ 2"
+                                                                    :class="customSpecCards[1]?.val === feat.value ? 'bg-orange-600 text-white font-bold ring-2 ring-orange-300' : 'bg-slate-100 hover:bg-orange-100 text-slate-700'"
+                                                                    class="px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer">
+                                                                <span x-text="customSpecCards[1]?.val === feat.value ? '✓ #2' : '#2'"></span>
                                                             </button>
-                                                            <button type="button" @click="copyKtwSpecToCard(feat.name, feat.value, 2); coverActiveTab = 'edit'"
-                                                                    title="ใส่ในการ์ดช่องที่ 3"
-                                                                    class="px-1.5 py-0.5 bg-slate-100 hover:bg-orange-600 hover:text-white rounded text-[10px] font-bold text-slate-700 transition-colors cursor-pointer">
-                                                                #3
+                                                            <button type="button" @click="copyKtwSpecToCard(feat.name, feat.value, 2)"
+                                                                    title="เลือกใส่การ์ดช่องที่ 3"
+                                                                    :class="customSpecCards[2]?.val === feat.value ? 'bg-orange-600 text-white font-bold ring-2 ring-orange-300' : 'bg-slate-100 hover:bg-orange-100 text-slate-700'"
+                                                                    class="px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer">
+                                                                <span x-text="customSpecCards[2]?.val === feat.value ? '✓ #3' : '#3'"></span>
                                                             </button>
-                                                            <button type="button" @click="copyKtwSpecToCard(feat.name, feat.value, 3); coverActiveTab = 'edit'"
-                                                                    title="ใส่ในการ์ดช่องที่ 4"
-                                                                    class="px-1.5 py-0.5 bg-slate-100 hover:bg-orange-600 hover:text-white rounded text-[10px] font-bold text-slate-700 transition-colors cursor-pointer">
-                                                                #4
+                                                            <button type="button" @click="copyKtwSpecToCard(feat.name, feat.value, 3)"
+                                                                    title="เลือกใส่การ์ดช่องที่ 4"
+                                                                    :class="customSpecCards[3]?.val === feat.value ? 'bg-orange-600 text-white font-bold ring-2 ring-orange-300' : 'bg-slate-100 hover:bg-orange-100 text-slate-700'"
+                                                                    class="px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer">
+                                                                <span x-text="customSpecCards[3]?.val === feat.value ? '✓ #4' : '#4'"></span>
                                                             </button>
                                                         </div>
                                                     </div>
@@ -2258,7 +2306,7 @@
                         <i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i>
                         <h3 class="text-base font-bold text-slate-800">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                         <span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-bold" x-text="selectedItems.length + ' รายการ'"></span>
-                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.11-b</span>
+                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.11-c</span>
                     </div>
                     <button @click="showQueueModal = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer" title="ปิดหน้าต่าง">
                         <i data-lucide="x" class="w-5 h-5"></i>
@@ -4511,7 +4559,6 @@ toggleListedSort(field) {
                     } else if (l.includes('วัสดุ') || l.includes('เกรด') || l.includes('คุณสมบัติ')) {
                         this.customSpecCards[cardIdx].icon = '🛡️';
                     }
-                    this.generatePreviewCover();
                 },
 
                 async resetCoverSpecsToDefault() {
