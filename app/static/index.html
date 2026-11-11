@@ -2029,12 +2029,12 @@
                                     <div class="grid grid-cols-1 gap-2">
                                         <div>
                                             <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">หัวเรื่อง / หมวดหมู่ (บนสุด):</label>
-                                            <input type="text" x-model="customCoverCategory" placeholder="เช่น เครื่องเจียร์ไฟฟ้า 4 นิ้ว, ชุดดอกสว่านเจดีย์"
+                                            <input type="text" x-model="customCoverCategory" @input="saveCurrentCoverCustomizations()" placeholder="เช่น เครื่องเจียร์ไฟฟ้า 4 นิ้ว, ชุดดอกสว่านเจดีย์"
                                                    class="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-slate-300 rounded-xl outline-none focus:border-orange-500">
                                         </div>
                                         <div>
                                             <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">ชื่อรุ่นสินค้า (ในป้ายสีกรมท่า/แดง):</label>
-                                            <input type="text" x-model="customCoverModel" placeholder="เช่น M0910B สวิทซ์ท้าย, STEP DRILL HSSทอง"
+                                            <input type="text" x-model="customCoverModel" @input="saveCurrentCoverCustomizations()" placeholder="เช่น M0910B สวิทซ์ท้าย, STEP DRILL HSSทอง"
                                                    class="w-full px-2.5 py-1.5 text-xs font-bold text-slate-900 bg-white border border-slate-300 rounded-xl outline-none focus:border-orange-500">
                                         </div>
                                     </div>
@@ -2048,12 +2048,12 @@
                                     <div class="grid grid-cols-2 gap-2">
                                         <div>
                                             <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">ป้ายที่ 1:</label>
-                                            <input type="text" x-model="customHeroPill1" placeholder="เช่น กำลังไฟ 540W"
+                                            <input type="text" x-model="customHeroPill1" @input="saveCurrentCoverCustomizations()" placeholder="เช่น กำลังไฟ 540W"
                                                    class="w-full px-2 py-1.5 text-xs font-semibold bg-white border border-slate-300 rounded-xl outline-none focus:border-orange-500">
                                         </div>
                                         <div>
                                             <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">ป้ายที่ 2:</label>
-                                            <input type="text" x-model="customHeroPill2" placeholder="เช่น ขนาด 100 มม. (4 นิ้ว)"
+                                            <input type="text" x-model="customHeroPill2" @input="saveCurrentCoverCustomizations()" placeholder="เช่น ขนาด 100 มม. (4 นิ้ว)"
                                                    class="w-full px-2 py-1.5 text-xs font-semibold bg-white border border-slate-300 rounded-xl outline-none focus:border-orange-500">
                                         </div>
                                     </div>
@@ -2075,7 +2075,7 @@
                                                         <span x-text="'การ์ดช่องที่ #' + (cIdx + 1)"></span>
                                                     </span>
                                                     <div class="flex items-center space-x-1">
-                                                        <select x-model="card.icon" class="text-xs py-0.5 px-1 bg-slate-100 rounded border border-slate-200 cursor-pointer">
+                                                        <select x-model="card.icon" @change="saveCurrentCoverCustomizations()" class="text-xs py-0.5 px-1 bg-slate-100 rounded border border-slate-200 cursor-pointer">
                                                             <option value="⚡">⚡ ไฟฟ้า/กำลัง</option>
                                                             <option value="📏">📏 ขนาด/มิติ</option>
                                                             <option value="⏱">⏱ ความเร็ว/รอบ</option>
@@ -2091,11 +2091,11 @@
                                                 </div>
                                                 <div class="grid grid-cols-12 gap-1.5 items-center">
                                                     <div class="col-span-5">
-                                                        <input type="text" x-model="card.label" placeholder="หัวข้อสเปก"
+                                                        <input type="text" x-model="card.label" @input="saveCurrentCoverCustomizations()" placeholder="หัวข้อสเปก"
                                                                class="w-full px-2 py-1 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:border-orange-500">
                                                     </div>
                                                     <div class="col-span-7">
-                                                        <input type="text" x-model="card.val" placeholder="ค่าสเปก"
+                                                        <input type="text" x-model="card.val" @input="saveCurrentCoverCustomizations()" placeholder="ค่าสเปก"
                                                                class="w-full px-2 py-1 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:border-orange-500">
                                                     </div>
                                                 </div>
@@ -2112,12 +2112,12 @@
                                     <div class="grid grid-cols-1 gap-1.5">
                                         <div>
                                             <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">บรรทัดที่ 1 (ตัวหนา):</label>
-                                            <input type="text" x-model="customTrustS1" placeholder="เช่น จัดส่งด่วนจากไทย 100%"
+                                            <input type="text" x-model="customTrustS1" @input="saveCurrentCoverCustomizations()" placeholder="เช่น จัดส่งด่วนจากไทย 100%"
                                                    class="w-full px-2.5 py-1.5 text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-xl outline-none focus:border-orange-500">
                                         </div>
                                         <div>
                                             <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">บรรทัดที่ 2 (ตัวธรรมดา):</label>
-                                            <input type="text" x-model="customTrustS2" placeholder="เช่น สต็อกไทย ได้รับของรวดเร็ว"
+                                            <input type="text" x-model="customTrustS2" @input="saveCurrentCoverCustomizations()" placeholder="เช่น สต็อกไทย ได้รับของรวดเร็ว"
                                                    class="w-full px-2.5 py-1.5 text-xs text-slate-700 bg-white border border-slate-300 rounded-xl outline-none focus:border-orange-500">
                                         </div>
                                     </div>
@@ -2315,7 +2315,7 @@
                         <i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i>
                         <h3 class="text-base font-bold text-slate-800">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                         <span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-bold" x-text="selectedItems.length + ' รายการ'"></span>
-                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.11-e</span>
+                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.11-f</span>
                     </div>
                     <button @click="showQueueModal = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer" title="ปิดหน้าต่าง">
                         <i data-lucide="x" class="w-5 h-5"></i>
@@ -4301,7 +4301,59 @@ toggleListedSort(field) {
                     this.shopName = (this.currentShop && this.currentShop.brand_display) || (this.activeShopId === 'shop_2' ? 'BigPower Tools' : 'MEGATOOL');
 
                     const sku = p.sku || p.code;
-                    const cartItem = this.selectedItems.find(i => i.sku === sku);
+                    const cartItem = (this.selectedItems || []).find(i => i.sku === sku);
+
+                    // Load persistent cover customizations from localStorage for this SKU
+                    let localCoverCustom = null;
+                    try {
+                        const allCoverCustom = JSON.parse(localStorage.getItem('megatool_cover_customizations') || '{}');
+                        localCoverCustom = (sku && allCoverCustom[sku]) || null;
+                    } catch (e) {}
+
+                    // 1. INSTANT SYNCHRONOUS RESTORE (Zero flicker, zero reset):
+                    const activeSrc = cartItem || localCoverCustom || p || {};
+                    const customCards = (cartItem && cartItem.custom_spec_cards && cartItem.custom_spec_cards.length > 0)
+                        ? cartItem.custom_spec_cards
+                        : (localCoverCustom && localCoverCustom.custom_spec_cards && localCoverCustom.custom_spec_cards.length > 0)
+                            ? localCoverCustom.custom_spec_cards
+                            : (p.custom_spec_cards && p.custom_spec_cards.length > 0 ? p.custom_spec_cards : null);
+
+                    this.customCoverCategory = activeSrc.custom_category || localCoverCustom?.custom_category || p.custom_category || '';
+                    this.customCoverModel = activeSrc.custom_model || localCoverCustom?.custom_model || p.custom_model || '';
+
+                    const heroPills = (cartItem && cartItem.custom_hero_pills && cartItem.custom_hero_pills.length > 0)
+                        ? cartItem.custom_hero_pills
+                        : (localCoverCustom && localCoverCustom.custom_hero_pills && localCoverCustom.custom_hero_pills.length > 0)
+                            ? localCoverCustom.custom_hero_pills
+                            : (p.custom_hero_pills && p.custom_hero_pills.length > 0 ? p.custom_hero_pills : null);
+                    if (heroPills && heroPills.length > 0) {
+                        this.customHeroPill1 = heroPills[0] || '';
+                        this.customHeroPill2 = heroPills[1] || '';
+                    } else {
+                        this.customHeroPill1 = '';
+                        this.customHeroPill2 = '';
+                    }
+
+                    if (customCards && customCards.length > 0) {
+                        this.customSpecCards = [
+                            customCards[0] || { icon: '⚡', label: '', val: '' },
+                            customCards[1] || { icon: '📏', label: '', val: '' },
+                            customCards[2] || { icon: '⏱', label: '', val: '' },
+                            customCards[3] || { icon: '🔘', label: '', val: '' }
+                        ];
+                    } else {
+                        this.customSpecCards = [
+                            { icon: '⚡', label: '', val: '' },
+                            { icon: '📏', label: '', val: '' },
+                            { icon: '⏱', label: '', val: '' },
+                            { icon: '🔘', label: '', val: '' }
+                        ];
+                    }
+
+                    this.customTrustS1 = activeSrc.custom_trust_s1 || localCoverCustom?.custom_trust_s1 || p.custom_trust_s1 || 'จัดส่งด่วนจากไทย 100%';
+                    this.customTrustS2 = activeSrc.custom_trust_s2 || localCoverCustom?.custom_trust_s2 || p.custom_trust_s2 || 'สต็อกไทย ได้รับของรวดเร็ว';
+                    this.itemShopeeTitle = activeSrc.shopee_title || localCoverCustom?.shopee_title || p.shopee_title || p.name || '';
+
                     let savedSettings = null;
                     let lastUsed = {};
                     try {
@@ -4316,31 +4368,40 @@ toggleListedSort(field) {
                         if (dRes.ok) {
                             const dData = await dRes.json();
                             this.coverKtwDetail = dData.ktw_raw || null;
-                            
-                            // Restore custom category or default
-                            this.customCoverCategory = (cartItem && cartItem.custom_category) || p.custom_category || dData.category_title || '';
-                            
-                            // Restore custom model or default
-                            const savedCoverModel = (cartItem && cartItem.custom_model) || p.custom_model || (savedSettings && savedSettings.coverModel);
-                            this.customCoverModel = savedCoverModel || dData.model_name?.replace(/^รุ่น\s*/, '') || '';
-                            
-                            // Restore hero highlight pills
-                            const savedPills = (cartItem && cartItem.custom_hero_pills) || p.custom_hero_pills || dData.hero_pills || [];
-                            this.customHeroPill1 = savedPills[0] || '';
-                            this.customHeroPill2 = savedPills[1] || '';
-                            
-                            // Restore 4 spec cards
-                            const savedCards = (cartItem && cartItem.custom_spec_cards) || p.custom_spec_cards || dData.spec_cards || [];
-                            this.customSpecCards = [
-                                savedCards[0] || { icon: '⚡', label: '', val: '' },
-                                savedCards[1] || { icon: '📏', label: '', val: '' },
-                                savedCards[2] || { icon: '⏱', label: '', val: '' },
-                                savedCards[3] || { icon: '🔘', label: '', val: '' }
-                            ];
-                            
-                            // Restore trust card text
-                            this.customTrustS1 = (cartItem && cartItem.custom_trust_s1) || p.custom_trust_s1 || dData.trust_s1 || 'จัดส่งด่วนจากไทย 100%';
-                            this.customTrustS2 = (cartItem && cartItem.custom_trust_s2) || p.custom_trust_s2 || dData.trust_s2 || 'สต็อกไทย ได้รับของรวดเร็ว';
+                            const serverSaved = dData.saved_customizations || null;
+
+                            // Fill category ONLY IF empty
+                            if (!this.customCoverCategory) {
+                                this.customCoverCategory = serverSaved?.custom_category || dData.category_title || '';
+                            }
+                            // Fill model ONLY IF empty
+                            if (!this.customCoverModel) {
+                                this.customCoverModel = serverSaved?.custom_model || dData.model_name?.replace(/^รุ่น\s*/, '') || '';
+                            }
+                            // Fill hero pills ONLY IF empty
+                            if (!this.customHeroPill1 && !this.customHeroPill2) {
+                                const defaultPills = (serverSaved && serverSaved.custom_hero_pills && serverSaved.custom_hero_pills.length > 0)
+                                    ? serverSaved.custom_hero_pills
+                                    : (dData.hero_pills || []);
+                                this.customHeroPill1 = defaultPills[0] || '';
+                                this.customHeroPill2 = defaultPills[1] || '';
+                            }
+                            // Fill spec cards ONLY IF user has not filled any card
+                            const hasUserCards = this.customSpecCards && this.customSpecCards.some(c => c && (c.label || c.val));
+                            if (!hasUserCards) {
+                                const defaultCards = (serverSaved && serverSaved.custom_spec_cards && serverSaved.custom_spec_cards.length > 0)
+                                    ? serverSaved.custom_spec_cards
+                                    : (dData.spec_cards || []);
+                                this.customSpecCards = [
+                                    defaultCards[0] || { icon: '⚡', label: '', val: '' },
+                                    defaultCards[1] || { icon: '📏', label: '', val: '' },
+                                    defaultCards[2] || { icon: '⏱', label: '', val: '' },
+                                    defaultCards[3] || { icon: '🔘', label: '', val: '' }
+                                ];
+                            }
+                            // Fill trust card lines if empty
+                            if (serverSaved?.custom_trust_s1 && !this.customTrustS1) this.customTrustS1 = serverSaved.custom_trust_s1;
+                            if (serverSaved?.custom_trust_s2 && !this.customTrustS2) this.customTrustS2 = serverSaved.custom_trust_s2;
                         }
                     } catch (e) {
                         console.error('Failed fetching cover defaults:', e);
@@ -4574,11 +4635,72 @@ toggleListedSort(field) {
                     } else if (l.includes('วัสดุ') || l.includes('เกรด') || l.includes('คุณสมบัติ')) {
                         this.customSpecCards[cardIdx].icon = '🛡️';
                     }
+                    this.saveCurrentCoverCustomizations();
+                },
+
+                saveCurrentCoverCustomizations(targetSku = null) {
+                    const sku = targetSku || (this.activePreviewItem?.sku || this.activePreviewItem?.code);
+                    if (!sku) return;
+                    const customData = {
+                        custom_model: this.customCoverModel,
+                        custom_category: this.customCoverCategory,
+                        custom_hero_pills: [this.customHeroPill1, this.customHeroPill2].filter(Boolean),
+                        custom_spec_cards: JSON.parse(JSON.stringify(this.customSpecCards || [])),
+                        custom_trust_s1: this.customTrustS1,
+                        custom_trust_s2: this.customTrustS2,
+                        shopee_title: this.itemShopeeTitle,
+                        updated_at: Date.now()
+                    };
+
+                    // 1. Persistent LocalStorage (per SKU)
+                    try {
+                        let allCustom = JSON.parse(localStorage.getItem('megatool_cover_customizations') || '{}');
+                        allCustom[sku] = customData;
+                        localStorage.setItem('megatool_cover_customizations', JSON.stringify(allCustom));
+                    } catch (e) {}
+
+                    // 2. Update active cart item if present
+                    const cartItem = (this.selectedItems || []).find(i => i.sku === sku);
+                    if (cartItem) {
+                        cartItem.custom_model = this.customCoverModel;
+                        cartItem.custom_category = this.customCoverCategory;
+                        cartItem.custom_hero_pills = [this.customHeroPill1, this.customHeroPill2].filter(Boolean);
+                        cartItem.custom_spec_cards = JSON.parse(JSON.stringify(this.customSpecCards || []));
+                        cartItem.custom_trust_s1 = this.customTrustS1;
+                        cartItem.custom_trust_s2 = this.customTrustS2;
+                        cartItem.shopee_title = this.itemShopeeTitle;
+                        this.saveCartToStorage();
+                    }
+
+                    // 3. Update activePreviewItem if present
+                    if (this.activePreviewItem) {
+                        this.activePreviewItem.custom_model = this.customCoverModel;
+                        this.activePreviewItem.custom_category = this.customCoverCategory;
+                        this.activePreviewItem.custom_hero_pills = [this.customHeroPill1, this.customHeroPill2].filter(Boolean);
+                        this.activePreviewItem.custom_spec_cards = JSON.parse(JSON.stringify(this.customSpecCards || []));
+                        this.activePreviewItem.custom_trust_s1 = this.customTrustS1;
+                        this.activePreviewItem.custom_trust_s2 = this.customTrustS2;
+                        this.activePreviewItem.shopee_title = this.itemShopeeTitle;
+                    }
+
+                    // 4. Background Server Sync (fire-and-forget)
+                    fetch('/api/cover-customizations', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sku: sku, ...customData })
+                    }).catch(() => {});
                 },
 
                 async resetCoverSpecsToDefault() {
                     if (!this.activePreviewItem) return;
                     const sku = this.activePreviewItem.sku || this.activePreviewItem.code;
+                    try {
+                        let allCustom = JSON.parse(localStorage.getItem('megatool_cover_customizations') || '{}');
+                        if (sku && allCustom[sku]) {
+                            delete allCustom[sku];
+                            localStorage.setItem('megatool_cover_customizations', JSON.stringify(allCustom));
+                        }
+                    } catch (e) {}
                     try {
                         const dRes = await fetch(`/api/cover-spec-defaults/${encodeURIComponent(sku)}?shop_name=${encodeURIComponent(this.shopName)}`);
                         if (dRes.ok) {
@@ -4596,6 +4718,7 @@ toggleListedSort(field) {
                             ];
                             this.customTrustS1 = dData.trust_s1 || 'จัดส่งด่วนจากไทย 100%';
                             this.customTrustS2 = dData.trust_s2 || 'สต็อกไทย ได้รับของรวดเร็ว';
+                            this.saveCurrentCoverCustomizations(sku);
                             this.generatePreviewCover();
                         }
                     } catch (e) {
@@ -5038,6 +5161,7 @@ toggleListedSort(field) {
                         this.activePreviewItem.custom_trust_s2 = this.customTrustS2;
                         this.activePreviewItem.shopee_title = this.itemShopeeTitle;
                     }
+                    this.saveCurrentCoverCustomizations(sku);
                     this.saveCartToStorage();
                     this.showPreviewModal = false;
                 },

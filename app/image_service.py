@@ -2556,6 +2556,18 @@ def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
         if feats:
             raw_classifs.append({'category': c_name, 'features': feats})
 
+    # Check if this SKU has saved persistent customizations
+    custom_saved = None
+    custom_file = "app/data/cover_customizations.json"
+    if os.path.exists(custom_file) and sku:
+        try:
+            import json
+            with open(custom_file, "r", encoding="utf-8") as f:
+                cdata = json.load(f)
+                custom_saved = cdata.get(sku)
+        except Exception:
+            pass
+
     return {
         "category_title": category_title,
         "model_name": model_name,
@@ -2566,6 +2578,7 @@ def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
         "badge_text": "มีสต็อกพร้อมส่งทันที",
         "shop_name": official_shop_name,
         "all_specs": specs_dict,
+        "saved_customizations": custom_saved,
         "ktw_raw": {
             "name": detail.get('name', ''),
             "sku": sku,

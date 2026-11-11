@@ -376,6 +376,60 @@ def api_cover_spec_defaults(sku: str, shop_name: Optional[str] = "MEGATOOL"):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class CoverCustomizationRequest(BaseModel):
+    sku: str
+    custom_model: Optional[str] = None
+    custom_category: Optional[str] = None
+    custom_hero_pills: Optional[List[str]] = None
+    custom_spec_cards: Optional[List[Dict[str, Any]]] = None
+    custom_trust_s1: Optional[str] = None
+    custom_trust_s2: Optional[str] = None
+    shopee_title: Optional[str] = None
+
+@app.get("/api/cover-customizations/{sku}")
+def api_get_cover_customizations(sku: str):
+    file_path = "app/data/cover_customizations.json"
+    if os.path.exists(file_path):
+        try:
+            import json
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return {"success": True, "customizations": data.get(sku)}
+        except Exception:
+            pass
+    return {"success": True, "customizations": None}
+
+@app.post("/api/cover-customizations")
+def api_save_cover_customizations(req: CoverCustomizationRequest):
+    import time
+    file_path = "app/data/cover_customizations.json"
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    data = {}
+    if os.path.exists(file_path):
+        try:
+            import json
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            data = {}
+    data[req.sku] = {
+        "custom_model": req.custom_model,
+        "custom_category": req.custom_category,
+        "custom_hero_pills": req.custom_hero_pills,
+        "custom_spec_cards": req.custom_spec_cards,
+        "custom_trust_s1": req.custom_trust_s1,
+        "custom_trust_s2": req.custom_trust_s2,
+        "shopee_title": req.shopee_title,
+        "updated_at": int(time.time())
+    }
+    try:
+        import json
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/preview-cover")
 def api_preview_cover(req: PreviewRequest):
     import hashlib, re, time
