@@ -361,6 +361,20 @@ class PreviewRequest(BaseModel):
     shop_name: Optional[str] = "MEGATOOL"
     template_type: Optional[str] = "standard"
     custom_model: Optional[str] = None
+    custom_category: Optional[str] = None
+    custom_hero_pills: Optional[List[str]] = None
+    custom_spec_cards: Optional[List[Dict[str, Any]]] = None
+    custom_trust_s1: Optional[str] = None
+    custom_trust_s2: Optional[str] = None
+
+@app.get("/api/cover-spec-defaults/{sku}")
+def api_cover_spec_defaults(sku: str, shop_name: Optional[str] = "MEGATOOL"):
+    try:
+        from app.image_service import get_auto_cover_defaults
+        defaults = get_auto_cover_defaults(sku, shop_name=shop_name or "MEGATOOL")
+        return defaults
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/preview-cover")
 def api_preview_cover(req: PreviewRequest):
@@ -368,7 +382,8 @@ def api_preview_cover(req: PreviewRequest):
     brand = req.brand or detect_brand_from_sku(req.sku)
     shop_str = re.sub(r'[^a-zA-Z0-9]', '', (req.shop_name or 'MEGATOOL').lower())
     tmpl_type = req.template_type or "standard"
-    url_hash = hashlib.md5(f"{req.image_url}_{shop_str}_{tmpl_type}_{req.badge_text}_{req.custom_model}".encode('utf-8')).hexdigest()[:8]
+    custom_str = f"{req.custom_category}_{req.custom_hero_pills}_{req.custom_spec_cards}_{req.custom_trust_s1}_{req.custom_trust_s2}"
+    url_hash = hashlib.md5(f"{req.image_url}_{shop_str}_{tmpl_type}_{req.badge_text}_{req.custom_model}_{custom_str}".encode('utf-8')).hexdigest()[:8]
     output_filename = f"{req.sku}_{shop_str}_{tmpl_type}_{url_hash}_preview.jpg"
     output_path = f"app/static/covers/{output_filename}"
     try:
@@ -382,7 +397,12 @@ def api_preview_cover(req: PreviewRequest):
             shop_name=req.shop_name or "MEGATOOL",
             overwrite=True,
             template_type=tmpl_type,
-            custom_model=req.custom_model
+            custom_model=req.custom_model,
+            custom_category=req.custom_category,
+            custom_hero_pills=req.custom_hero_pills,
+            custom_spec_cards=req.custom_spec_cards,
+            custom_trust_s1=req.custom_trust_s1,
+            custom_trust_s2=req.custom_trust_s2
         )
         t_stamp = int(time.time())
         return {"preview_url": f"/static/covers/{output_filename}?t={t_stamp}"}
@@ -488,10 +508,18 @@ class ExportItem(BaseModel):
     price: Optional[float] = None
     badge: Optional[str] = None
     variation_name: Optional[str] = None
+    shopee_title: Optional[str] = None
     selected_image: Optional[str] = None
     selected_images: Optional[List[str]] = None
     use_template: Optional[bool] = True
+    template_type: Optional[str] = "auto_spec"
     unframed_images: Optional[List[str]] = None
+    custom_model: Optional[str] = None
+    custom_category: Optional[str] = None
+    custom_hero_pills: Optional[List[str]] = None
+    custom_spec_cards: Optional[List[Dict[str, Any]]] = None
+    custom_trust_s1: Optional[str] = None
+    custom_trust_s2: Optional[str] = None
 
 class ExportRequest(BaseModel):
     items: List[ExportItem]

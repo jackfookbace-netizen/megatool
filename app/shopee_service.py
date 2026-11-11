@@ -86,7 +86,7 @@ def prioritize_variation_lines(desc_text: str, budget: int = 550) -> str:
             
     return "\n".join(selected) if selected else "\n".join(blocks[:2])
 
-def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_name, use_template=True, template_type="standard"):
+def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_name, use_template=True, template_type="standard", item_info=None):
     import hashlib
     import requests
 
@@ -134,7 +134,15 @@ def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_nam
         return (img_idx, None)
 
     cur_tmpl_type = template_type if img_idx == 0 else "standard"
-    url_hash = hashlib.md5(f"{raw_img_url}_{brand}_{badge_text}_{shop_name}_{cur_tmpl_type}".encode('utf-8')).hexdigest()[:10]
+    info = item_info or {}
+    c_model = info.get('custom_model')
+    c_cat = info.get('custom_category')
+    c_pills = info.get('custom_hero_pills')
+    c_cards = info.get('custom_spec_cards')
+    c_s1 = info.get('custom_trust_s1')
+    c_s2 = info.get('custom_trust_s2')
+    extra_hash = f"{c_model}_{c_cat}_{c_pills}_{c_cards}_{c_s1}_{c_s2}"
+    url_hash = hashlib.md5(f"{raw_img_url}_{brand}_{badge_text}_{shop_name}_{cur_tmpl_type}_{extra_hash}".encode('utf-8')).hexdigest()[:10]
     local_img_path = f"app/static/covers/{sku}_{url_hash}.jpg"
     filename = f"{sku}_{url_hash}.jpg"
     try:
@@ -145,7 +153,13 @@ def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_nam
             sku=sku,
             badge_text=badge_text,
             shop_name=shop_name,
-            template_type=cur_tmpl_type
+            template_type=cur_tmpl_type,
+            custom_model=c_model,
+            custom_category=c_cat,
+            custom_hero_pills=c_pills,
+            custom_spec_cards=c_cards,
+            custom_trust_s1=c_s1,
+            custom_trust_s2=c_s2
         )
         # Tier 1: Cloudflare CDN (Freeimage / iili.io)
         uploaded_cdn = upload_to_cdn(local_img_path)
@@ -153,6 +167,11 @@ def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_nam
             return (img_idx, uploaded_cdn)
 
         # Tier 2: Public Render server URL (branded template cover)
+        if os.path.exists(local_img_path):
+            render_url = f"https://megatool-yrho.onrender.com/static/covers/{filename}"
+            return (img_idx, render_url)
+    except Exception as e:
+        print(f"Error applying template to {sku} image {img_idx}:", e)
         if os.path.exists(local_img_path):
             render_url = f"https://megatool-yrho.onrender.com/static/covers/{filename}"
             return (img_idx, render_url)
@@ -313,7 +332,8 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                         badge_text, 
                         shop_name, 
                         use_template=should_apply_template(u),
-                        template_type=item_info.get('template_type', 'auto_spec')
+                        template_type=item_info.get('template_type', 'auto_spec'),
+                        item_info=item_info
                     ): idx
                     for idx, u in enumerate(raw_images)
                 }
@@ -594,7 +614,8 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
                         badge_text, 
                         shop_name, 
                         use_template=should_apply_template(u),
-                        template_type=item_info.get('template_type', 'auto_spec')
+                        template_type=item_info.get('template_type', 'auto_spec'),
+                        item_info=item_info
                     ): idx
                     for idx, u in enumerate(raw_images)
                 }

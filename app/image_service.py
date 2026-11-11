@@ -446,7 +446,12 @@ def generate_auto_spec_cover(
     shop_name="MEGATOOL",
     shop_subtitle="เมก้า ทูล",
     overwrite=True,
-    custom_model=None
+    custom_model=None,
+    custom_category=None,
+    custom_hero_pills=None,
+    custom_spec_cards=None,
+    custom_trust_s1=None,
+    custom_trust_s2=None
 ):
     """
     Auto-Spec Product Cover Template (Human Designer Architecture):
@@ -502,127 +507,46 @@ def generate_auto_spec_cover(
         except Exception as e:
             print(f"Error fetching detail for {sku}: {e}")
 
-    prod_name = (detail.get('name') if detail else "") or ""
     detected_brand = brand or (detail.get('brand') if detail else None) or detect_brand_from_sku(sku) or "MAKITA"
-    specs_dict = extract_key_specs(detail) if detail else {}
+    defaults = get_auto_cover_defaults(sku, detail=detail, shop_name=official_shop_name)
 
-    # Category title
-    if 'ดอกสว่าน' in prod_name or 'เจดีย์' in prod_name:
-        category_title = "ชุดดอกสว่านเจดีย์" if ('ชุด' in prod_name or 'SET' in prod_name.upper() or '3 ดอก' in prod_name) else "ดอกสว่านเจดีย์"
-    elif 'ใบตัด' in prod_name or 'ใบเจียร์' in prod_name:
-        category_title = "ใบตัด / ใบเจียร์คุณภาพ"
-    elif 'เครื่องเจียร์' in prod_name or 'ลูกหมู' in prod_name:
-        m_sz = re.search(r'(\d+)\s*(?:นิ้ว|")', prod_name)
-        category_title = f"เครื่องเจียร์ไฟฟ้า {m_sz.group(1)} นิ้ว" if m_sz else "เครื่องเจียร์ไฟฟ้า 4 นิ้ว"
-    elif 'เครื่องฉีดน้ำ' in prod_name:
-        category_title = "เครื่องฉีดน้ำแรงดันสูง"
-    elif 'สว่านโรตารี่' in prod_name:
-        category_title = "สว่านโรตารี่"
-    elif 'สว่าน' in prod_name:
-        category_title = "สว่านไฟฟ้า"
-    elif 'เครื่องจี้ปูน' in prod_name:
-        category_title = "เครื่องจี้ปูนไฟฟ้า"
-    elif 'ตู้เชื่อม' in prod_name or 'เครื่องเชื่อม' in prod_name:
-        category_title = "เครื่องเชื่อมไฟฟ้า"
-    elif 'ปั๊ม' in prod_name:
-        category_title = "ปั๊มน้ำมาตรฐาน"
-    elif 'เทป' in prod_name or 'TEMFLEX' in prod_name.upper():
-        category_title = "เทปพันสายไฟไวนิล"
+    # 1. Category title (Customizable)
+    if custom_category and str(custom_category).strip():
+        category_title = str(custom_category).strip()
     else:
-        clean_p = re.sub(r'^\s*[\(\[]\s*(?:แพ็ค|กล่อง|ชุด|แถม).*?[\)\]]\s*', '', prod_name).strip()
-        clean_p = re.sub(r'\[.*?\]', '', clean_p).strip()
-        words = clean_p.split()
-        category_title = ' '.join(words[:3]) if words else "เครื่องมือช่างคุณภาพ"
+        category_title = defaults.get("category_title", "เครื่องมือช่างคุณภาพ")
 
-    # Model Name
+    # 2. Model Name (Customizable)
     if custom_model and str(custom_model).strip():
         model_code = str(custom_model).strip()
+        model_name = f"รุ่น {model_code}" if not model_code.startswith("รุ่น") else model_code
     else:
-        model_code, _ = extract_model_label(prod_name, sku, detail=detail)
-    model_name = f"รุ่น {model_code}" if not model_code.startswith("รุ่น") else model_code
+        model_name = defaults.get("model_name", "รุ่นยอดนิยม")
 
-    def _get_power_watt():
-        mot = specs_dict.get('กำลังมอเตอร์', '')
-        elec = specs_dict.get('กำลังไฟฟ้า', '')
-        if 'วัตต์' in mot or 'W' in mot:
-            return mot
-        if 'วัตต์' in elec or 'W' in elec:
-            return elec
-        return mot or elec or '540 วัตต์'
-
-    # Spec Cards - Strictly real data from KTW source only, ZERO hallucinated or made-up fallbacks!
-    spec_cards = []
-    icon_map = {
-        'แรงดันไฟฟ้า': '⚡', 'กำลัง': '⚡', 'มอเตอร์': '⚡', 'วัตต์': '⚡', 'โวลต์': '⚡',
-        'กระแส': '⚡', 'แอมป์': '⚡', 'KVA': '⚡', 'เชื่อม': '⚡',
-        'ความเร็ว': '⏱', 'รอบ': '⏱',
-        'สวิตช์': '🔘', 'ตำแหน่ง': '🔘',
-        'ขนาด': '📏', 'แกน': '📏', 'ใบ': '📏', 'สาย': '📏', 'กว้าง': '📏', 'ยาว': '📏', 'ลวด': '📏',
-        'หนา': '📐',
-        'แรงบิด': '⚙️', 'ทอร์ค': '⚙️',
-        'อุณหภูมิ': '🌡️', 'ความร้อน': '🌡️',
-        'แรงดัน': '🌊', 'บาร์': '🌊',
-        'น้ำ': '💧', 'ไหล': '💧',
-        'ระบบ': '🔌', 'Auto': '🔌', 'IGBT': '🔌', 'Inverter': '🔌',
-        'คุณสมบัติ': '🛡️', 'ไม่ลามไฟ': '🛡️',
-        'จำนวน': '📦', 'บรรจุ': '📦', 'แพ็ค': '📦',
-        'น้ำหนัก': '⚖️'
-    }
-    def _spec_priority(item):
-        k, v = item
-        if 'กระแส' in k or 'แอมป์' in str(v): return 1
-        if 'เจาะ' in k or 'ขนาดการเจาะ' in k: return 1
-        if 'แรงบิด' in k or 'นิวตัน' in str(v): return 1
-        if 'มอเตอร์' in k or 'วัตต์' in str(v) or 'W' in str(v) or 'KVA' in str(v): return 2
-        if 'แรงดันสูงสุด' in k or 'บาร์' in str(v): return 3
-        if 'ขนาด' in k or 'ลวด' in k or 'หัว' in k or 'ใบ' in k: return 4
-        if 'ความเร็ว' in k or 'รอบ' in str(v): return 5
-        if 'ความยาว' in k or 'เมตร' in str(v): return 6
-        if 'อัตรา' in k or 'น้ำ' in k: return 7
-        if 'สวิตช์' in k or 'ระบบ' in k: return 8
-        if 'เกรด' in k or 'วัสดุ' in k: return 9
-        if 'แรงดันไฟฟ้า' in k or '220' in str(v): return 10
-        if 'น้ำหนัก' in k: return 11
-        return 15
-
-    sorted_specs = sorted(specs_dict.items(), key=_spec_priority)
-    for k, v in sorted_specs:
-        if len(spec_cards) >= 4:
-            break
-        if ('220' in str(v) or 'โวลต์' in str(v)) and any('วัตต์' in sp['val'] or 'W' in sp['val'] or 'KVA' in sp['val'] or 'แอมป์' in sp['val'] for sp in spec_cards) and len(sorted_specs) > 3:
-            continue
-        matched_icon = '⚡'
-        for ik, iv in icon_map.items():
-            if ik in k:
-                matched_icon = iv
-                break
-        clean_v = str(v).strip()
-        spec_cards.append({"icon": matched_icon, "label": k, "val": clean_v})
-
-    # Hero Highlights (Sub-Pill Badges)
-    hero_pills = []
-    if 'เครื่องฉีดน้ำ' in prod_name:
-        p_val = specs_dict.get('แรงดันสูงสุด', '90 บาร์').split('(')[0].strip()
-        m_val = specs_dict.get('กำลังมอเตอร์', '1,200W').replace('วัตต์', 'W').strip()
-        hero_pills = [f"แรงดัน {p_val}", f"มอเตอร์ {m_val}"]
-    elif 'เครื่องเชื่อม' in prod_name or 'ตู้เชื่อม' in prod_name or 'WELDING' in prod_name.upper():
-        cur = specs_dict.get('กระแสไฟเชื่อม') or '20 - 200 แอมป์'
-        wire = specs_dict.get('ขนาดลวดเชื่อม') or specs_dict.get('ระบบการทำงาน') or 'ลวด 1.6 - 4.0 มม.'
-        hero_pills = [f"กระแสไฟ {cur}", wire if 'ลวด' in wire else f"ขนาดลวด {wire}"]
-    elif 'เครื่องเจียร์' in prod_name:
-        p_val = _get_power_watt().replace('วัตต์', 'W').replace(' ', '').strip()
-        b_val = specs_dict.get('ขนาดใบตัด/เจียร์', '100 มม. (4 นิ้ว)')
-        hero_pills = [f"กำลังไฟ {p_val}", f"ขนาด {b_val}"]
-    elif 'เทป' in prod_name or 'TEMFLEX' in prod_name.upper():
-        v_str = specs_dict.get('ทนแรงดันไฟฟ้า', '600 โวลต์')
-        d_str = specs_dict.get('ขนาดหน้ากว้าง', '19 มม. x 10 ม.')
-        hero_pills = [f"ทนแรงดัน {v_str}", f"ขนาด {d_str}"]
-    elif len(spec_cards) >= 2:
-        hero_pills = [f"{spec_cards[0]['label']} {spec_cards[0]['val']}", f"{spec_cards[1]['label']} {spec_cards[1]['val']}"]
-    elif len(spec_cards) == 1:
-        hero_pills = [f"{spec_cards[0]['label']} {spec_cards[0]['val']}"]
+    # 3. Spec Cards (Customizable with Deduplication Fallback)
+    if custom_spec_cards and isinstance(custom_spec_cards, list) and len(custom_spec_cards) > 0:
+        spec_cards = []
+        for sp in custom_spec_cards[:4]:
+            if isinstance(sp, dict) and sp.get('label') and sp.get('val'):
+                spec_cards.append({
+                    "icon": sp.get('icon', '⚡'),
+                    "label": str(sp.get('label')).strip(),
+                    "val": str(sp.get('val')).strip()
+                })
+        if not spec_cards:
+            spec_cards = defaults.get("spec_cards", [])
     else:
-        hero_pills = ["สินค้ารับประกันของแท้ 100%"]
+        spec_cards = defaults.get("spec_cards", [])
+
+    # 4. Hero Highlights (Sub-Pill Badges Customizable)
+    if custom_hero_pills and isinstance(custom_hero_pills, list) and len(custom_hero_pills) > 0:
+        hero_pills = [str(p).strip() for p in custom_hero_pills if str(p).strip()][:2]
+    else:
+        hero_pills = defaults.get("hero_pills", ["สินค้ารับประกันของแท้ 100%"])
+
+    # 5. Trust Card lines (Customizable)
+    trust_s1 = str(custom_trust_s1).strip() if (custom_trust_s1 and str(custom_trust_s1).strip()) else defaults.get("trust_s1", "จัดส่งด่วนจากไทย 100%")
+    trust_s2 = str(custom_trust_s2).strip() if (custom_trust_s2 and str(custom_trust_s2).strip()) else defaults.get("trust_s2", "สต็อกไทย ได้รับของรวดเร็ว")
 
     # --- HERO PRODUCT PLACEMENT (Human Designer Logic: Maximum Hero Size, Auto-Cropped, Zero Overlap) ---
     prod_img = None
@@ -835,10 +759,10 @@ def generate_auto_spec_cover(
 
     trust_txt_x = COL_L + 62
     tr_max_w = COL_L + trust_card_w - 14 - trust_txt_x
-    s1_sz, _ = fit_hq("จัดส่งด่วนจากไทย 100%", "semibold", 22, 15, tr_max_w)
-    s2_sz, _ = fit_hq("สต็อกไทย ได้รับของรวดเร็ว", "medium", 18, 13, tr_max_w)
-    draw_hq(canvas, "จัดส่งด่วนจากไทย 100%", trust_txt_x, trust_card_y + 38, "semibold", s1_sz, theme_rgb)
-    draw_hq(canvas, "สต็อกไทย ได้รับของรวดเร็ว", trust_txt_x, trust_card_y + 64, "medium", s2_sz, TEXT_LABEL)
+    s1_sz, _ = fit_hq(trust_s1, "semibold", 22, 15, tr_max_w)
+    s2_sz, _ = fit_hq(trust_s2, "medium", 18, 13, tr_max_w)
+    draw_hq(canvas, trust_s1, trust_txt_x, trust_card_y + 38, "semibold", s1_sz, theme_rgb)
+    draw_hq(canvas, trust_s2, trust_txt_x, trust_card_y + 64, "medium", s2_sz, TEXT_LABEL)
 
     final_rgb = canvas.convert('RGB')
     final_rgb.save(output_path, "JPEG", quality=98, subsampling=0, optimize=True)
@@ -856,7 +780,12 @@ def generate_cover(
     shop_subtitle="เมก้า ทูล",
     overwrite=True,
     template_type="standard",
-    custom_model=None
+    custom_model=None,
+    custom_category=None,
+    custom_hero_pills=None,
+    custom_spec_cards=None,
+    custom_trust_s1=None,
+    custom_trust_s2=None
 ):
     if template_type == "auto_spec":
         return generate_auto_spec_cover(
@@ -869,7 +798,12 @@ def generate_cover(
             shop_name=shop_name,
             shop_subtitle=shop_subtitle,
             overwrite=overwrite,
-            custom_model=custom_model
+            custom_model=custom_model,
+            custom_category=custom_category,
+            custom_hero_pills=custom_hero_pills,
+            custom_spec_cards=custom_spec_cards,
+            custom_trust_s1=custom_trust_s1,
+            custom_trust_s2=custom_trust_s2
         )
     """
     Exact Zupertools Replica Template for Zonix Tools:
@@ -2435,16 +2369,204 @@ def extract_key_specs(detail):
     # Deduplicate similar spec keys
     if 'ความเร็วรอบ' in specs and 'ความเร็วรอบตัวเปล่า' in specs:
         del specs['ความเร็วรอบตัวเปล่า']
-    if 'กำลังมอเตอร์' in specs and 'กำลังไฟฟ้า' in specs and 'วัตต์' in specs['กำลังไฟฟ้า']:
-        del specs['กำลังไฟฟ้า']
-    return specs
+    if 'ความเร็วรอบ' in specs and 'ความเร็วหมุนเปล่า' in specs:
+        del specs['ความเร็วหมุนเปล่า']
 
-    # Deduplicate similar spec keys
-    if 'ความเร็วรอบ' in specs and 'ความเร็วรอบตัวเปล่า' in specs:
-        del specs['ความเร็วรอบตัวเปล่า']
+    # Power deduplication: keep only one single watt power key
+    power_keys = [k for k in list(specs.keys()) if any(w in k for w in ['กำลังมอเตอร์', 'กำลังไฟฟ้าที่ใช้', 'กำลังไฟฟ้า', 'กำลังวัตต์', 'กำลังไฟ']) and any(u in str(specs[k]) for u in ['วัตต์', 'W', 'w'])]
+    if len(power_keys) > 1:
+        best_p_val = specs.get('กำลังมอเตอร์') or specs[power_keys[0]]
+        for pk in power_keys:
+            del specs[pk]
+        specs['กำลังมอเตอร์'] = best_p_val
+
+    # Grinding disc size deduplication
+    if 'ขนาดใบตัด/เจียร์' in specs:
+        for dk in ['เส้นผ่านศูนย์กลางแผ่นเจีย', 'เส้นผ่าศูนย์กลางแผ่นเจีย', 'เส้นผ่านศูนย์กลางใบ', 'ขนาดแผ่นเจียร', 'ขนาดใบตัด']:
+            if dk in specs and dk != 'ขนาดใบตัด/เจียร์':
+                del specs[dk]
+
     if 'กำลังมอเตอร์' in specs and 'กำลังไฟฟ้า' in specs and 'วัตต์' in str(specs['กำลังไฟฟ้า']):
         del specs['กำลังไฟฟ้า']
+
     return specs
+
+
+def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
+    from app.ktw_service import get_product_detail, detect_brand_from_sku
+    if not detail and sku:
+        try:
+            detail = get_product_detail(sku) or {}
+        except Exception:
+            detail = {}
+    detail = detail or {}
+
+    prod_name = detail.get('name', '') or ''
+    detected_brand = (detail.get('brand') if detail else None) or detect_brand_from_sku(sku) or "MAKITA"
+    specs_dict = extract_key_specs(detail)
+
+    # 1. Category title
+    if 'ดอกสว่าน' in prod_name or 'เจดีย์' in prod_name:
+        category_title = "ชุดดอกสว่านเจดีย์" if ('ชุด' in prod_name or 'SET' in prod_name.upper() or '3 ดอก' in prod_name) else "ดอกสว่านเจดีย์"
+    elif 'ใบตัด' in prod_name or 'ใบเจียร์' in prod_name:
+        category_title = "ใบตัด / ใบเจียร์คุณภาพ"
+    elif 'เครื่องเจียร์' in prod_name or 'ลูกหมู' in prod_name:
+        m_sz = re.search(r'(\d+)\s*(?:นิ้ว|")', prod_name)
+        category_title = f"เครื่องเจียร์ไฟฟ้า {m_sz.group(1)} นิ้ว" if m_sz else "เครื่องเจียร์ไฟฟ้า 4 นิ้ว"
+    elif 'เครื่องฉีดน้ำ' in prod_name:
+        category_title = "เครื่องฉีดน้ำแรงดันสูง"
+    elif 'สว่านโรตารี่' in prod_name:
+        category_title = "สว่านโรตารี่"
+    elif 'สว่าน' in prod_name:
+        category_title = "สว่านไฟฟ้า"
+    elif 'เครื่องจี้ปูน' in prod_name:
+        category_title = "เครื่องจี้ปูนไฟฟ้า"
+    elif 'ตู้เชื่อม' in prod_name or 'เครื่องเชื่อม' in prod_name:
+        category_title = "เครื่องเชื่อมไฟฟ้า"
+    elif 'ปั๊ม' in prod_name:
+        category_title = "ปั๊มน้ำมาตรฐาน"
+    elif 'เทป' in prod_name or 'TEMFLEX' in prod_name.upper():
+        category_title = "เทปพันสายไฟไวนิล"
+    else:
+        clean_p = re.sub(r'^\s*[\(\[]\s*(?:แพ็ค|กล่อง|ชุด|แถม).*?[\)\]]\s*', '', prod_name).strip()
+        clean_p = re.sub(r'\[.*?\]', '', clean_p).strip()
+        words = clean_p.split()
+        category_title = ' '.join(words[:3]) if words else "เครื่องมือช่างคุณภาพ"
+
+    # 2. Model Name
+    model_code, _ = extract_model_label(prod_name, sku, detail=detail)
+    model_name = f"รุ่น {model_code}" if not model_code.startswith("รุ่น") else model_code
+
+    # 3. Spec cards with deduplication
+    icon_map = {
+        'แรงดันไฟฟ้า': '⚡', 'กำลัง': '⚡', 'มอเตอร์': '⚡', 'วัตต์': '⚡', 'โวลต์': '⚡',
+        'กระแส': '⚡', 'แอมป์': '⚡', 'KVA': '⚡', 'เชื่อม': '⚡',
+        'ความเร็ว': '⏱', 'รอบ': '⏱',
+        'สวิตช์': '🔘', 'ตำแหน่ง': '🔘',
+        'ขนาด': '📏', 'แกน': '📏', 'ใบ': '📏', 'สาย': '📏', 'กว้าง': '📏', 'ยาว': '📏', 'ลวด': '📏',
+        'หนา': '📐',
+        'แรงบิด': '⚙️', 'ทอร์ค': '⚙️',
+        'อุณหภูมิ': '🌡️', 'ความร้อน': '🌡️',
+        'แรงดัน': '🌊', 'บาร์': '🌊',
+        'น้ำหนัก': '⚖️',
+        'น้ำ': '💧', 'ไหล': '💧',
+        'ระบบ': '🔌', 'Auto': '🔌', 'IGBT': '🔌', 'Inverter': '🔌',
+        'คุณสมบัติ': '🛡️', 'ไม่ลามไฟ': '🛡️', 'วัสดุ': '🛡️', 'เกรด': '🛡️',
+        'จำนวน': '📦', 'บรรจุ': '📦', 'แพ็ค': '📦'
+    }
+    def _spec_priority(item):
+        k, v = item
+        if 'กระแส' in k or 'แอมป์' in str(v): return 1
+        if 'เจาะ' in k or 'ขนาดการเจาะ' in k: return 1
+        if 'แรงบิด' in k or 'นิวตัน' in str(v): return 1
+        if 'มอเตอร์' in k or 'วัตต์' in str(v) or 'W' in str(v) or 'KVA' in str(v): return 2
+        if 'แรงดันสูงสุด' in k or 'บาร์' in str(v): return 3
+        if 'ขนาด' in k or 'ลวด' in k or 'หัว' in k or 'ใบ' in k: return 4
+        if 'ความเร็ว' in k or 'รอบ' in str(v): return 5
+        if 'ความยาว' in k or 'เมตร' in str(v): return 6
+        if 'อัตรา' in k or 'น้ำ' in k: return 7
+        if 'สวิตช์' in k or 'ระบบ' in k: return 8
+        if 'เกรด' in k or 'วัสดุ' in k: return 9
+        if 'แรงดันไฟฟ้า' in k or '220' in str(v): return 10
+        if 'น้ำหนัก' in k: return 11
+        return 15
+
+    sorted_specs = sorted(specs_dict.items(), key=_spec_priority)
+    spec_cards = []
+    seen_values = set()
+    for k, v in sorted_specs:
+        if len(spec_cards) >= 4:
+            break
+        val_clean = str(v).strip()
+        val_norm = re.sub(r'\s+', '', val_clean).lower()
+        if val_norm in seen_values:
+            continue
+        m_w = re.search(r'(\d+)\s*(?:วัตต์|w\b)', val_clean, re.I)
+        if m_w and any(m_w.group(1) in sv for sv in seen_values):
+            continue
+        if ('220' in str(v) or 'โวลต์' in str(v)) and any('วัตต์' in sp['val'] or 'W' in sp['val'] or 'KVA' in sp['val'] or 'แอมป์' in sp['val'] for sp in spec_cards) and len(sorted_specs) > 3:
+            continue
+        matched_icon = '⚡'
+        if 'น้ำหนัก' in k:
+            matched_icon = '⚖️'
+        else:
+            for ik, iv in icon_map.items():
+                if ik in k:
+                    matched_icon = iv
+                    break
+        spec_cards.append({"icon": matched_icon, "label": k, "val": val_clean})
+        seen_values.add(val_norm)
+        if m_w:
+            seen_values.add(m_w.group(1))
+
+    # 4. Hero Pills
+    hero_pills = []
+    if 'เครื่องฉีดน้ำ' in prod_name:
+        p_val = specs_dict.get('แรงดันสูงสุด', '90 บาร์').split('(')[0].strip()
+        m_val = specs_dict.get('กำลังมอเตอร์', '1,200W').replace('วัตต์', 'W').strip()
+        hero_pills = [f"แรงดัน {p_val}", f"มอเตอร์ {m_val}"]
+    elif 'เครื่องเชื่อม' in prod_name or 'ตู้เชื่อม' in prod_name or 'WELDING' in prod_name.upper():
+        cur = specs_dict.get('กระแสไฟเชื่อม') or '20 - 200 แอมป์'
+        wire = specs_dict.get('ขนาดลวดเชื่อม') or specs_dict.get('ระบบการทำงาน') or 'ลวด 1.6 - 4.0 มม.'
+        hero_pills = [f"กระแสไฟ {cur}", wire if 'ลวด' in wire else f"ขนาดลวด {wire}"]
+    elif 'เครื่องเจียร์' in prod_name:
+        mot = specs_dict.get('กำลังมอเตอร์', '') or specs_dict.get('กำลังไฟฟ้า', '') or '540 วัตต์'
+        p_val = mot.replace('วัตต์', 'W').replace(' ', '').strip()
+        b_val = specs_dict.get('ขนาดใบตัด/เจียร์', '100 มม. (4 นิ้ว)')
+        hero_pills = [f"กำลังไฟ {p_val}", f"ขนาด {b_val}"]
+    elif 'เทป' in prod_name or 'TEMFLEX' in prod_name.upper():
+        v_str = specs_dict.get('ทนแรงดันไฟฟ้า', '600 โวลต์')
+        d_str = specs_dict.get('ขนาดหน้ากว้าง', '19 มม. x 10 ม.')
+        hero_pills = [f"ทนแรงดัน {v_str}", f"ขนาด {d_str}"]
+    elif len(spec_cards) >= 2:
+        hero_pills = [f"{spec_cards[0]['label']} {spec_cards[0]['val']}", f"{spec_cards[1]['label']} {spec_cards[1]['val']}"]
+    elif len(spec_cards) == 1:
+        hero_pills = [f"{spec_cards[0]['label']} {spec_cards[0]['val']}"]
+    else:
+        hero_pills = ["สินค้ารับประกันของแท้ 100%"]
+
+    is_bigpower = bool(shop_name and ('bigpower' in shop_name.lower() or 'big power' in shop_name.lower() or 'shop2' in shop_name.lower() or 'shop_2' in shop_name.lower()))
+    official_shop_name = "BIGPOWER TOOLS" if is_bigpower else "MEGATOOL"
+
+    # Clean description for display
+    clean_desc = re.sub(r'<br\s*/?>', '\n', detail.get('description', '') or '', flags=re.IGNORECASE)
+    clean_desc = re.sub(r'</p>', '\n', clean_desc, flags=re.IGNORECASE)
+    clean_desc = re.sub(r'<[^>]+>', '', clean_desc).strip()
+
+    # Formatted classifications for display
+    raw_classifs = []
+    for c in (detail.get('classifications') or []):
+        c_name = c.get('name') or 'คุณสมบัติทางเทคนิค'
+        feats = []
+        for f in c.get('features', []):
+            f_name = f.get('name') or f.get('description') or ''
+            vals = ', '.join([v.get('value', '') for v in f.get('featureValues', []) if v.get('value')])
+            if f_name and vals and vals != '-':
+                feats.append({'name': f_name, 'value': vals})
+        if feats:
+            raw_classifs.append({'category': c_name, 'features': feats})
+
+    return {
+        "category_title": category_title,
+        "model_name": model_name,
+        "hero_pills": hero_pills,
+        "spec_cards": spec_cards,
+        "trust_s1": "จัดส่งด่วนจากไทย 100%",
+        "trust_s2": "สต็อกไทย ได้รับของรวดเร็ว",
+        "badge_text": "มีสต็อกพร้อมส่งทันที",
+        "shop_name": official_shop_name,
+        "all_specs": specs_dict,
+        "ktw_raw": {
+            "name": detail.get('name', ''),
+            "sku": sku,
+            "brand": detected_brand,
+            "summary": detail.get('summary', ''),
+            "description": clean_desc,
+            "classifications": raw_classifs,
+            "price": detail.get('price', {}).get('value') if isinstance(detail.get('price'), dict) else detail.get('price'),
+            "stock": detail.get('stock', {}).get('stockLevel') if isinstance(detail.get('stock'), dict) else detail.get('stock')
+        }
+    }
 
 def generate_comparison_card(
     items,
