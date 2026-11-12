@@ -762,7 +762,7 @@
                                 <button @click="openCoverPreview(p)" 
                                         class="px-2.5 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all flex items-center justify-center space-x-1 shadow-xs cursor-pointer">
                                     <i data-lucide="layout-grid" class="w-3.5 h-3.5 text-orange-600"></i>
-                                    <span>แต่งรูป / รวมรูป</span>
+                                    <span>แต่งรูปปก Auto-Spec</span>
                                 </button>
                                 
                                 <button @click="toggleSelectItem(p)" 
@@ -2376,7 +2376,7 @@
                         <i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i>
                         <h3 class="text-base font-bold text-slate-800">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                         <span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-bold" x-text="selectedItems.length + ' รายการ'"></span>
-                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.12-a</span>
+                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.12-b (Online 100%)</span>
                     </div>
                     <button @click="showQueueModal = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer" title="ปิดหน้าต่าง">
                         <i data-lucide="x" class="w-5 h-5"></i>
@@ -2543,9 +2543,9 @@
                                             <span>•</span>
                                             <span class="text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md font-bold text-[11px] border border-amber-200" x-text="(item.template_type === 'standard') ? '🏷️ Standard' : '⭐ Auto-Spec'"></span>
                                             <button type="button" @click="showQueueModal = false; openCoverPreview(item, true)" 
-                                                    title="คลิกเพื่อแต่งรูปปก หรือรวมรูปเครื่อง+อุปกรณ์เป็นภาพเดียว" 
+                                                    title="คลิกเพื่อแต่งรูปปก Auto-Spec" 
                                                     class="text-xs px-2.5 py-0.5 rounded-lg font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-all cursor-pointer inline-flex items-center space-x-1 shadow-2xs ml-1">
-                                                <span>🖼️ แต่งรูป / รวมรูปอุปกรณ์</span>
+                                                <span>🖼️ แต่งรูปปก Auto-Spec</span>
                                             </button>
                                         </div>
                                     </div>
@@ -2859,7 +2859,6 @@
                         this.removeCollageFromLocal('P171-WARRIOR90', s);
                         this.removeCollageFromLocal('WARRIOR-90', s);
                     }
-                    this.loadCartFromStorage();
                     this.authToken = localStorage.getItem('megatool_token') || sessionStorage.getItem('megatool_token');
                     await this.checkAuth();
                     if (this.currentUser) {
@@ -2890,18 +2889,11 @@
                     try {
                         const res = await fetch(`/api/cart?shop_id=${shopId}`);
                         const data = await res.json();
-                        if (data && data.success && Array.isArray(data.items) && data.items.length > 0) {
+                        if (data && data.success && Array.isArray(data.items)) {
                             this.selectedItems = data.items;
                             this.normalizeCartItems();
                             localStorage.setItem('megatool_selected_items', JSON.stringify(this.selectedItems));
                             localStorage.setItem(`cart_${shopId}`, JSON.stringify(this.selectedItems));
-                            this.backfillCartImages();
-                            return;
-                        }
-                        const local = localStorage.getItem(`cart_${shopId}`);
-                        if (local) {
-                            this.selectedItems = JSON.parse(local);
-                            this.normalizeCartItems();
                             this.backfillCartImages();
                             return;
                         }
@@ -4399,7 +4391,7 @@ toggleListedSort(field) {
                         this.activeCustomCoverUrl = null;
                     }
 
-                    // Background sync of saved covers from server
+                    // Background sync of saved covers and customizations from server
                     if (sku) {
                         fetch(`/api/saved-covers/${encodeURIComponent(sku)}`)
                             .then(r => r.ok ? r.json() : null)
@@ -4419,6 +4411,27 @@ toggleListedSort(field) {
                                         this.renderedCoverUrl = first;
                                         this.activeCustomCoverUrl = first;
                                     }
+                                }
+                            })
+                            .catch(() => {});
+
+                        fetch(`/api/cover-customizations/${encodeURIComponent(sku)}`)
+                            .then(r => r.ok ? r.json() : null)
+                            .then(data => {
+                                if (data && data.success && data.customizations) {
+                                    const c = data.customizations;
+                                    if (c.custom_category) this.customCoverCategory = c.custom_category;
+                                    if (c.custom_model) this.customCoverModel = c.custom_model;
+                                    if (c.custom_hero_pills && c.custom_hero_pills.length > 0) {
+                                        this.customHeroPill1 = c.custom_hero_pills[0] || '';
+                                        this.customHeroPill2 = c.custom_hero_pills[1] || '';
+                                    }
+                                    if (c.custom_spec_cards && c.custom_spec_cards.length > 0) {
+                                        this.customSpecCards = JSON.parse(JSON.stringify(c.custom_spec_cards));
+                                    }
+                                    if (c.custom_trust_s1) this.customTrustS1 = c.custom_trust_s1;
+                                    if (c.custom_trust_s2) this.customTrustS2 = c.custom_trust_s2;
+                                    if (c.shopee_title) this.itemShopeeTitle = c.shopee_title;
                                 }
                             })
                             .catch(() => {});

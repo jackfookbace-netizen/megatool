@@ -1,0 +1,35 @@
+{
+  "Z053-0073": {
+    "custom_model": "TEMFLEX 150 19MMX10M",
+    "custom_category": "เทปพันสายไฟไวนิล",
+    "custom_hero_pills": [
+      "Test",
+      "Test"
+    ],
+    "custom_spec_cards": [
+      {
+        "icon": "📏",
+        "label": "ขนาดหน้ากว้าง",
+        "val": "19 มม. x 10 ม."
+      },
+      {
+        "icon": "⚡",
+        "label": "ทนแรงดันไฟฟ้า",
+        "val": "600 โวลต์"
+      },
+      {
+        "icon": "🔘",
+        "label": "ความหนาเนื้อเทป",
+        "val": "0.13 มม."
+      },
+      {
+        "icon": "⚡",
+        "label": "ทนอุณหภูมิสูงสุด",
+        "val": "80 °C"
+      }
+    ],
+    "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
+    "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว",
+    "shopee_title": "(แพ็ค10ม้วน) TEMFLEX 150 19MMX10M สีดำ"
+  }
+}

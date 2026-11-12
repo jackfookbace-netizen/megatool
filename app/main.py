@@ -653,6 +653,27 @@ def api_preview_cover(req: PreviewRequest):
                 db[req.sku] = db[req.sku][:15]
                 _save_saved_covers_db(db)
 
+                # Auto-save customizations to app/data/cover_customizations.json
+                try:
+                    cust_file = "app/data/cover_customizations.json"
+                    cust_data = {}
+                    if os.path.exists(cust_file):
+                        with open(cust_file, "r", encoding="utf-8") as f:
+                            cust_data = json.load(f)
+                    cust_data[req.sku] = {
+                        "custom_model": req.custom_model,
+                        "custom_category": req.custom_category,
+                        "custom_hero_pills": req.custom_hero_pills,
+                        "custom_spec_cards": req.custom_spec_cards,
+                        "custom_trust_s1": req.custom_trust_s1,
+                        "custom_trust_s2": req.custom_trust_s2,
+                        "updated_at": int(time.time())
+                    }
+                    with open(cust_file, "w", encoding="utf-8") as f:
+                        json.dump(cust_data, f, ensure_ascii=False, indent=2)
+                except Exception as ce:
+                    print("Auto-save cover_customizations error:", ce)
+
                 # Background CDN upload so the cover has a permanent global URL
                 def bg_upload_cover(target_file, target_sku, target_clean_url):
                     try:

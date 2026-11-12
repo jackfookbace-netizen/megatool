@@ -1,16 +1,281 @@
 {
-  "shop_1": [],
+  "shop_1": [
+    {
+      "sku": "Z053-0073",
+      "name": "(แพ็ค10ม้วน) TEMFLEX 150 19MMX10M สีดำ",
+      "price": 150.0,
+      "brand": "3M",
+      "image": "https://iili.io/nphL0ua.jpg",
+      "selected_image": "https://iili.io/nphL0ua.jpg",
+      "use_template": true,
+      "variation_name": "สีดำ (แพ็ค 10 ม้วน)",
+      "stock": 5100,
+      "cdn_url": "https://iili.io/nphL0ua.jpg",
+      "custom_category": "เทปพันสายไฟไวนิล",
+      "custom_model": "TEMFLEX 150 19MMX10M",
+      "custom_hero_pills": [
+        "Test",
+        "Test"
+      ],
+      "custom_spec_cards": [
+        {
+          "icon": "📏",
+          "label": "ขนาดหน้ากว้าง",
+          "val": "19 มม. x 10 ม."
+        },
+        {
+          "icon": "⚡",
+          "label": "ทนแรงดันไฟฟ้า",
+          "val": "600 โวลต์"
+        },
+        {
+          "icon": "🔘",
+          "label": "ความหนาเนื้อเทป",
+          "val": "0.13 มม."
+        },
+        {
+          "icon": "⚡",
+          "label": "ทนอุณหภูมิสูงสุด",
+          "val": "80 °C"
+        }
+      ],
+      "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
+      "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว",
+      "shopee_title": "(แพ็ค10ม้วน) TEMFLEX 150 19MMX10M สีดำ",
+      "template_type": "auto_spec"
+    },
+    {
+      "sku": "M011-M9513B",
+      "name": "M9513B เครื่องเจียร์ 4” (850W)-ท้าย",
+      "price": 1601.0,
+      "brand": "MAKITA",
+      "image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h33/h07/10124526452766/-MAKITA-M011-M9513B-1.jpg",
+      "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h33/h07/10124526452766/-MAKITA-M011-M9513B-1.jpg",
+      "use_template": true,
+      "variation_name": "เครื่องเปล่า (สวิตช์ท้าย)",
+      "stock": 47
+    },
+    {
+      "sku": "P271-PL411C",
+      "name": "PL-411C ตัดหญ้าสะพายข้าง 2 จังหวะ สีแดง",
+      "price": 2214.0,
+      "brand": "POLO",
+      "image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h0f/h1a/10168716853278/-POLO-GARDEN-P271-PL411C-1.jpg",
+      "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h0f/h1a/10168716853278/-POLO-GARDEN-P271-PL411C-1.jpg",
+      "use_template": true,
+      "variation_name": "เครื่องเปล่าพร้อมก้าน",
+      "stock": 839
+    },
+    {
+      "sku": "M316-0020",
+      "name": "4-32 MM ดอกสว่านเจดีย์ STEP DRILL HSSทอง",
+      "price": 139.0,
+      "brand": "MARATHON",
+      "image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h99/h86/9686970499102/-MARATHON-M316-0020-1.jpg",
+      "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h99/h86/9686970499102/-MARATHON-M316-0020-1.jpg",
+      "use_template": true,
+      "variation_name": "ขนาด 4-32 มม.",
+      "stock": 4263
+    },
+    {
+      "sku": "P231-0070AE",
+      "name": "SHT-30 พัดลมอุตฯดูดเป่า12\"(รุ่นลิมิเต็ด)",
+      "price": 3590.0,
+      "brand": "POLO",
+      "image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/ha0/hfc/10070290825246/-POLO-VENTILATOR-P231-0070AE-1.jpg",
+      "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/ha0/hfc/10070290825246/-POLO-VENTILATOR-P231-0070AE-1.jpg",
+      "use_template": true,
+      "variation_name": "รุ่นมาตรฐาน (ไม่รวมถัง)",
+      "stock": 259
+    },
+    {
+      "sku": "M011-M5801B",
+      "name": "M5801B เครื่องเลื่อยวงเดือน 7\" / 1,050W",
+      "price": 3290.0,
+      "brand": "MAKITA",
+      "image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h5c/h13/9678058061854/-MAKITA-M011-M5801B.jpg",
+      "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h5c/h13/9678058061854/-MAKITA-M011-M5801B.jpg",
+      "use_template": true,
+      "variation_name": "ขนาด 7 นิ้ว (1050W)",
+      "stock": 913
+    },
+    {
+      "sku": "I081-T0102EL4",
+      "name": "10R คีมล็อคปากตรง ขนาด 10 นิ้ว",
+      "price": 449.0,
+      "brand": "IRWIN",
+      "image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hff/he3/9782472048670/-IRWIN-I081-T0102EL4-FIX1.jpg",
+      "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hff/he3/9782472048670/-IRWIN-I081-T0102EL4-FIX1.jpg",
+      "use_template": true,
+      "variation_name": "ปากตรง 10 นิ้ว (10R)",
+      "stock": 5703
+    },
+    {
+      "sku": "KT-J019-ARC200D+",
+      "name": "ARC200D+ เครื่องเชื่อม(JASIC)",
+      "price": 8149.0,
+      "brand": "JASIC",
+      "image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h0c/h4e/9776087105566/-KT-JASIC-KT-J019-ARC200D-.jpg",
+      "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h0c/h4e/9776087105566/-KT-JASIC-KT-J019-ARC200D-.jpg",
+      "use_template": true,
+      "variation_name": "พร้อมสายเชื่อมครบชุด",
+      "stock": 1422
+    },
+    {
+      "sku": "M316-0030",
+      "name": "ดอกสว่านเจดีย์ 3 ดอก/ชุด HSS(4-12,20,32)",
+      "price": 225.0,
+      "brand": "MARATHON",
+      "image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h82/h92/9686805348382/-MARATHON-M316-0030-1.jpg",
+      "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h82/h92/9686805348382/-MARATHON-M316-0030-1.jpg",
+      "use_template": true,
+      "variation_name": "ชุด 3 ดอก (4-12,20,32)",
+      "stock": 2758
+    },
+    {
+      "sku": "N241-NOVO200",
+      "name": "ARC / NOVO200 เครื่องเชื่อม IGBT",
+      "price": 3500.0,
+      "brand": "NOVO",
+      "image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hbf/hae/10012756246558/-NOVO-N241-NOVO200-1.jpg",
+      "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hbf/hae/10012756246558/-NOVO-N241-NOVO200-1.jpg",
+      "use_template": true,
+      "variation_name": "พร้อมสายเชื่อมครบชุด",
+      "stock": 626
+    },
+    {
+      "sku": "M011-M8701B",
+      "name": "M8701B26 สว่านโรตารี่ SDS 3 ระบบ 26MM",
+      "price": 3999.0,
+      "brand": "MAKITA",
+      "image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/ha1/h4d/9680270262302/-MAKITA-M011-M8701B.jpg",
+      "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/ha1/h4d/9680270262302/-MAKITA-M011-M8701B.jpg",
+      "use_template": true,
+      "variation_name": "3 ระบบ 26 มม. (กล่อง)",
+      "stock": 1021
+    },
+    {
+      "sku": "P041-2300",
+      "name": "K-101 ปั๊มจุ่ม 100W(ใหม่)",
+      "price": 1263.0,
+      "brand": "POLO",
+      "image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hfa/ha1/10154490429470/-POLO-P041-2300-1.jpg",
+      "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hfa/ha1/10154490429470/-POLO-P041-2300-1.jpg",
+      "use_template": true,
+      "variation_name": "กำลัง 100W",
+      "stock": 0
+    },
+    {
+      "sku": "M011-M0910B",
+      "name": "M0910B เครื่องเจียร์ 4\" 540W สวิทซ์ท้าย",
+      "price": 1249.0,
+      "brand": "MAKITA",
+      "image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hdf/h16/9984402751518/-MAKITA-M011-M0910B.jpg",
+      "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hdf/h16/9984402751518/-MAKITA-M011-M0910B.jpg",
+      "use_template": true,
+      "variation_name": "รุ่นสวิตช์ท้าย",
+      "stock": 367
+    },
+    {
+      "sku": "M011-M0900B",
+      "name": "M0900B เครื่องเจียร์ 4\" 540W สวิทซ์สไลด์",
+      "price": 1249.0,
+      "brand": "MAKITA",
+      "image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h50/hd7/9678354186270/-MAKITA-M011-M0900B-1.jpg",
+      "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h50/hd7/9678354186270/-MAKITA-M011-M0900B-1.jpg",
+      "use_template": true,
+      "variation_name": "รุ่นสวิตช์สไลด์",
+      "stock": 1983
+    },
+    {
+      "sku": "P171-WARRIOR90",
+      "name": "WARRIOR-90 เครื่องฉีดน้ำฯ 90 บาร์",
+      "price": 2025.0,
+      "brand": "POLO",
+      "image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/he6/h85/9867763908638/-POLO-WASHERS-P171-WARRIOR90-1.jpg",
+      "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/he6/h85/9867763908638/-POLO-WASHERS-P171-WARRIOR90-1.jpg",
+      "use_template": true,
+      "variation_name": "90 บาร์",
+      "stock": 368
+    },
+    {
+      "sku": "P171-WARRIOR101N",
+      "name": "WARRIOR-101N เครื่องฉีดน้ำฯ 100 บาร์",
+      "price": 2531.0,
+      "brand": "POLO",
+      "image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h78/ha1/9867765284894/-POLO-WASHERS-P171-WARRIOR101N-1.jpg",
+      "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h78/ha1/9867765284894/-POLO-WASHERS-P171-WARRIOR101N-1.jpg",
+      "use_template": true,
+      "variation_name": "100 บาร์",
+      "stock": 4
+    },
+    {
+      "sku": "P171-RANGER120",
+      "name": "RANGER120 เครื่องฉีดน้ำฯ 120 บาร์",
+      "price": 3061.0,
+      "brand": "POLO",
+      "image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/he4/h06/9867751850014/-POLO-WASHERS-P171-RANGER120-1.jpg",
+      "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/he4/h06/9867751850014/-POLO-WASHERS-P171-RANGER120-1.jpg",
+      "use_template": true,
+      "variation_name": "120 บาร์",
+      "stock": 525
+    },
+    {
+      "sku": "P171-COMMANDO135N",
+      "name": "COMMANDO135N เครื่องฉีดน้ำฯ 135 บาร์",
+      "price": 4149.0,
+      "brand": "POLO",
+      "image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h4e/ha5/9868212043806/-POLO-WASHERS-P171-COMMANDO135N-1.jpg",
+      "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h4e/ha5/9868212043806/-POLO-WASHERS-P171-COMMANDO135N-1.jpg",
+      "use_template": true,
+      "variation_name": "135 บาร์",
+      "stock": 2476
+    }
+  ],
   "shop_2": [
     {
       "sku": "Z053-0073",
       "name": "(แพ็ค10ม้วน) TEMFLEX 150 19MMX10M สีดำ",
       "price": 150.0,
       "brand": "3M",
-      "image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hbb/h9d/9857575321630/-3M-Z053-0073-1.jpg",
-      "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hbb/h9d/9857575321630/-3M-Z053-0073-1.jpg",
+      "image": "https://iili.io/nphL0ua.jpg",
+      "selected_image": "https://iili.io/nphL0ua.jpg",
       "use_template": true,
       "variation_name": "สีดำ (แพ็ค 10 ม้วน)",
-      "stock": 5100
+      "stock": 5100,
+      "cdn_url": "https://iili.io/nphL0ua.jpg",
+      "custom_category": "เทปพันสายไฟไวนิล",
+      "custom_model": "TEMFLEX 150 19MMX10M",
+      "custom_hero_pills": [
+        "Test",
+        "Test"
+      ],
+      "custom_spec_cards": [
+        {
+          "icon": "📏",
+          "label": "ขนาดหน้ากว้าง",
+          "val": "19 มม. x 10 ม."
+        },
+        {
+          "icon": "⚡",
+          "label": "ทนแรงดันไฟฟ้า",
+          "val": "600 โวลต์"
+        },
+        {
+          "icon": "🔘",
+          "label": "ความหนาเนื้อเทป",
+          "val": "0.13 มม."
+        },
+        {
+          "icon": "⚡",
+          "label": "ทนอุณหภูมิสูงสุด",
+          "val": "80 °C"
+        }
+      ],
+      "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
+      "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว",
+      "shopee_title": "(แพ็ค10ม้วน) TEMFLEX 150 19MMX10M สีดำ",
+      "template_type": "auto_spec"
     },
     {
       "sku": "M011-M9513B",
