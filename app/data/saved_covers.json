@@ -1,3 +1,91 @@
 {
-  "TEST-SKU-999": []
+  "TEST-SKU-999": [],
+  "Z053-0073": [
+    {
+      "url": "/static/covers/Z053-0073_megatool_auto_spec_singleroll_preview.jpg",
+      "cdn_url": "https://iili.io/nphL0ua.jpg",
+      "sku": "Z053-0073",
+      "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hb6/he5/9857640595486/-3M-Z053-0073-2.jpg",
+      "brand": "3M",
+      "badge_text": "มีสต็อกพร้อมส่งทันที",
+      "shop_name": "MEGATOOL",
+      "template_type": "auto_spec",
+      "specs": {
+        "custom_category": "เทปพันสายไฟไวนิล",
+        "custom_model": "TEMFLEX 150 19MMX10M",
+        "custom_hero_pills": [
+          "Test",
+          "Test"
+        ],
+        "custom_spec_cards": [
+          {
+            "icon": "📏",
+            "label": "ขนาดหน้ากว้าง",
+            "val": "19 มม. x 10 ม."
+          },
+          {
+            "icon": "⚡",
+            "label": "ทนแรงดันไฟฟ้า",
+            "val": "600 โวลต์"
+          },
+          {
+            "icon": "🔘",
+            "label": "ความหนาเนื้อเทป",
+            "val": "0.13 มม."
+          },
+          {
+            "icon": "⚡",
+            "label": "ทนอุณหภูมิสูงสุด",
+            "val": "80 °C"
+          }
+        ],
+        "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
+        "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
+      },
+      "created_at": "2026-11-12T02:00:00"
+    },
+    {
+      "url": "/static/covers/Z053-0073_megatool_auto_spec_pack10_preview.jpg",
+      "cdn_url": "https://iili.io/nphLAGV.jpg",
+      "sku": "Z053-0073",
+      "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hbb/h9d/9857575321630/-3M-Z053-0073-1.jpg",
+      "brand": "3M",
+      "badge_text": "มีสต็อกพร้อมส่งทันที",
+      "shop_name": "MEGATOOL",
+      "template_type": "auto_spec",
+      "specs": {
+        "custom_category": "เทปพันสายไฟไวนิล",
+        "custom_model": "TEMFLEX 150 19MMX10M",
+        "custom_hero_pills": [
+          "Test",
+          "Test"
+        ],
+        "custom_spec_cards": [
+          {
+            "icon": "📏",
+            "label": "ขนาดหน้ากว้าง",
+            "val": "19 มม. x 10 ม."
+          },
+          {
+            "icon": "⚡",
+            "label": "ทนแรงดันไฟฟ้า",
+            "val": "600 โวลต์"
+          },
+          {
+            "icon": "🔘",
+            "label": "ความหนาเนื้อเทป",
+            "val": "0.13 มม."
+          },
+          {
+            "icon": "⚡",
+            "label": "ทนอุณหภูมิสูงสุด",
+            "val": "80 °C"
+          }
+        ],
+        "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
+        "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
+      },
+      "created_at": "2026-11-12T01:50:00"
+    }
+  ]
 }

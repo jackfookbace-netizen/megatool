@@ -46,6 +46,91 @@ app.add_middleware(
 
 # Ensure static folders
 os.makedirs("app/static/covers", exist_ok=True)
+
+SAVED_COVERS_FILE = "app/data/saved_covers.json"
+
+def _load_saved_covers_db() -> dict:
+    if os.path.exists(SAVED_COVERS_FILE):
+        try:
+            import json
+            with open(SAVED_COVERS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def _save_saved_covers_db(db: dict):
+    os.makedirs(os.path.dirname(SAVED_COVERS_FILE), exist_ok=True)
+    import json
+    with open(SAVED_COVERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(db, f, ensure_ascii=False, indent=2)
+
+@app.get("/static/covers/{filename}")
+def serve_cover_image(filename: str):
+    file_path = os.path.join("app/static/covers", filename)
+    if os.path.exists(file_path):
+        return FileResponse(file_path, media_type="image/jpeg")
+
+    # Self-Healing: Re-generate on demand if missing after container deploy/reboot
+    db = _load_saved_covers_db()
+    clean_target = f"/static/covers/{filename}"
+    matched_entry = None
+    for sku, items in db.items():
+        for item in items:
+            u = (item.get("url") if isinstance(item, dict) else str(item)).split("?")[0]
+            if u == clean_target or filename in u:
+                matched_entry = item
+                break
+        if matched_entry:
+            break
+
+    # Fallback: check if SKU can be inferred from filename
+    if not matched_entry:
+        possible_sku = filename.split("_")[0]
+        if possible_sku in db and db[possible_sku]:
+            matched_entry = db[possible_sku][0]
+
+    if matched_entry and isinstance(matched_entry, dict):
+        try:
+            specs = matched_entry.get("specs", {})
+            sku = matched_entry.get("sku") or filename.split("_")[0]
+            raw_url = matched_entry.get("image_url")
+            if not raw_url:
+                from app.ktw_service import fetch_ktw_detail, extract_product_images
+                ktw_det = fetch_ktw_detail(sku)
+                imgs = extract_product_images(ktw_det)
+                raw_url = imgs[0] if imgs else None
+
+            if raw_url:
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                from app.image_service import generate_cover
+                generate_cover(
+                    raw_url,
+                    file_path,
+                    brand=matched_entry.get("brand") or detect_brand_from_sku(sku),
+                    sku=sku,
+                    badge_text=matched_entry.get("badge_text", "มีสต็อกพร้อมส่งทันที"),
+                    shop_name=matched_entry.get("shop_name", "MEGATOOL"),
+                    template_type=matched_entry.get("template_type", "auto_spec"),
+                    custom_model=specs.get("custom_model"),
+                    custom_category=specs.get("custom_category"),
+                    custom_hero_pills=specs.get("custom_hero_pills"),
+                    custom_spec_cards=specs.get("custom_spec_cards"),
+                    custom_trust_s1=specs.get("custom_trust_s1"),
+                    custom_trust_s2=specs.get("custom_trust_s2")
+                )
+                if os.path.exists(file_path):
+                    return FileResponse(file_path, media_type="image/jpeg")
+        except Exception as e:
+            print(f"Auto-heal cover {filename} failed:", e)
+
+        # Fallback to CDN redirect if available so image NEVER fails to open
+        if matched_entry.get("cdn_url"):
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(matched_entry["cdn_url"], status_code=302)
+
+    raise HTTPException(status_code=404, detail="Cover not found")
+
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 def get_current_user(request: Request, authorization: Optional[str] = Header(None)) -> Optional[dict]:
@@ -430,42 +515,19 @@ def api_save_cover_customizations(req: CoverCustomizationRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-SAVED_COVERS_FILE = "app/data/saved_covers.json"
-
-def _load_saved_covers_db() -> dict:
-    if os.path.exists(SAVED_COVERS_FILE):
-        try:
-            import json
-            with open(SAVED_COVERS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {}
-
-def _save_saved_covers_db(db: dict):
-    os.makedirs(os.path.dirname(SAVED_COVERS_FILE), exist_ok=True)
-    import json
-    with open(SAVED_COVERS_FILE, "w", encoding="utf-8") as f:
-        json.dump(db, f, ensure_ascii=False, indent=2)
-
 class SaveCoverRequest(BaseModel):
     sku: str
     url: str
+    cdn_url: Optional[str] = None
+    image_url: Optional[str] = None
     specs: Optional[Dict[str, Any]] = None
 
 @app.get("/api/saved-covers/{sku}")
 def api_get_saved_covers(sku: str):
     db = _load_saved_covers_db()
     items = db.get(sku, [])
-    valid_items = []
-    for it in items:
-        u = it.get("url") if isinstance(it, dict) else str(it)
-        if "/static/covers/" in u:
-            fname = u.split("/static/covers/")[-1].split("?")[0]
-            if not os.path.exists(f"app/static/covers/{fname}"):
-                continue
-        valid_items.append(it if isinstance(it, dict) else {"url": u, "created_at": None})
-    return {"success": True, "sku": sku, "covers": valid_items}
+    # Return all saved covers with specs and CDN urls (self-healing route handles disk misses)
+    return {"success": True, "sku": sku, "covers": items}
 
 @app.post("/api/saved-covers")
 def api_save_cover_entry(req: SaveCoverRequest):
@@ -481,14 +543,18 @@ def api_save_cover_entry(req: SaveCoverRequest):
         existing_url = (existing.get("url") if isinstance(existing, dict) else str(existing)).split("?")[0]
         if existing_url == clean_url:
             exists = True
-            if isinstance(existing, dict) and req.specs:
-                existing["specs"] = req.specs
+            if isinstance(existing, dict):
+                if req.specs: existing["specs"] = req.specs
+                if req.cdn_url: existing["cdn_url"] = req.cdn_url
+                if req.image_url: existing["image_url"] = req.image_url
             break
             
     if not exists:
         from datetime import datetime
         db[req.sku].insert(0, {
             "url": req.url,
+            "cdn_url": req.cdn_url,
+            "image_url": req.image_url,
             "specs": req.specs or {},
             "created_at": datetime.now().isoformat()
         })
@@ -554,17 +620,25 @@ def api_preview_cover(req: PreviewRequest):
         t_stamp = int(time.time())
         preview_url = f"/static/covers/{output_filename}?t={t_stamp}"
 
-        # Auto-register newly generated cover into saved_covers.json
+        # Auto-register newly generated cover into saved_covers.json and launch CDN backup
         try:
             from datetime import datetime
+            import threading
             db = _load_saved_covers_db()
             if req.sku not in db:
                 db[req.sku] = []
             clean_url = f"/static/covers/{output_filename}"
             exists = any((c.get("url") if isinstance(c, dict) else str(c)).split("?")[0] == clean_url for c in db[req.sku])
             if not exists:
-                db[req.sku].insert(0, {
+                new_cover_entry = {
                     "url": clean_url,
+                    "cdn_url": None,
+                    "sku": req.sku,
+                    "image_url": req.image_url,
+                    "brand": brand,
+                    "badge_text": req.badge_text,
+                    "shop_name": req.shop_name or "MEGATOOL",
+                    "template_type": tmpl_type,
                     "specs": {
                         "custom_category": req.custom_category,
                         "custom_model": req.custom_model,
@@ -574,13 +648,41 @@ def api_preview_cover(req: PreviewRequest):
                         "custom_trust_s2": req.custom_trust_s2
                     },
                     "created_at": datetime.now().isoformat()
-                })
+                }
+                db[req.sku].insert(0, new_cover_entry)
                 db[req.sku] = db[req.sku][:15]
                 _save_saved_covers_db(db)
+
+                # Background CDN upload so the cover has a permanent global URL
+                def bg_upload_cover(target_file, target_sku, target_clean_url):
+                    try:
+                        from app.image_service import upload_to_cdn
+                        cdn_res = upload_to_cdn(target_file)
+                        if cdn_res and cdn_res.startswith("http"):
+                            cur_db = _load_saved_covers_db()
+                            if target_sku in cur_db:
+                                for it in cur_db[target_sku]:
+                                    if isinstance(it, dict) and it.get("url", "").split("?")[0] == target_clean_url:
+                                        it["cdn_url"] = cdn_res
+                                        break
+                                _save_saved_covers_db(cur_db)
+                    except Exception as ex:
+                        print("Background CDN upload error:", ex)
+
+                threading.Thread(target=bg_upload_cover, args=(output_path, req.sku, clean_url), daemon=True).start()
         except Exception as e:
             print("Auto-save cover failed:", e)
 
-        return {"preview_url": preview_url}
+        cdn_cached = None
+        try:
+            with open("app/static/covers/cdn_cache.json", "r", encoding="utf-8") as f:
+                import json
+                c_data = json.load(f)
+                cdn_cached = c_data.get(output_filename)
+        except Exception:
+            pass
+
+        return {"preview_url": preview_url, "cdn_url": cdn_cached}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

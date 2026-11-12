@@ -1975,7 +1975,7 @@
                                                     @click="selectCustomCoverAsActive(cImg)"
                                                     :class="isActiveCustomCover(cImg) ? 'border-orange-500 ring-2 ring-orange-400 bg-orange-50 scale-105 shadow-md' : 'border-slate-200 bg-white hover:border-orange-300 opacity-80 hover:opacity-100'"
                                                     class="w-16 h-16 rounded-xl border-2 p-1 flex items-center justify-center transition-all cursor-pointer relative overflow-hidden">
-                                                <img :src="cImg.url || cImg" @error="onSavedCoverImageError(cImg, cIdx)" class="max-h-full max-w-full object-contain pointer-events-none">
+                                                <img :src="cImg.cdn_url || cImg.url || cImg" @error="onSavedCoverImageError(cImg, $event)" class="max-h-full max-w-full object-contain pointer-events-none">
                                                 
                                                 <!-- Active Badge -->
                                                 <span x-show="isActiveCustomCover(cImg)" 
@@ -2376,7 +2376,7 @@
                         <i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i>
                         <h3 class="text-base font-bold text-slate-800">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                         <span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-bold" x-text="selectedItems.length + ' รายการ'"></span>
-                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.11-i</span>
+                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.12-a</span>
                     </div>
                     <button @click="showQueueModal = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer" title="ปิดหน้าต่าง">
                         <i data-lucide="x" class="w-5 h-5"></i>
@@ -2506,7 +2506,7 @@
 
                                     <!-- ภาพหน้าปกย่อ -->
                                     <div class="relative shrink-0">
-                                        <img :src="item.image" @error="onCartItemImageError(item, $event)" class="w-13 h-13 sm:w-14 sm:h-14 object-contain rounded-xl border border-slate-200 p-1 bg-white shadow-2xs">
+                                        <img :src="item.cdn_url || item.selected_image || item.image" @error="onCartItemImageError(item, $event)" class="w-13 h-13 sm:w-14 sm:h-14 object-contain rounded-xl border border-slate-200 p-1 bg-white shadow-2xs">
                                         <span x-show="index === 0 && exportMode === 'variations' && selectedItems.length > 1"
                                               class="absolute -top-1.5 -left-1.5 bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.2 rounded-full shadow-xs uppercase select-none">
                                             ปกหลัก
@@ -4389,7 +4389,9 @@ toggleListedSort(field) {
                         this.renderedCoverUrl = cartCover;
                         this.activeCustomCoverUrl = cartCover;
                     } else if (this.savedCoverImages.length > 0) {
-                        const firstCover = typeof this.savedCoverImages[0] === 'object' ? this.savedCoverImages[0].url : this.savedCoverImages[0];
+                        const firstCover = typeof this.savedCoverImages[0] === 'object'
+                            ? (this.savedCoverImages[0].cdn_url || this.savedCoverImages[0].url)
+                            : this.savedCoverImages[0];
                         this.renderedCoverUrl = firstCover;
                         this.activeCustomCoverUrl = firstCover;
                     } else {
@@ -4397,12 +4399,12 @@ toggleListedSort(field) {
                         this.activeCustomCoverUrl = null;
                     }
 
-                    // Background sync of saved covers from server (authoritative check)
+                    // Background sync of saved covers from server
                     if (sku) {
                         fetch(`/api/saved-covers/${encodeURIComponent(sku)}`)
                             .then(r => r.ok ? r.json() : null)
                             .then(data => {
-                                if (data && Array.isArray(data.covers)) {
+                                if (data && Array.isArray(data.covers) && data.covers.length > 0) {
                                     this.savedCoverImages = data.covers;
                                     try {
                                         let all = JSON.parse(localStorage.getItem('megatool_saved_covers') || '{}');
@@ -4410,21 +4412,10 @@ toggleListedSort(field) {
                                         localStorage.setItem('megatool_saved_covers', JSON.stringify(all));
                                     } catch (e) {}
 
-                                    const validUrls = new Set(this.savedCoverImages.map(c => (typeof c === 'object' ? c.url : c).split('?')[0]));
-                                    if (this.renderedCoverUrl && this.renderedCoverUrl.includes('/static/covers/')) {
-                                        const curClean = this.renderedCoverUrl.split('?')[0];
-                                        if (!validUrls.has(curClean)) {
-                                            if (this.savedCoverImages.length > 0) {
-                                                const first = typeof this.savedCoverImages[0] === 'object' ? this.savedCoverImages[0].url : this.savedCoverImages[0];
-                                                this.renderedCoverUrl = first;
-                                                this.activeCustomCoverUrl = first;
-                                            } else {
-                                                this.renderedCoverUrl = null;
-                                                this.activeCustomCoverUrl = null;
-                                            }
-                                        }
-                                    } else if (!this.renderedCoverUrl && this.savedCoverImages.length > 0) {
-                                        const first = typeof this.savedCoverImages[0] === 'object' ? this.savedCoverImages[0].url : this.savedCoverImages[0];
+                                    if (!this.renderedCoverUrl && this.savedCoverImages.length > 0) {
+                                        const first = typeof this.savedCoverImages[0] === 'object'
+                                            ? (this.savedCoverImages[0].cdn_url || this.savedCoverImages[0].url)
+                                            : this.savedCoverImages[0];
                                         this.renderedCoverUrl = first;
                                         this.activeCustomCoverUrl = first;
                                     }
@@ -4720,9 +4711,9 @@ toggleListedSort(field) {
                         if (res.ok) {
                             const data = await res.json();
                             if (this.selectedImageIndex === currentIdx) {
-                                this.renderedCoverUrl = data.preview_url;
-                                this.activeCustomCoverUrl = data.preview_url;
-                                this.saveRenderedCoverToList(sku, data.preview_url);
+                                this.renderedCoverUrl = data.cdn_url || data.preview_url;
+                                this.activeCustomCoverUrl = data.cdn_url || data.preview_url;
+                                this.saveRenderedCoverToList(sku, data.preview_url, data.cdn_url);
                             }
                         }
                     } catch (e) {
@@ -4852,10 +4843,10 @@ toggleListedSort(field) {
                 },
 
                 selectCustomCoverAsActive(cImg) {
-                    const url = (typeof cImg === 'object' && cImg.url) ? cImg.url : cImg;
-                    if (!url) return;
-                    this.renderedCoverUrl = url;
-                    this.activeCustomCoverUrl = url;
+                    const chosenUrl = (typeof cImg === 'object' && cImg.cdn_url) ? cImg.cdn_url : ((typeof cImg === 'object' && cImg.url) ? cImg.url : cImg);
+                    if (!chosenUrl) return;
+                    this.renderedCoverUrl = chosenUrl;
+                    this.activeCustomCoverUrl = chosenUrl;
                     
                     // If this saved cover has specs attached, restore them into input fields
                     if (typeof cImg === 'object' && cImg.specs) {
@@ -4879,26 +4870,28 @@ toggleListedSort(field) {
                     if (sku) {
                         const cartItem = (this.selectedItems || []).find(i => i.sku === sku);
                         if (cartItem) {
-                            cartItem.selected_image = url;
-                            cartItem.image = url;
+                            cartItem.cdn_url = (typeof cImg === 'object' && cImg.cdn_url) ? cImg.cdn_url : null;
+                            cartItem.selected_image = chosenUrl;
+                            cartItem.image = chosenUrl;
                             if (!cartItem.selected_images) cartItem.selected_images = [];
-                            cartItem.selected_images = [url, ...cartItem.selected_images.filter(u => u !== url && !u.includes('_preview') && !u.includes('/static/covers/'))];
+                            cartItem.selected_images = [chosenUrl, ...cartItem.selected_images.filter(u => u !== chosenUrl && !u.includes('_preview') && !u.includes('/static/covers/'))];
                             this.saveCartToStorage();
                         }
                         if (this.activePreviewItem) {
-                            this.activePreviewItem.selected_image = url;
-                            this.activePreviewItem.image = url;
+                            this.activePreviewItem.selected_image = chosenUrl;
+                            this.activePreviewItem.image = chosenUrl;
                         }
                         this.saveCurrentCoverCustomizations(sku);
                     }
                 },
 
                 isActiveCustomCover(cImg) {
-                    const url = (typeof cImg === 'object' && cImg.url) ? cImg.url : cImg;
-                    if (!url) return false;
-                    const clean = url.split('?')[0];
+                    if (!cImg) return false;
                     const curClean = (this.renderedCoverUrl || this.activeCustomCoverUrl || '').split('?')[0];
-                    return clean === curClean;
+                    if (!curClean) return false;
+                    const url = (typeof cImg === 'object' ? cImg.url : cImg) || '';
+                    const cdnUrl = (typeof cImg === 'object' ? cImg.cdn_url : '') || '';
+                    return (url && url.split('?')[0] === curClean) || (cdnUrl && cdnUrl.split('?')[0] === curClean);
                 },
 
                 revertToOriginalCover() {
@@ -4910,6 +4903,7 @@ toggleListedSort(field) {
                     if (sku && rawImg) {
                         const cartItem = (this.selectedItems || []).find(i => i.sku === sku);
                         if (cartItem) {
+                            cartItem.cdn_url = null;
                             cartItem.selected_image = rawImg;
                             cartItem.image = rawImg;
                             if (cartItem.selected_images && cartItem.selected_images.length > 0) {
@@ -4925,7 +4919,7 @@ toggleListedSort(field) {
                     }
                 },
 
-                saveRenderedCoverToList(sku, coverUrl) {
+                saveRenderedCoverToList(sku, coverUrl, cdnUrl) {
                     if (!sku || !coverUrl) return;
                     const cleanUrl = coverUrl.split('?')[0];
                     const specs = {
@@ -4939,6 +4933,7 @@ toggleListedSort(field) {
                     };
                     const newEntry = {
                         url: coverUrl,
+                        cdn_url: cdnUrl || null,
                         specs: specs,
                         created_at: new Date().toISOString()
                     };
@@ -4948,7 +4943,7 @@ toggleListedSort(field) {
                         return u.split('?')[0] !== cleanUrl;
                     });
                     this.savedCoverImages.unshift(newEntry);
-                    this.activeCustomCoverUrl = coverUrl;
+                    this.activeCustomCoverUrl = cdnUrl || coverUrl;
                     
                     try {
                         let all = JSON.parse(localStorage.getItem('megatool_saved_covers') || '{}');
@@ -4959,7 +4954,7 @@ toggleListedSort(field) {
                     fetch('/api/saved-covers', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ sku: sku, url: coverUrl, specs: specs })
+                        body: JSON.stringify({ sku: sku, url: coverUrl, cdn_url: cdnUrl, specs: specs })
                     }).catch(() => {});
                 },
 
@@ -4999,53 +4994,62 @@ toggleListedSort(field) {
                     }
                 },
 
-                onSavedCoverImageError(cImg, cIdx) {
-                    const url = typeof cImg === 'object' ? cImg.url : cImg;
-                    if (!url) return;
-                    const cleanUrl = url.split('?')[0];
-                    const sku = this.activePreviewItem?.sku || this.activePreviewItem?.code;
-                    
-                    // Filter out the broken image automatically
-                    this.savedCoverImages = (this.savedCoverImages || []).filter(c => {
-                        const u = typeof c === 'object' ? c.url : c;
-                        return (u || '').split('?')[0] !== cleanUrl;
-                    });
-                    
-                    if (sku) {
-                        try {
-                            let all = JSON.parse(localStorage.getItem('megatool_saved_covers') || '{}');
-                            all[sku] = this.savedCoverImages;
-                            localStorage.setItem('megatool_saved_covers', JSON.stringify(all));
-                        } catch (e) {}
-                        
-                        fetch('/api/saved-covers', {
-                            method: 'DELETE',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ sku: sku, url: url })
-                        }).catch(() => {});
+                onSavedCoverImageError(cImg, event) {
+                    if (!cImg) return;
+                    const el = event && event.target;
+                    if (!el) return;
+
+                    // 1. If loaded from local URL and failed, try CDN URL if present
+                    if (typeof cImg === 'object' && cImg.cdn_url && el.src !== cImg.cdn_url) {
+                        el.src = cImg.cdn_url;
+                        return;
                     }
-                    
-                    // If broken cover was selected, fall back to next available or original
-                    if (this.renderedCoverUrl && this.renderedCoverUrl.split('?')[0] === cleanUrl) {
-                        if (this.savedCoverImages.length > 0) {
-                            this.selectCustomCoverAsActive(this.savedCoverImages[0]);
-                        } else {
-                            this.renderedCoverUrl = null;
-                            this.activeCustomCoverUrl = null;
+
+                    // 2. If loaded from CDN and failed, try local self-healing route
+                    if (typeof cImg === 'object' && cImg.url && el.src !== cImg.url) {
+                        el.src = cImg.url + (cImg.url.includes('?') ? '&' : '?') + 't=' + Date.now();
+                        return;
+                    }
+
+                    // 3. Retry once with timestamp so server self-heals missing cover
+                    if (!el.dataset.hasRetried) {
+                        el.dataset.hasRetried = '1';
+                        const targetUrl = typeof cImg === 'object' ? (cImg.cdn_url || cImg.url) : cImg;
+                        if (targetUrl) {
+                            setTimeout(() => {
+                                el.src = targetUrl.split('?')[0] + '?retry=' + Date.now();
+                            }, 500);
                         }
                     }
+                    // NEVER delete the user's saved cover!
                 },
 
                 onCartItemImageError(item, event) {
                     if (!item) return;
-                    const fallback = (item.all_images && item.all_images[0]) || (item.selected_images && item.selected_images.find(u => u && !u.includes('_preview') && !u.includes('/static/covers/'))) || '';
-                    if (fallback && item.image !== fallback) {
-                        item.image = fallback;
-                        item.selected_image = fallback;
-                        if (event && event.target) {
-                            event.target.src = fallback;
-                        }
+                    const el = event && event.target;
+
+                    // 1. Try CDN URL first
+                    if (item.cdn_url && el && el.src !== item.cdn_url) {
+                        el.src = item.cdn_url;
+                        item.image = item.cdn_url;
+                        item.selected_image = item.cdn_url;
                         this.saveCartToStorage();
+                        return;
+                    }
+
+                    // 2. Retry selected image with timestamp (triggers backend self-healing)
+                    if (item.selected_image && el && !el.dataset.hasRetried) {
+                        el.dataset.hasRetried = '1';
+                        setTimeout(() => {
+                            el.src = item.selected_image.split('?')[0] + '?retry=' + Date.now();
+                        }, 500);
+                        return;
+                    }
+
+                    // 3. Fallback to raw catalog image if really unreachable
+                    const fallback = (item.all_images && item.all_images[0]) || '';
+                    if (fallback && el && el.src !== fallback) {
+                        el.src = fallback;
                     }
                 },
 
