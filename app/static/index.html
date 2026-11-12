@@ -3937,8 +3937,9 @@
                 // Shopee Variations & Group Helpers
                 getSharedLinkCount(url) {
                     if (!url) return 0;
-                    const clean = url.trim().toLowerCase();
-                    return this.listedProducts.filter(i => (i.shopee_url || '').trim().toLowerCase() === clean).length;
+                    const clean = url.trim().toLowerCase().replace(/\/+$/, '');
+                    if (!clean || clean === 'https://shopee.co.th' || clean === 'http://shopee.co.th') return 1;
+                    return this.listedProducts.filter(i => (i.shopee_url || '').trim().toLowerCase().replace(/\/+$/, '') === clean).length;
                 },
 
 toggleListedSort(field) {
