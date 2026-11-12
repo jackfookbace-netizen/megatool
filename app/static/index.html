@@ -2419,7 +2419,7 @@
                         <i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i>
                         <h3 class="text-base font-bold text-slate-800">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                         <span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-bold" x-text="selectedItems.length + ' รายการ'"></span>
-                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.12-f (Batch Auto-Spec Fixed)</span>
+                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.12-g (Zero Redundant Render)</span>
                     </div>
                     <div class="flex items-center space-x-2">
                         <button type="button" x-show="selectedItems.length > 0"
@@ -2975,8 +2975,11 @@
                                 if (scData && scData.saved_covers && typeof scData.saved_covers === 'object') {
                                     try {
                                         let cur = JSON.parse(localStorage.getItem('megatool_saved_covers') || '{}');
-                                        cur = { ...cur, ...scData.saved_covers };
-                                        localStorage.setItem('megatool_saved_covers', JSON.stringify(cur));
+                                        const merged = { ...cur, ...scData.saved_covers };
+                                        for (const k of Object.keys(merged)) {
+                                            merged[k] = this.deduplicateSavedCovers(merged[k]);
+                                        }
+                                        localStorage.setItem('megatool_saved_covers', JSON.stringify(merged));
                                     } catch (e) {}
                                 }
                             })
@@ -4563,11 +4566,58 @@ toggleListedSort(field) {
                         .filter(i => i !== this.selectedImageIndex);
                 },
 
+                deduplicateSavedCovers(entries) {
+                    if (!Array.isArray(entries)) return [];
+                    const result = [];
+                    const seenUrls = new Set();
+                    const seenAngleTmpl = new Set();
+                    const sorted = [...entries].sort((a, b) => {
+                        const score = (x) => {
+                            if (typeof x === 'object' && x) {
+                                if (x.cdn_url && x.image_url) return 0;
+                                if (x.cdn_url || x.image_url) return 1;
+                            }
+                            return 2;
+                        };
+                        return score(a) - score(b);
+                    });
+                    for (const item of sorted) {
+                        if (!item) continue;
+                        if (typeof item !== 'object') {
+                            const u = String(item).split('?')[0];
+                            if (u && !seenUrls.has(u)) {
+                                seenUrls.add(u);
+                                result.push(item);
+                            }
+                            continue;
+                        }
+                        const cleanU = (item.url || '').split('?')[0];
+                        const cdnU = (item.cdn_url || '').split('?')[0];
+                        const imgU = (item.image_url || '').trim();
+                        const tmpl = (item.template_type || 'auto_spec').trim();
+                        const shop = (item.shop_name || 'MEGATOOL').trim();
+                        if (cleanU && seenUrls.has(cleanU)) continue;
+                        if (cdnU && seenUrls.has(cdnU)) continue;
+                        if (imgU) {
+                            const angleKey = `${imgU}__${tmpl}__${shop}`;
+                            if (seenAngleTmpl.has(angleKey)) continue;
+                            seenAngleTmpl.add(angleKey);
+                        } else if (result.length > 0) {
+                            continue;
+                        }
+                        if (cleanU) seenUrls.add(cleanU);
+                        if (cdnU) seenUrls.add(cdnU);
+                        result.push(item);
+                    }
+                    return result;
+                },
+
                 async openCoverPreview(p, fromCart = false) {
                     this.activePreviewItem = p;
                     this.openedFromCart = Boolean(fromCart);
                     this.selectedImageIndex = 0;
                     this.renderedCoverUrl = null;
+                    this.generatingPreview = false;
                     this.showPreviewModal = true;
                     this.coverActiveTab = 'edit';
                     this.coverKtwDetail = null;
@@ -4590,7 +4640,7 @@ toggleListedSort(field) {
                     try {
                         const allSavedCovers = JSON.parse(localStorage.getItem('megatool_saved_covers') || '{}');
                         const localCovers = (sku && allSavedCovers[sku]) || [];
-                        this.savedCoverImages = Array.isArray(localCovers) ? [...localCovers] : [];
+                        this.savedCoverImages = this.deduplicateSavedCovers(Array.isArray(localCovers) ? localCovers : []);
                     } catch (e) {}
 
                     // Determine initial cover image: check cartItem or saved covers
@@ -4599,6 +4649,15 @@ toggleListedSort(field) {
                     if (isCustomCartCover) {
                         this.renderedCoverUrl = cartCover;
                         this.activeCustomCoverUrl = cartCover;
+                        if (this.savedCoverImages.length === 0) {
+                            this.savedCoverImages = [{
+                                url: cartCover,
+                                cdn_url: cartCover.startsWith('http') ? cartCover : (cartItem.cdn_url || null),
+                                image_url: (cartItem.all_images && cartItem.all_images[0]) || p.image || '',
+                                template_type: cartItem.template_type || 'auto_spec',
+                                shop_name: this.shopName
+                            }];
+                        }
                     } else if (this.savedCoverImages.length > 0) {
                         const firstCover = typeof this.savedCoverImages[0] === 'object'
                             ? (this.savedCoverImages[0].cdn_url || this.savedCoverImages[0].url)
@@ -4611,12 +4670,13 @@ toggleListedSort(field) {
                     }
 
                     // Background sync of saved covers and customizations from server
+                    let serverCoversPromise = Promise.resolve();
                     if (sku) {
-                        fetch(`/api/saved-covers/${encodeURIComponent(sku)}`)
+                        serverCoversPromise = fetch(`/api/saved-covers/${encodeURIComponent(sku)}`)
                             .then(r => r.ok ? r.json() : null)
                             .then(data => {
                                 if (data && Array.isArray(data.covers) && data.covers.length > 0) {
-                                    this.savedCoverImages = data.covers;
+                                    this.savedCoverImages = this.deduplicateSavedCovers(data.covers);
                                     try {
                                         let all = JSON.parse(localStorage.getItem('megatool_saved_covers') || '{}');
                                         all[sku] = this.savedCoverImages;
@@ -4640,7 +4700,7 @@ toggleListedSort(field) {
                                 if (data && data.success && data.customizations) {
                                     const c = data.customizations;
                                     if (c.custom_category) this.customCoverCategory = c.custom_category;
-                                    if (c.custom_model) this.customCoverModel = c.custom_model;
+                                    if (c.custom_model) this.customCoverModel = String(c.custom_model).replace(/^รุ่น\s*/, '');
                                     if (c.custom_hero_pills && c.custom_hero_pills.length > 0) {
                                         this.customHeroPill1 = c.custom_hero_pills[0] || '';
                                         this.customHeroPill2 = c.custom_hero_pills[1] || '';
@@ -4835,7 +4895,17 @@ toggleListedSort(field) {
                         console.error('Error fetching images:', e);
                     }
 
-                    if (existingInQueue && existingInQueue.selected_image && this.activePreviewItem?.all_images) {
+                    if (!this.renderedCoverUrl && (!this.savedCoverImages || this.savedCoverImages.length === 0)) {
+                        await serverCoversPromise;
+                    }
+
+                    if (this.savedCoverImages && this.savedCoverImages.length > 0 && this.activePreviewItem?.all_images) {
+                        const firstSrcUrl = typeof this.savedCoverImages[0] === 'object' ? this.savedCoverImages[0].image_url : null;
+                        if (firstSrcUrl) {
+                            const srcIdx = this.activePreviewItem.all_images.findIndex(u => u === firstSrcUrl);
+                            if (srcIdx >= 0) this.selectedImageIndex = srcIdx;
+                        }
+                    } else if (existingInQueue && existingInQueue.selected_image && this.activePreviewItem?.all_images) {
                         const savedIdx = this.activePreviewItem.all_images.findIndex(u => u === existingInQueue.selected_image);
                         if (savedIdx >= 0) {
                             this.selectedImageIndex = savedIdx;
@@ -4852,10 +4922,28 @@ toggleListedSort(field) {
                     const curImg = (this.activePreviewItem?.all_images && this.activePreviewItem.all_images[this.selectedImageIndex]) || this.activePreviewItem?.image;
                     this.customUseTemplate = !this.isImageUnframed(curImg);
 
-                    this.generatePreviewCover();
+                    // DO NOT re-render if a saved cover already exists! Show it immediately in 0ms.
+                    const hasExistingCover = Boolean(
+                        this.renderedCoverUrl ||
+                        this.activeCustomCoverUrl ||
+                        (this.savedCoverImages && this.savedCoverImages.length > 0)
+                    );
+                    if (hasExistingCover) {
+                        if (!this.renderedCoverUrl && this.savedCoverImages.length > 0) {
+                            const first = typeof this.savedCoverImages[0] === 'object'
+                                ? (this.savedCoverImages[0].cdn_url || this.savedCoverImages[0].url)
+                                : this.savedCoverImages[0];
+                            this.renderedCoverUrl = first;
+                            this.activeCustomCoverUrl = first;
+                        }
+                        this.generatingPreview = false;
+                        this.$nextTick(() => lucide.createIcons());
+                    } else {
+                        this.generatePreviewCover();
+                    }
                 },
 
-                                moveImageOrder(fromIdx, toIdx) {
+                moveImageOrder(fromIdx, toIdx) {
                     if (!this.activePreviewItem?.all_images) return;
                     const imgs = [...this.activePreviewItem.all_images];
                     if (toIdx < 0 || toIdx >= imgs.length) return;
@@ -4877,7 +4965,6 @@ toggleListedSort(field) {
                         this.excludedImageIndices = this.excludedImageIndices.filter(i => i !== idx);
                     }
                     this.selectedImageIndex = idx;
-                    this.renderedCoverUrl = null;
                     const imgUrl = (this.activePreviewItem?.all_images && this.activePreviewItem.all_images[idx]) || this.activePreviewItem?.image;
                     if (imgUrl && (imgUrl.includes('collage_') || imgUrl.includes('comparison_') || this.isImageUnframed(imgUrl))) {
                         this.customUseTemplate = false;
@@ -4885,6 +4972,16 @@ toggleListedSort(field) {
                         return;
                     }
                     this.customUseTemplate = true;
+                    const tmpl = this.coverTemplateType || 'auto_spec';
+                    const existingForAngle = (this.savedCoverImages || []).find(c =>
+                        typeof c === 'object' && c && c.image_url === imgUrl && (c.template_type || 'auto_spec') === tmpl
+                    );
+                    if (existingForAngle && (existingForAngle.cdn_url || existingForAngle.url)) {
+                        this.selectCustomCoverAsActive(existingForAngle);
+                        this.generatingPreview = false;
+                        return;
+                    }
+                    this.renderedCoverUrl = null;
                     this.generatePreviewCover();
                 },
 
@@ -4920,6 +5017,7 @@ toggleListedSort(field) {
                     this.generatingPreview = true;
                     const sku = this.activePreviewItem.sku || this.activePreviewItem.code;
                     const brand = this.activePreviewItem.brand || this.activePreviewItem.manufacturer;
+                    const tmplType = this.coverTemplateType || 'auto_spec';
 
                     try {
                         const res = await fetch('/api/preview-cover', {
@@ -4931,7 +5029,7 @@ toggleListedSort(field) {
                                 brand: brand,
                                 badge_text: this.customBadgeText,
                                 shop_name: this.shopName || (this.currentShop && this.currentShop.brand_display) || (this.activeShopId === 'shop_2' ? 'BigPower Tools' : 'MEGATOOL'),
-                                template_type: this.coverTemplateType || 'auto_spec',
+                                template_type: tmplType,
                                 custom_model: (this.customCoverModel && this.customCoverModel.trim()) ? this.customCoverModel.trim() : undefined,
                                 custom_category: (this.customCoverCategory && this.customCoverCategory.trim()) ? this.customCoverCategory.trim() : undefined,
                                 custom_hero_pills: [this.customHeroPill1, this.customHeroPill2].filter(Boolean),
@@ -4945,7 +5043,7 @@ toggleListedSort(field) {
                             if (this.selectedImageIndex === currentIdx) {
                                 this.renderedCoverUrl = data.cdn_url || data.preview_url;
                                 this.activeCustomCoverUrl = data.cdn_url || data.preview_url;
-                                this.saveRenderedCoverToList(sku, data.preview_url, data.cdn_url);
+                                this.saveRenderedCoverToList(sku, data.preview_url, data.cdn_url, imgUrl, tmplType);
                             }
                         }
                     } catch (e) {
@@ -5151,9 +5249,11 @@ toggleListedSort(field) {
                     }
                 },
 
-                saveRenderedCoverToList(sku, coverUrl, cdnUrl) {
+                saveRenderedCoverToList(sku, coverUrl, cdnUrl, sourceImageUrl = null, templateType = 'auto_spec') {
                     if (!sku || !coverUrl) return;
                     const cleanUrl = coverUrl.split('?')[0];
+                    const effSourceUrl = sourceImageUrl || (this.activePreviewItem?.all_images?.[this.selectedImageIndex]) || this.activePreviewItem?.image || '';
+                    const effTmpl = templateType || this.coverTemplateType || 'auto_spec';
                     const specs = {
                         custom_category: this.customCoverCategory,
                         custom_model: this.customCoverModel,
@@ -5166,15 +5266,26 @@ toggleListedSort(field) {
                     const newEntry = {
                         url: coverUrl,
                         cdn_url: cdnUrl || null,
+                        image_url: effSourceUrl,
+                        template_type: effTmpl,
+                        shop_name: this.shopName || 'MEGATOOL',
                         specs: specs,
                         created_at: new Date().toISOString()
                     };
                     
                     this.savedCoverImages = (this.savedCoverImages || []).filter(c => {
-                        const u = typeof c === 'object' ? c.url : c;
-                        return u.split('?')[0] !== cleanUrl;
+                        const u = typeof c === 'object' ? (c.url || '') : String(c || '');
+                        if (u.split('?')[0] === cleanUrl) return false;
+                        if (typeof c === 'object' && effSourceUrl && c.image_url === effSourceUrl && (c.template_type || 'auto_spec') === effTmpl) {
+                            return false;
+                        }
+                        if (typeof c === 'object' && !c.image_url) {
+                            return false;
+                        }
+                        return true;
                     });
                     this.savedCoverImages.unshift(newEntry);
+                    this.savedCoverImages = this.deduplicateSavedCovers(this.savedCoverImages);
                     this.activeCustomCoverUrl = cdnUrl || coverUrl;
                     
                     try {
@@ -5186,7 +5297,7 @@ toggleListedSort(field) {
                     fetch('/api/saved-covers', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ sku: sku, url: coverUrl, cdn_url: cdnUrl, specs: specs })
+                        body: JSON.stringify({ sku: sku, url: coverUrl, cdn_url: cdnUrl, image_url: effSourceUrl, specs: specs })
                     }).catch(() => {});
                 },
 

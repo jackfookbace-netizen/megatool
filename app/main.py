@@ -51,21 +51,67 @@ os.makedirs("app/static/covers", exist_ok=True)
 
 SAVED_COVERS_FILE = "app/data/saved_covers.json"
 
+def _deduplicate_sku_covers(entries: list) -> list:
+    if not isinstance(entries, list):
+        return []
+    result = []
+    seen_urls = set()
+    seen_angle_tmpl = set()
+    # First pass: prefer entries that have both image_url and cdn_url
+    sorted_entries = sorted(
+        entries,
+        key=lambda x: (
+            0 if (isinstance(x, dict) and x.get("cdn_url") and x.get("image_url")) else
+            1 if (isinstance(x, dict) and (x.get("cdn_url") or x.get("image_url"))) else 2
+        )
+    )
+    for item in sorted_entries:
+        if not isinstance(item, dict):
+            u = str(item).split("?")[0]
+            if u and u not in seen_urls:
+                seen_urls.add(u)
+                result.append(item)
+            continue
+        clean_u = (item.get("url") or "").split("?")[0]
+        cdn_u = (item.get("cdn_url") or "").split("?")[0]
+        img_u = (item.get("image_url") or "").strip()
+        tmpl = (item.get("template_type") or "auto_spec").strip()
+        shop = (item.get("shop_name") or "MEGATOOL").strip()
+        if clean_u and clean_u in seen_urls:
+            continue
+        if cdn_u and cdn_u in seen_urls:
+            continue
+        if img_u:
+            angle_key = f"{img_u}__{tmpl}__{shop}"
+            if angle_key in seen_angle_tmpl:
+                continue
+            seen_angle_tmpl.add(angle_key)
+        elif result:
+            # Entry without image_url when we already have a cover for this SKU: skip duplicate
+            continue
+        if clean_u:
+            seen_urls.add(clean_u)
+        if cdn_u:
+            seen_urls.add(cdn_u)
+        result.append(item)
+    return result
+
 def _load_saved_covers_db() -> dict:
     if os.path.exists(SAVED_COVERS_FILE):
         try:
-            import json
             with open(SAVED_COVERS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                raw_db = json.load(f)
+                if isinstance(raw_db, dict):
+                    return {k: _deduplicate_sku_covers(v) for k, v in raw_db.items()}
         except Exception:
             pass
     return {}
 
 def _save_saved_covers_db(db: dict):
     os.makedirs(os.path.dirname(SAVED_COVERS_FILE), exist_ok=True)
-    import json
+    clean_db = {k: _deduplicate_sku_covers(v) for k, v in (db or {}).items()}
     with open(SAVED_COVERS_FILE, "w", encoding="utf-8") as f:
-        json.dump(db, f, ensure_ascii=False, indent=2)
+        json.dump(clean_db, f, ensure_ascii=False, indent=2)
 
 @app.get("/static/covers/{filename}")
 def serve_cover_image(filename: str):
@@ -662,8 +708,24 @@ def api_preview_cover(req: PreviewRequest):
             if req.sku not in db:
                 db[req.sku] = []
             clean_url = f"/static/covers/{output_filename}"
-            existing_entry = next((c for c in db[req.sku] if isinstance(c, dict) and c.get("url", "").split("?")[0] == clean_url), None)
+            existing_entry = next(
+                (
+                    c for c in db[req.sku]
+                    if isinstance(c, dict) and (
+                        c.get("url", "").split("?")[0] == clean_url or
+                        (
+                            c.get("image_url") == req.image_url and
+                            (c.get("template_type") or "auto_spec") == tmpl_type and
+                            (c.get("shop_name") or "MEGATOOL") == (req.shop_name or "MEGATOOL")
+                        )
+                    )
+                ),
+                None
+            )
             if existing_entry:
+                if existing_entry.get("url", "").split("?")[0] != clean_url:
+                    existing_entry["url"] = clean_url
+                    existing_entry["cdn_url"] = None
                 existing_entry["image_url"] = req.image_url
                 existing_entry["brand"] = brand
                 existing_entry["badge_text"] = req.badge_text
