@@ -42,7 +42,8 @@
       "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
       "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว",
       "shopee_title": "(แพ็ค10ม้วน) TEMFLEX 150 19MMX10M สีดำ",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "cost_price": 100.0
     },
     {
       "sku": "M011-M9513B",
@@ -53,7 +54,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h33/h07/10124526452766/-MAKITA-M011-M9513B-1.jpg",
       "use_template": true,
       "variation_name": "เครื่องเปล่า (สวิตช์ท้าย)",
-      "stock": 47
+      "stock": 47,
+      "cost_price": 1086.4
     },
     {
       "sku": "P271-PL411C",
@@ -64,7 +66,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h0f/h1a/10168716853278/-POLO-GARDEN-P271-PL411C-1.jpg",
       "use_template": true,
       "variation_name": "เครื่องเปล่าพร้อมก้าน",
-      "stock": 839
+      "stock": 839,
+      "cost_price": 1490.0
     },
     {
       "sku": "M316-0020",
@@ -75,7 +78,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h99/h86/9686970499102/-MARATHON-M316-0020-1.jpg",
       "use_template": true,
       "variation_name": "ขนาด 4-32 มม.",
-      "stock": 4263
+      "stock": 4263,
+      "cost_price": 85.0
     },
     {
       "sku": "P231-0070AE",
@@ -86,7 +90,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/ha0/hfc/10070290825246/-POLO-VENTILATOR-P231-0070AE-1.jpg",
       "use_template": true,
       "variation_name": "รุ่นมาตรฐาน (ไม่รวมถัง)",
-      "stock": 259
+      "stock": 259,
+      "cost_price": 2500.0
     },
     {
       "sku": "M011-M5801B",
@@ -97,7 +102,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h5c/h13/9678058061854/-MAKITA-M011-M5801B.jpg",
       "use_template": true,
       "variation_name": "ขนาด 7 นิ้ว (1050W)",
-      "stock": 913
+      "stock": 913,
+      "cost_price": 2240.7
     },
     {
       "sku": "I081-T0102EL4",
@@ -108,7 +114,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hff/he3/9782472048670/-IRWIN-I081-T0102EL4-FIX1.jpg",
       "use_template": true,
       "variation_name": "ปากตรง 10 นิ้ว (10R)",
-      "stock": 5703
+      "stock": 5703,
+      "cost_price": 305.0
     },
     {
       "sku": "KT-J019-ARC200D+",
@@ -119,7 +126,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h0c/h4e/9776087105566/-KT-JASIC-KT-J019-ARC200D-.jpg",
       "use_template": true,
       "variation_name": "พร้อมสายเชื่อมครบชุด",
-      "stock": 1422
+      "stock": 1422,
+      "cost_price": 5650.0
     },
     {
       "sku": "M316-0030",
@@ -130,7 +138,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h82/h92/9686805348382/-MARATHON-M316-0030-1.jpg",
       "use_template": true,
       "variation_name": "ชุด 3 ดอก (4-12,20,32)",
-      "stock": 2758
+      "stock": 2758,
+      "cost_price": 150.0
     },
     {
       "sku": "N241-NOVO200",
@@ -141,7 +150,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hbf/hae/10012756246558/-NOVO-N241-NOVO200-1.jpg",
       "use_template": true,
       "variation_name": "พร้อมสายเชื่อมครบชุด",
-      "stock": 626
+      "stock": 626,
+      "cost_price": 2490.0
     },
     {
       "sku": "M011-M8701B",
@@ -152,7 +162,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/ha1/h4d/9680270262302/-MAKITA-M011-M8701B.jpg",
       "use_template": true,
       "variation_name": "3 ระบบ 26 มม. (กล่อง)",
-      "stock": 1021
+      "stock": 1021,
+      "cost_price": 2725.7
     },
     {
       "sku": "P041-2300",
@@ -163,7 +174,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hfa/ha1/10154490429470/-POLO-P041-2300-1.jpg",
       "use_template": true,
       "variation_name": "กำลัง 100W",
-      "stock": 0
+      "stock": 0,
+      "cost_price": 850.0
     },
     {
       "sku": "M011-M0910B",
@@ -174,7 +186,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hdf/h16/9984402751518/-MAKITA-M011-M0910B.jpg",
       "use_template": true,
       "variation_name": "รุ่นสวิตช์ท้าย",
-      "stock": 367
+      "stock": 367,
+      "cost_price": 843.9
     },
     {
       "sku": "M011-M0900B",
@@ -185,7 +198,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h50/hd7/9678354186270/-MAKITA-M011-M0900B-1.jpg",
       "use_template": true,
       "variation_name": "รุ่นสวิตช์สไลด์",
-      "stock": 1983
+      "stock": 1983,
+      "cost_price": 843.9
     },
     {
       "sku": "P171-WARRIOR90",
@@ -196,7 +210,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/he6/h85/9867763908638/-POLO-WASHERS-P171-WARRIOR90-1.jpg",
       "use_template": true,
       "variation_name": "90 บาร์",
-      "stock": 368
+      "stock": 368,
+      "cost_price": 1350.0
     },
     {
       "sku": "P171-WARRIOR101N",
@@ -207,7 +222,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h78/ha1/9867765284894/-POLO-WASHERS-P171-WARRIOR101N-1.jpg",
       "use_template": true,
       "variation_name": "100 บาร์",
-      "stock": 4
+      "stock": 4,
+      "cost_price": 1775.0
     },
     {
       "sku": "P171-RANGER120",
@@ -218,7 +234,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/he4/h06/9867751850014/-POLO-WASHERS-P171-RANGER120-1.jpg",
       "use_template": true,
       "variation_name": "120 บาร์",
-      "stock": 525
+      "stock": 525,
+      "cost_price": 2150.0
     },
     {
       "sku": "P171-COMMANDO135N",
@@ -229,7 +246,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h4e/ha5/9868212043806/-POLO-WASHERS-P171-COMMANDO135N-1.jpg",
       "use_template": true,
       "variation_name": "135 บาร์",
-      "stock": 2476
+      "stock": 2476,
+      "cost_price": 2925.0
     }
   ],
   "shop_2": [
@@ -275,7 +293,8 @@
       "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
       "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว",
       "shopee_title": "(แพ็ค10ม้วน) TEMFLEX 150 19MMX10M สีดำ",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "cost_price": 100.0
     },
     {
       "sku": "M011-M9513B",
@@ -286,7 +305,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h33/h07/10124526452766/-MAKITA-M011-M9513B-1.jpg",
       "use_template": true,
       "variation_name": "เครื่องเปล่า (สวิตช์ท้าย)",
-      "stock": 47
+      "stock": 47,
+      "cost_price": 1086.4
     },
     {
       "sku": "P271-PL411C",
@@ -297,7 +317,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h0f/h1a/10168716853278/-POLO-GARDEN-P271-PL411C-1.jpg",
       "use_template": true,
       "variation_name": "เครื่องเปล่าพร้อมก้าน",
-      "stock": 839
+      "stock": 839,
+      "cost_price": 1490.0
     },
     {
       "sku": "M316-0020",
@@ -308,7 +329,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h99/h86/9686970499102/-MARATHON-M316-0020-1.jpg",
       "use_template": true,
       "variation_name": "ขนาด 4-32 มม.",
-      "stock": 4263
+      "stock": 4263,
+      "cost_price": 85.0
     },
     {
       "sku": "P231-0070AE",
@@ -319,7 +341,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/ha0/hfc/10070290825246/-POLO-VENTILATOR-P231-0070AE-1.jpg",
       "use_template": true,
       "variation_name": "รุ่นมาตรฐาน (ไม่รวมถัง)",
-      "stock": 259
+      "stock": 259,
+      "cost_price": 2500.0
     },
     {
       "sku": "M011-M5801B",
@@ -330,7 +353,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h5c/h13/9678058061854/-MAKITA-M011-M5801B.jpg",
       "use_template": true,
       "variation_name": "ขนาด 7 นิ้ว (1050W)",
-      "stock": 913
+      "stock": 913,
+      "cost_price": 2240.7
     },
     {
       "sku": "I081-T0102EL4",
@@ -341,7 +365,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hff/he3/9782472048670/-IRWIN-I081-T0102EL4-FIX1.jpg",
       "use_template": true,
       "variation_name": "ปากตรง 10 นิ้ว (10R)",
-      "stock": 5703
+      "stock": 5703,
+      "cost_price": 305.0
     },
     {
       "sku": "KT-J019-ARC200D+",
@@ -352,7 +377,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h0c/h4e/9776087105566/-KT-JASIC-KT-J019-ARC200D-.jpg",
       "use_template": true,
       "variation_name": "พร้อมสายเชื่อมครบชุด",
-      "stock": 1422
+      "stock": 1422,
+      "cost_price": 5650.0
     },
     {
       "sku": "M316-0030",
@@ -363,7 +389,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h82/h92/9686805348382/-MARATHON-M316-0030-1.jpg",
       "use_template": true,
       "variation_name": "ชุด 3 ดอก (4-12,20,32)",
-      "stock": 2758
+      "stock": 2758,
+      "cost_price": 150.0
     },
     {
       "sku": "N241-NOVO200",
@@ -374,7 +401,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hbf/hae/10012756246558/-NOVO-N241-NOVO200-1.jpg",
       "use_template": true,
       "variation_name": "พร้อมสายเชื่อมครบชุด",
-      "stock": 626
+      "stock": 626,
+      "cost_price": 2490.0
     },
     {
       "sku": "M011-M8701B",
@@ -385,7 +413,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/ha1/h4d/9680270262302/-MAKITA-M011-M8701B.jpg",
       "use_template": true,
       "variation_name": "3 ระบบ 26 มม. (กล่อง)",
-      "stock": 1021
+      "stock": 1021,
+      "cost_price": 2725.7
     },
     {
       "sku": "P041-2300",
@@ -396,7 +425,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hfa/ha1/10154490429470/-POLO-P041-2300-1.jpg",
       "use_template": true,
       "variation_name": "กำลัง 100W",
-      "stock": 0
+      "stock": 0,
+      "cost_price": 850.0
     },
     {
       "sku": "M011-M0910B",
@@ -407,7 +437,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hdf/h16/9984402751518/-MAKITA-M011-M0910B.jpg",
       "use_template": true,
       "variation_name": "รุ่นสวิตช์ท้าย",
-      "stock": 367
+      "stock": 367,
+      "cost_price": 843.9
     },
     {
       "sku": "M011-M0900B",
@@ -418,7 +449,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h50/hd7/9678354186270/-MAKITA-M011-M0900B-1.jpg",
       "use_template": true,
       "variation_name": "รุ่นสวิตช์สไลด์",
-      "stock": 1983
+      "stock": 1983,
+      "cost_price": 843.9
     },
     {
       "sku": "P171-WARRIOR90",
@@ -429,7 +461,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/he6/h85/9867763908638/-POLO-WASHERS-P171-WARRIOR90-1.jpg",
       "use_template": true,
       "variation_name": "90 บาร์",
-      "stock": 368
+      "stock": 368,
+      "cost_price": 1350.0
     },
     {
       "sku": "P171-WARRIOR101N",
@@ -440,7 +473,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h78/ha1/9867765284894/-POLO-WASHERS-P171-WARRIOR101N-1.jpg",
       "use_template": true,
       "variation_name": "100 บาร์",
-      "stock": 4
+      "stock": 4,
+      "cost_price": 1775.0
     },
     {
       "sku": "P171-RANGER120",
@@ -451,7 +485,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/he4/h06/9867751850014/-POLO-WASHERS-P171-RANGER120-1.jpg",
       "use_template": true,
       "variation_name": "120 บาร์",
-      "stock": 525
+      "stock": 525,
+      "cost_price": 2150.0
     },
     {
       "sku": "P171-COMMANDO135N",
@@ -462,7 +497,8 @@
       "selected_image": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h4e/ha5/9868212043806/-POLO-WASHERS-P171-COMMANDO135N-1.jpg",
       "use_template": true,
       "variation_name": "135 บาร์",
-      "stock": 2476
+      "stock": 2476,
+      "cost_price": 2925.0
     }
   ]
 }

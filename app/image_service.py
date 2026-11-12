@@ -4,10 +4,18 @@ import json
 import time
 import re
 import math
+import functools
 import collections
 import requests
+from requests.adapters import HTTPAdapter
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 
+_IMG_HTTP_SESSION = requests.Session()
+_img_adapter = HTTPAdapter(pool_connections=25, pool_maxsize=25)
+_IMG_HTTP_SESSION.mount("https://", _img_adapter)
+_IMG_HTTP_SESSION.mount("http://", _img_adapter)
+
+@functools.lru_cache(maxsize=256)
 def load_font(name: str, size: int):
     # 1. Project bundled fonts in app/fonts/
     bundled = os.path.join(os.path.dirname(__file__), "fonts", name)
@@ -541,6 +549,65 @@ def get_official_brand_logo(brand_name):
             return c
     return None
 
+_HERO_PRODUCT_CACHE = collections.OrderedDict()
+
+def _get_prepared_hero_product(raw_img_path_or_url, hd_s):
+    """Returns cached (resized_prod, shadow_img, pos_x, pos_y, sh_x, sh_y) so editing cover text re-renders in <0.15s."""
+    cache_key = (str(raw_img_path_or_url).strip(), int(hd_s))
+    if cache_key in _HERO_PRODUCT_CACHE:
+        _HERO_PRODUCT_CACHE.move_to_end(cache_key)
+        return _HERO_PRODUCT_CACHE[cache_key]
+
+    raw_im = fetch_image_safe(raw_img_path_or_url)
+    prod_img = remove_white_bg(raw_im)
+    if not prod_img:
+        return None
+
+    bbox = prod_img.getbbox()
+    if bbox:
+        pad = 4
+        x1 = max(0, bbox[0] - pad)
+        y1 = max(0, bbox[1] - pad)
+        x2 = min(prod_img.width, bbox[2] + pad)
+        y2 = min(prod_img.height, bbox[3] + pad)
+        prod_crop = prod_img.crop((x1, y1, x2, y2))
+    else:
+        prod_crop = prod_img
+
+    cw, ch = prod_crop.size
+    box_left = 368 * hd_s
+    box_right = 1164 * hd_s
+    box_top = 140 * hd_s
+    box_bottom = 985 * hd_s
+
+    box_w = box_right - box_left
+    box_h = box_bottom - box_top
+
+    scale = min(box_w / cw, box_h / ch)
+    tgt_w = int(cw * scale)
+    tgt_h = int(ch * scale)
+
+    pos_x = box_left + (box_w - tgt_w) // 2
+    pos_y = box_top + (box_h - tgt_h) // 2
+
+    resized_prod = resize_hq(prod_crop, (tgt_w, tgt_h))
+    up = max(tgt_w / max(cw, 1), tgt_h / max(ch, 1))
+    adaptive_sharp = 1.0 if up <= 1.0 else max(0.45, 1.2 / up)
+    resized_prod = enhance_product(resized_prod, sharp=adaptive_sharp)
+    shadow_img, sh_x, sh_y = None, 0, 0
+    try:
+        shadow_img, sh_pad = make_contact_shadow(resized_prod)
+        sh_x = pos_x - sh_pad
+        sh_y = pos_y + tgt_h - sh_pad - 2 * hd_s
+    except Exception as e:
+        print(f"Contact shadow skipped: {e}")
+
+    res_tuple = (resized_prod, shadow_img, pos_x, pos_y, sh_x, sh_y)
+    _HERO_PRODUCT_CACHE[cache_key] = res_tuple
+    while len(_HERO_PRODUCT_CACHE) > 25:
+        _HERO_PRODUCT_CACHE.popitem(last=False)
+    return res_tuple
+
 def generate_auto_spec_cover(
     raw_img_path_or_url,
     output_path,
@@ -637,54 +704,16 @@ def generate_auto_spec_cover(
     trust_s1 = str(custom_trust_s1).strip() if (custom_trust_s1 and str(custom_trust_s1).strip()) else defaults.get("trust_s1", "จัดส่งด่วนจากไทย 100%")
     trust_s2 = str(custom_trust_s2).strip() if (custom_trust_s2 and str(custom_trust_s2).strip()) else defaults.get("trust_s2", "สต็อกไทย ได้รับของรวดเร็ว")
 
-    # --- HERO PRODUCT PLACEMENT (Human Designer Logic: Maximum Hero Size, Auto-Cropped, Zero Overlap) ---
-    prod_img = None
+    # --- HERO PRODUCT PLACEMENT (Human Designer Logic: Maximum Hero Size, Auto-Cropped, Zero Overlap, Cached) ---
     try:
-        raw_im = fetch_image_safe(raw_img_path_or_url)
-        prod_img = remove_white_bg(raw_im)
+        hero_layer = _get_prepared_hero_product(raw_img_path_or_url, HD_S)
+        if hero_layer:
+            resized_prod, shadow_img, pos_x, pos_y, sh_x, sh_y = hero_layer
+            if shadow_img is not None:
+                canvas.paste(shadow_img, (sh_x, sh_y), shadow_img)
+            canvas.paste(resized_prod, (pos_x, pos_y), resized_prod)
     except Exception as e:
         print(f"Error loading product image: {e}")
-
-    if prod_img:
-        bbox = prod_img.getbbox()
-        if bbox:
-            pad = 4
-            x1 = max(0, bbox[0] - pad)
-            y1 = max(0, bbox[1] - pad)
-            x2 = min(prod_img.width, bbox[2] + pad)
-            y2 = min(prod_img.height, bbox[3] + pad)
-            prod_crop = prod_img.crop((x1, y1, x2, y2))
-        else:
-            prod_crop = prod_img
-
-        cw, ch = prod_crop.size
-
-        box_left = 368 * HD_S
-        box_right = 1164 * HD_S
-        box_top = 140 * HD_S
-        box_bottom = 985 * HD_S
-
-        box_w = box_right - box_left
-        box_h = box_bottom - box_top
-
-        scale = min(box_w / cw, box_h / ch)
-        tgt_w = int(cw * scale)
-        tgt_h = int(ch * scale)
-
-        pos_x = box_left + (box_w - tgt_w) // 2
-        pos_y = box_top + (box_h - tgt_h) // 2
-
-        resized_prod = resize_hq(prod_crop, (tgt_w, tgt_h))
-        up = max(tgt_w / max(cw, 1), tgt_h / max(ch, 1))
-        adaptive_sharp = 1.0 if up <= 1.0 else max(0.45, 1.2 / up)
-        resized_prod = enhance_product(resized_prod, sharp=adaptive_sharp)
-        try:
-            shadow_img, sh_pad = make_contact_shadow(resized_prod)
-            sh_y = pos_y + tgt_h - sh_pad - 2 * HD_S
-            canvas.paste(shadow_img, (pos_x - sh_pad, sh_y), shadow_img)
-        except Exception as e:
-            print(f"Contact shadow skipped: {e}")
-        canvas.paste(resized_prod, (pos_x, pos_y), resized_prod)
 
     # Official Brand Logo ONLY: Optical Sizing Standard (Auto-Crop + Perceived Visual Weight)
     brand_logo_p = get_official_brand_logo(detected_brand)
@@ -1149,7 +1178,7 @@ def upload_to_cdn(image_path, max_retries=2, force=False):
     for attempt in range(max_retries):
         try:
             with open(image_path, 'rb') as f:
-                r = requests.post(
+                r = _IMG_HTTP_SESSION.post(
                     url,
                     data={'key': api_key, 'action': 'upload', 'format': 'json'},
                     files={'source': f},
@@ -1180,6 +1209,8 @@ BROWSER_HEADERS = {
     'Referer': 'https://shop.ktw.co.th/'
 }
 
+_RAW_IMG_CACHE = collections.OrderedDict()
+
 def fetch_image_safe(url_or_path):
     if not url_or_path:
         raise ValueError("Empty image path or url")
@@ -1190,11 +1221,11 @@ def fetch_image_safe(url_or_path):
         
     # 2. Local static files on disk
     if str(url_or_path).startswith('/static/'):
-        disk_p = f"app{url_or_path}"
+        disk_p = f"app{url_or_path}".split('?')[0]
         if os.path.exists(disk_p):
             return Image.open(disk_p).convert('RGBA')
     elif str(url_or_path).startswith('static/'):
-        disk_p = f"app/{url_or_path}"
+        disk_p = f"app/{url_or_path}".split('?')[0]
         if os.path.exists(disk_p):
             return Image.open(disk_p).convert('RGBA')
     elif os.path.exists(str(url_or_path)):
@@ -1204,14 +1235,23 @@ def fetch_image_safe(url_or_path):
     if str(url_or_path).startswith('/'):
         url_or_path = f"https://shop.ktw.co.th{url_or_path}"
 
-    # 4. Web URLs with robust headers and retries
+    # 4. Web URLs with in-memory LRU cache, connection pooling, and retries
     if str(url_or_path).startswith('http'):
+        cache_key = str(url_or_path).strip()
+        if cache_key in _RAW_IMG_CACHE:
+            _RAW_IMG_CACHE.move_to_end(cache_key)
+            return _RAW_IMG_CACHE[cache_key].copy()
+
         last_err = None
         for attempt in range(2):
             try:
-                resp = requests.get(url_or_path, headers=BROWSER_HEADERS, timeout=15)
+                resp = _IMG_HTTP_SESSION.get(url_or_path, headers=BROWSER_HEADERS, timeout=15)
                 if resp.status_code == 200 and len(resp.content) > 100:
-                    return Image.open(io.BytesIO(resp.content)).convert('RGBA')
+                    im_rgba = Image.open(io.BytesIO(resp.content)).convert('RGBA')
+                    _RAW_IMG_CACHE[cache_key] = im_rgba
+                    while len(_RAW_IMG_CACHE) > 40:
+                        _RAW_IMG_CACHE.popitem(last=False)
+                    return im_rgba.copy()
             except Exception as e:
                 last_err = e
                 time.sleep(0.5)

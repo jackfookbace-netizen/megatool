@@ -937,6 +937,15 @@
                         <!-- Hidden file input for Shopee Excel import -->
                         <input type="file" x-ref="shopeeExcelInput" @change="handleShopeeExcelUpload($event)" accept=".xlsx, .xls" class="hidden">
                         
+                        <!-- Live Sync KTW Stock & Cost Button -->
+                        <button type="button" @click="syncLiveKtwListedNow()" :disabled="syncingKtwLive"
+                                class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                                title="ดึงสต็อกคงเหลือและราคาทุนล่าสุดจากคลัง KTW แบบสดๆ ทันที">
+                            <i data-lucide="refresh-cw" class="w-3.5 h-3.5" x-show="!syncingKtwLive"></i>
+                            <span x-show="syncingKtwLive" class="animate-spin">⏳</span>
+                            <span x-text="syncingKtwLive ? 'กำลังเช็กคลัง KTW...' : '🔄 เช็กสต็อก & ทุน KTW ล่าสุด'"></span>
+                        </button>
+
                         <!-- Sync Titles from Shopee Button -->
                         <button type="button" @click="$refs.shopeeExcelInput.click()" :disabled="syncingShopeeExcel"
                                 class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
@@ -1046,6 +1055,40 @@
                             <span x-text="(getTotalListedNetProfit() >= 0 ? 'กำไรเฉลี่ย +' : 'ขาดทุนเฉลี่ย ') + getTotalListedMarginPercent() + '% เข้ากระเป๋า'"></span>
                         </div>
                     </div>
+                </div>
+
+                <!-- Live Stock & Profit Guard Filter Bar -->
+                <div x-show="listedProducts.length > 0" class="flex flex-wrap items-center justify-between gap-2 bg-white px-4 py-2.5 rounded-2xl border border-slate-200 shadow-2xs text-xs">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="font-bold text-slate-600 mr-1">🛡️ ตัวกรองเฝ้าระวังสต็อก & กำไร:</span>
+                        <button type="button" @click="listedAlertFilter = 'all'"
+                                :class="listedAlertFilter === 'all' ? 'bg-slate-800 text-white shadow-2xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+                                class="px-3 py-1 rounded-xl font-bold transition-all cursor-pointer">
+                            ทั้งหมด (<span x-text="listedProducts.length"></span>)
+                        </button>
+                        <button type="button" @click="listedAlertFilter = 'out_of_stock'"
+                                :class="listedAlertFilter === 'out_of_stock' ? 'bg-rose-600 text-white shadow-2xs' : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'"
+                                class="px-3 py-1 rounded-xl font-bold transition-all cursor-pointer flex items-center space-x-1">
+                            <span>🚨 คลัง KTW หมด 0 ชิ้น</span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px]" :class="listedAlertFilter === 'out_of_stock' ? 'bg-white/20 text-white' : 'bg-rose-200/80 text-rose-900'"
+                                  x-text="listedProducts.filter(i => (parseInt(i.stock) || 0) <= 0).length"></span>
+                        </button>
+                        <button type="button" @click="listedAlertFilter = 'low_stock'"
+                                :class="listedAlertFilter === 'low_stock' ? 'bg-amber-500 text-white shadow-2xs' : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'"
+                                class="px-3 py-1 rounded-xl font-bold transition-all cursor-pointer flex items-center space-x-1">
+                            <span>⚠️ สต็อกใกล้หมด (≤ 5 ชิ้น)</span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px]" :class="listedAlertFilter === 'low_stock' ? 'bg-white/20 text-white' : 'bg-amber-200/80 text-amber-900'"
+                                  x-text="listedProducts.filter(i => (parseInt(i.stock) || 0) > 0 && (parseInt(i.stock) || 0) <= 5).length"></span>
+                        </button>
+                        <button type="button" @click="listedAlertFilter = 'low_margin'"
+                                :class="listedAlertFilter === 'low_margin' ? 'bg-purple-600 text-white shadow-2xs' : 'bg-purple-50 text-purple-800 border border-purple-200 hover:bg-purple-100'"
+                                class="px-3 py-1 rounded-xl font-bold transition-all cursor-pointer flex items-center space-x-1">
+                            <span>📉 กำไรบาง/ขาดทุน (&lt;7% หรือ &lt;30฿)</span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px]" :class="listedAlertFilter === 'low_margin' ? 'bg-white/20 text-white' : 'bg-purple-200/80 text-purple-900'"
+                                  x-text="listedProducts.filter(i => getNetProfit(i) < 30 && parseFloat(getNetProfitMargin(i)) < 7).length"></span>
+                        </button>
+                    </div>
+                    <span x-show="listedAlertFilter !== 'all'" @click="listedAlertFilter = 'all'" class="text-[11px] text-blue-600 hover:underline cursor-pointer font-semibold">ล้างตัวกรอง ✕</span>
                 </div>
 
                 <!-- Listed Products Full Table -->
@@ -2371,16 +2414,29 @@
             <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-5xl xl:max-w-6xl w-full max-h-[94vh] flex flex-col p-4 sm:p-6 relative overflow-hidden"
                  @click.stop>
                 
-                <div class="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
-                    <div class="flex items-center space-x-2">
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100 shrink-0">
+                    <div class="flex items-center space-x-2 flex-wrap gap-y-1">
                         <i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i>
                         <h3 class="text-base font-bold text-slate-800">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                         <span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-bold" x-text="selectedItems.length + ' รายการ'"></span>
-                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.12-c (Ultra-HD 2400p)</span>
+                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.12-d (Turbo + Cloud 100%)</span>
                     </div>
-                    <button @click="showQueueModal = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer" title="ปิดหน้าต่าง">
-                        <i data-lucide="x" class="w-5 h-5"></i>
-                    </button>
+                    <div class="flex items-center space-x-2">
+                        <button type="button" x-show="selectedItems.length > 0"
+                                @click="batchAutoSpecCart()"
+                                :disabled="batchGeneratingAutoSpec"
+                                class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-orange-600 to-rose-600 hover:from-orange-500 hover:to-rose-500 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                                title="สร้างและซิงค์รูปปก Auto-Spec (Ultra-HD 2400x2400px) ให้สินค้าทุกตัวในตะกร้าพร้อมอัปโหลดขึ้น Cloud อัตโนมัติ">
+                            <span x-show="!batchGeneratingAutoSpec">⚡ แต่งปก Auto-Spec ทั้งตะกร้า (1-Click)</span>
+                            <span x-show="batchGeneratingAutoSpec" class="flex items-center space-x-1">
+                                <span class="animate-spin">⏳</span>
+                                <span>กำลังสร้างปก Ultra-HD ทั้งตะกร้า...</span>
+                            </span>
+                        </button>
+                        <button @click="showQueueModal = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer" title="ปิดหน้าต่าง">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="overflow-y-auto flex-1 pr-1 min-h-0 space-y-3 pt-2">
@@ -2551,17 +2607,26 @@
                                     </div>
                                 </div>
 
-                                <!-- ราคาและปุ่มลบ -->
+                                <!-- ราคา กำไรสุทธิ และปุ่มลบ -->
                                 <div class="flex items-center space-x-2.5 shrink-0 self-end sm:self-center pl-2">
-                                    <div class="flex items-center space-x-1.5 bg-orange-50 border border-orange-200 hover:border-orange-400 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-100 rounded-xl px-3 py-1.5 transition-all shadow-2xs" title="คลิกเพื่อแก้ไขราคาขาย (ตารางเปรียบเทียบและ Shopee จะอัปเดตตามราคานี้)">
-                                        <span class="text-xs font-bold text-orange-600 font-mono select-none">฿</span>
-                                        <input type="number" 
-                                               x-model.number="item.price" 
-                                               @input="saveCartToStorage()" 
-                                               step="1"
-                                               min="0"
-                                               class="w-22 sm:w-24 text-xs sm:text-sm font-bold text-orange-600 font-mono bg-transparent outline-none text-right"
-                                               placeholder="ราคาขาย">
+                                    <div class="flex flex-col items-end space-y-1">
+                                        <div class="flex items-center space-x-1.5 bg-orange-50 border border-orange-200 hover:border-orange-400 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-100 rounded-xl px-3 py-1.5 transition-all shadow-2xs" title="คลิกเพื่อแก้ไขราคาขาย (ตารางเปรียบเทียบและ Shopee จะอัปเดตตามราคานี้)">
+                                            <span class="text-xs font-bold text-orange-600 font-mono select-none">฿</span>
+                                            <input type="number" 
+                                                   x-model.number="item.price" 
+                                                   @input="saveCartToStorage()" 
+                                                   step="1"
+                                                   min="0"
+                                                   class="w-22 sm:w-24 text-xs sm:text-sm font-bold text-orange-600 font-mono bg-transparent outline-none text-right"
+                                                   placeholder="ราคาขาย">
+                                        </div>
+                                        <template x-if="(item.cost_price || 0) > 0">
+                                            <div class="text-[10px] font-bold px-2 py-0.5 rounded-md border tabular-nums"
+                                                 :class="getCartItemNetProfit(item) <= 0 ? 'bg-rose-50 text-rose-700 border-rose-200' : (getCartItemNetProfit(item) < 30 && getCartItemMarginPct(item) < 7 ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200')"
+                                                 :title="'ราคาทุน KTW: ฿' + Number(item.cost_price || 0).toLocaleString() + ' | หักค่าธรรมเนียม Shopee ' + shopeeFeePercent + '% แล้ว'">
+                                                <span x-text="getCartItemNetProfit(item) <= 0 ? '⚠️ ขาดทุน ' : 'กำไรสุทธิ: +'"></span><span x-text="'฿' + getCartItemNetProfit(item).toLocaleString() + ' (' + getCartItemMarginPct(item) + '%)'"></span>
+                                            </div>
+                                        </template>
                                     </div>
                                     <button @click="removeItemFromQueue(item.sku)" class="text-slate-300 hover:text-rose-600 p-2 rounded-xl hover:bg-rose-50 transition-all cursor-pointer" title="ลบออกจากตะกร้า">
                                         <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -2776,6 +2841,9 @@
                 coverKtwDetail: null,
                 itemShopeeTitle: '',
                 syncingShopeeExcel: false,
+                syncingKtwLive: false,
+                listedAlertFilter: 'all',
+                batchGeneratingAutoSpec: false,
                 customUseTemplate: true,
                 coverTemplateType: 'auto_spec',
                 userManuallyTurnedOffTemplate: false,
@@ -3860,8 +3928,84 @@ toggleListedSort(field) {
                     this.$nextTick(() => lucide.createIcons());
                 },
 
+                getCartItemNetProfit(item) {
+                    const price = parseFloat(item?.price) || 0;
+                    const cost = parseFloat(item?.cost_price) || 0;
+                    const fee = price * ((parseFloat(this.shopeeFeePercent) || 28) / 100);
+                    return Math.round((price - fee - cost) * 100) / 100;
+                },
+
+                getCartItemMarginPct(item) {
+                    const cost = parseFloat(item?.cost_price) || 0;
+                    if (cost <= 0) return '0.0';
+                    const profit = this.getCartItemNetProfit(item);
+                    return ((profit / cost) * 100).toFixed(1);
+                },
+
+                async syncLiveKtwListedNow() {
+                    if (this.syncingKtwLive) return;
+                    this.syncingKtwLive = true;
+                    try {
+                        const res = await fetch(`/api/listed/sync-now?shop_id=${encodeURIComponent(this.currentShopId)}`, {
+                            method: 'POST'
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (Array.isArray(data.items)) {
+                                this.listedProducts = data.items;
+                                this.listedSkuSet = new Set(this.listedProducts.map(i => i.sku));
+                            }
+                            this.$nextTick(() => lucide.createIcons());
+                        }
+                    } catch (e) {
+                        console.error('Failed to sync KTW live stock:', e);
+                    } finally {
+                        this.syncingKtwLive = false;
+                    }
+                },
+
+                async batchAutoSpecCart() {
+                    if (this.batchGeneratingAutoSpec || this.selectedItems.length === 0) return;
+                    this.batchGeneratingAutoSpec = true;
+                    try {
+                        const res = await fetch('/api/cart/batch-auto-spec', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                shop_id: this.currentShopId,
+                                shop_name: this.currentShopName,
+                                force_regenerate: false
+                            })
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (Array.isArray(data.items) && data.items.length > 0) {
+                                this.selectedItems = data.items;
+                                try {
+                                    localStorage.setItem(this.getCartStorageKey(), JSON.stringify(this.selectedItems));
+                                } catch (e) {}
+                            }
+                            if (data.saved_covers && typeof data.saved_covers === 'object') {
+                                this.savedCoversBySku = { ...this.savedCoversBySku, ...data.saved_covers };
+                            }
+                            this.$nextTick(() => lucide.createIcons());
+                        }
+                    } catch (e) {
+                        console.error('Batch Auto-Spec error:', e);
+                    } finally {
+                        this.batchGeneratingAutoSpec = false;
+                    }
+                },
+
                 getFilteredListedProducts() {
                     let items = [...(this.listedProducts || [])];
+                    if (this.listedAlertFilter === 'out_of_stock') {
+                        items = items.filter(i => (parseInt(i.stock) || 0) <= 0);
+                    } else if (this.listedAlertFilter === 'low_stock') {
+                        items = items.filter(i => (parseInt(i.stock) || 0) > 0 && (parseInt(i.stock) || 0) <= 5);
+                    } else if (this.listedAlertFilter === 'low_margin') {
+                        items = items.filter(i => this.getNetProfit(i) < 30 && parseFloat(this.getNetProfitMargin(i)) < 7);
+                    }
                     if (this.ledgerSearch && this.ledgerSearch.trim()) {
                         const q = this.ledgerSearch.trim().toLowerCase();
                         items = items.filter(item => {

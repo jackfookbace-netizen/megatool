@@ -225,6 +225,23 @@ def api_get_listed(shop_id: Optional[str] = Query("shop_1")):
             item["ktw_url"] = f"https://shop.ktw.co.th/p/{item.get('sku')}"
     return {"items": list(items.values()), "total": len(items), "shop_id": shop_id}
 
+@app.post("/api/listed/sync-now")
+def api_sync_listed_now(shop_id: Optional[str] = Query("shop_1")):
+    items = get_all_listed(shop_id=shop_id or "shop_1", refresh_stock=True, force_sync_blocking=True)
+    items_list = list(items.values())
+    out_of_stock = sum(1 for x in items_list if x.get("stock_alert") == "out_of_stock")
+    low_stock = sum(1 for x in items_list if x.get("stock_alert") == "low_stock")
+    low_margin = sum(1 for x in items_list if x.get("margin_alert") in ("loss", "low"))
+    return {
+        "success": True,
+        "items": items_list,
+        "total": len(items_list),
+        "shop_id": shop_id,
+        "out_of_stock_count": out_of_stock,
+        "low_stock_count": low_stock,
+        "low_margin_count": low_margin
+    }
+
 @app.post("/api/listed")
 def api_save_listed(req: AttachShopeeRequest, request: Request, authorization: Optional[str] = Header(None)):
     user = require_auth(request, authorization)
@@ -302,9 +319,19 @@ def api_get_cart(shop_id: Optional[str] = Query("shop_1")):
     if os.path.exists(cart_file):
         try:
             import json
+            from app.ktw_service import DEALER_MASTER_COSTS
             with open(cart_file, "r", encoding="utf-8") as f:
                 cdata = json.load(f)
-                return {"success": True, "items": cdata.get(shop_id, [])}
+            items = cdata.get(shop_id, [])
+            listed_map = get_all_listed(shop_id=shop_id or "shop_1", refresh_stock=False)
+            for it in items:
+                sku = (it.get("sku") or "").strip()
+                if not it.get("cost_price") or float(it.get("cost_price") or 0) <= 0:
+                    if sku.upper() in DEALER_MASTER_COSTS:
+                        it["cost_price"] = DEALER_MASTER_COSTS[sku.upper()]["cost"]
+                    elif sku in listed_map and listed_map[sku].get("cost_price"):
+                        it["cost_price"] = listed_map[sku]["cost_price"]
+            return {"success": True, "items": items}
         except Exception as e:
             print("Error reading cart.json:", e)
     return {"success": True, "items": []}
@@ -908,6 +935,161 @@ def api_export_progress(task_id: str):
     if not task:
         raise HTTPException(status_code=404, detail="Export task not found")
     return task
+
+class BatchAutoSpecRequest(BaseModel):
+    shop_id: Optional[str] = "shop_1"
+    shop_name: Optional[str] = "MEGATOOL"
+    skus: Optional[List[str]] = None
+    force_regenerate: Optional[bool] = False
+
+@app.post("/api/cart/batch-auto-spec")
+def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
+    """Generates Ultra-HD 2400x2400 Auto-Spec covers for all items in the cart, uploads to CDN, and saves 100% online."""
+    import hashlib
+    from datetime import datetime
+    from concurrent.futures import ThreadPoolExecutor
+    from app.ktw_service import get_product_detail, prefetch_product_details, clean_brand_name, extract_product_images
+    from app.image_service import generate_cover, upload_to_cdn
+
+    sid = req.shop_id or "shop_1"
+    s_name = req.shop_name or ("BIGPOWER TOOLS" if sid == "shop_2" else "MEGATOOL")
+
+    cart_file = "app/data/cart.json"
+    cart_data = {"shop_1": [], "shop_2": []}
+    if os.path.exists(cart_file):
+        try:
+            with open(cart_file, "r", encoding="utf-8") as f:
+                cart_data = json.load(f)
+        except Exception:
+            pass
+    items_list = cart_data.get(sid, [])
+    if not items_list:
+        return {"success": True, "processed": 0, "items": []}
+
+    cust_file = "app/data/cover_customizations.json"
+    cust_db = {}
+    if os.path.exists(cust_file):
+        try:
+            with open(cust_file, "r", encoding="utf-8") as f:
+                cust_db = json.load(f)
+        except Exception:
+            pass
+
+    saved_db = _load_saved_covers_db()
+    target_skus = set(req.skus) if req.skus else {it.get("sku") for it in items_list if it.get("sku")}
+    prefetch_product_details(list(target_skus))
+
+    def _process_cart_item(item):
+        sku = item.get("sku")
+        if not sku or sku not in target_skus:
+            return False
+
+        # If item already has an active saved cover on iili.io and not force_regenerate, reuse it
+        existing_covers = saved_db.get(sku, [])
+        if not req.force_regenerate and existing_covers:
+            top_cov = existing_covers[0]
+            if isinstance(top_cov, dict) and top_cov.get("cdn_url", "").startswith("https://iili.io/"):
+                cdn_u = top_cov["cdn_url"]
+                item["selected_image"] = cdn_u
+                item["image"] = cdn_u
+                item["cdn_url"] = cdn_u
+                item["use_template"] = True
+                item["template_type"] = "auto_spec"
+                return True
+
+        detail = get_product_detail(sku) or {}
+        imgs = extract_product_images(detail)
+        raw_img = imgs[0] if imgs else (item.get("image") or item.get("selected_image") or "")
+        # Ensure we use original KTW photo as source, not an already-framed cover
+        if "iili.io" in str(raw_img) or "/static/covers/" in str(raw_img):
+            if imgs:
+                raw_img = imgs[0]
+        if not raw_img:
+            return False
+
+        brand = item.get("brand") or clean_brand_name(detail.get("manufacturer"), sku)
+        cust = cust_db.get(sku, {})
+        c_model = item.get("custom_model") or cust.get("custom_model")
+        c_cat = item.get("custom_category") or cust.get("custom_category")
+        c_pills = item.get("custom_hero_pills") or cust.get("custom_hero_pills")
+        c_cards = item.get("custom_spec_cards") or cust.get("custom_spec_cards")
+        c_s1 = item.get("custom_trust_s1") or cust.get("custom_trust_s1")
+        c_s2 = item.get("custom_trust_s2") or cust.get("custom_trust_s2")
+        badge = item.get("badge") or "มีสต็อกพร้อมส่งทันที"
+
+        shop_str = re.sub(r'[^a-zA-Z0-9]', '', s_name).lower()[:12] or "megatool"
+        extra_hash = f"{c_model}_{c_cat}_{c_pills}_{c_cards}_{c_s1}_{c_s2}"
+        url_hash = hashlib.md5(f"{raw_img}_{badge}_{s_name}_auto_spec_{extra_hash}".encode('utf-8')).hexdigest()[:8]
+        out_fn = f"{sku}_{shop_str}_auto_spec_{url_hash}_preview.jpg"
+        out_path = f"app/static/covers/{out_fn}"
+        clean_url = f"/static/covers/{out_fn}"
+
+        generate_cover(
+            raw_img,
+            out_path,
+            brand=brand,
+            sku=sku,
+            badge_text=badge,
+            shop_name=s_name,
+            overwrite=True,
+            template_type="auto_spec",
+            custom_model=c_model,
+            custom_category=c_cat,
+            custom_hero_pills=c_pills,
+            custom_spec_cards=c_cards,
+            custom_trust_s1=c_s1,
+            custom_trust_s2=c_s2
+        )
+        cdn_u = upload_to_cdn(out_path, max_retries=2)
+        final_u = cdn_u if (cdn_u and cdn_u.startswith("http")) else clean_url
+
+        entry = {
+            "url": clean_url,
+            "cdn_url": cdn_u,
+            "sku": sku,
+            "image_url": raw_img,
+            "brand": brand,
+            "badge_text": badge,
+            "shop_name": s_name,
+            "template_type": "auto_spec",
+            "specs": {
+                "custom_category": c_cat,
+                "custom_model": c_model,
+                "custom_hero_pills": c_pills,
+                "custom_spec_cards": c_cards,
+                "custom_trust_s1": c_s1,
+                "custom_trust_s2": c_s2
+            },
+            "created_at": datetime.now().isoformat()
+        }
+        if sku not in saved_db:
+            saved_db[sku] = []
+        saved_db[sku] = [c for c in saved_db[sku] if isinstance(c, dict) and c.get("url", "").split("?")[0] != clean_url]
+        saved_db[sku].insert(0, entry)
+        saved_db[sku] = saved_db[sku][:15]
+
+        item["selected_image"] = final_u
+        item["image"] = final_u
+        item["cdn_url"] = cdn_u
+        item["use_template"] = True
+        item["template_type"] = "auto_spec"
+        return True
+
+    processed_count = 0
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        results = list(ex.map(_process_cart_item, items_list))
+        processed_count = sum(1 for r in results if r)
+
+    _save_saved_covers_db(saved_db)
+    with open(cart_file, "w", encoding="utf-8") as f:
+        json.dump(cart_data, f, ensure_ascii=False, indent=2)
+
+    return {
+        "success": True,
+        "processed": processed_count,
+        "items": items_list,
+        "saved_covers": saved_db
+    }
 
 @app.get("/api/stats")
 def api_stats():

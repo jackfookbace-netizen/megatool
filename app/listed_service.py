@@ -59,75 +59,118 @@ def _write_all_raw(data: Dict[str, Dict[str, dict]]):
         json.dump(data, f, ensure_ascii=False, indent=2)
     os.replace(tmp_file, DATA_FILE)
 
-def get_all_listed(shop_id: str = "shop_1", refresh_stock: bool = True) -> Dict[str, dict]:
-    global _LAST_STOCK_REFRESH
+import threading
+
+_SYNC_IN_PROGRESS = False
+_SYNC_LOCK = threading.Lock()
+
+def _enrich_listed_item(item: dict) -> dict:
+    """Computes live net profit, margin percentage, stock alerts, and margin alerts."""
+    price = float(item.get("price") or 0.0)
+    cost = float(item.get("cost_price") or 0.0)
+    stock = int(item.get("stock") or 0)
+    net_after_fee = round(price * 0.72, 2)  # Shopee ~28% fee
+    net_profit = round(net_after_fee - cost, 2) if cost > 0 else 0.0
+    margin_pct = round((net_profit / cost) * 100.0, 1) if cost > 0 else 0.0
+
+    item["net_profit"] = net_profit
+    item["margin_pct"] = margin_pct
+    if stock <= 0:
+        item["stock_alert"] = "out_of_stock"
+    elif stock <= 5:
+        item["stock_alert"] = "low_stock"
+    else:
+        item["stock_alert"] = "ok"
+
+    if cost > 0 and net_profit <= 0:
+        item["margin_alert"] = "loss"
+    elif cost > 0 and (net_profit < 30.0 and margin_pct < 7.0):
+        item["margin_alert"] = "low"
+    else:
+        item["margin_alert"] = "ok"
+    return item
+
+def _sync_live_ktw_stock_and_cost(force_refresh: bool = False):
+    global _LAST_STOCK_REFRESH, _SYNC_IN_PROGRESS
+    with _SYNC_LOCK:
+        if _SYNC_IN_PROGRESS:
+            return
+        _SYNC_IN_PROGRESS = True
+        _LAST_STOCK_REFRESH = time.time()
+
     try:
-        raw_data = _read_all_raw()
-        items = raw_data.get(shop_id, {})
-        
-        now = time.time()
-        needs_save = False
         from app.ktw_service import get_product_detail, clean_brand_name, extract_product_images
-        
-        # 1. Self-healing for incomplete records
-        for sku, item in items.items():
-            if not item.get("image_url") or item.get("brand") == "OTHER" or item.get("name") == sku or not item.get("price"):
-                detail = get_product_detail(sku)
-                if detail:
+        from concurrent.futures import ThreadPoolExecutor
+
+        raw_data = _read_all_raw()
+        all_skus = set()
+        for s_id, s_items in raw_data.items():
+            all_skus.update(s_items.keys())
+        if not all_skus:
+            return
+
+        def _fetch_live(sku):
+            try:
+                return sku, get_product_detail(sku, force_refresh=force_refresh)
+            except Exception:
+                return sku, None
+
+        with ThreadPoolExecutor(max_workers=min(max(len(all_skus), 1), 8)) as executor:
+            results = list(executor.map(_fetch_live, list(all_skus)))
+
+        live_results = {s: d for s, d in results if d}
+        if not live_results:
+            return
+
+        # Re-read latest raw_data before writing to avoid overwriting concurrent edits
+        raw_data = _read_all_raw()
+        needs_save = False
+        for s_id, s_items in raw_data.items():
+            for sku, item in s_items.items():
+                detail = live_results.get(sku)
+                if not detail:
+                    continue
+                if not item.get("image_url") or item.get("brand") == "OTHER" or item.get("name") == sku:
                     item["name"] = detail.get("name") or item.get("name") or sku
                     item["brand"] = clean_brand_name(detail.get("manufacturer"), sku)
                     imgs = extract_product_images(detail)
                     item["image_url"] = imgs[0] if imgs else item.get("image_url", "")
-                    cost_val = detail.get("price", {}).get("value", 0.0) or 0.0
-                    item["cost_price"] = 100.0 if sku == "Z053-0073" else cost_val
-                    item["stock"] = detail.get("stock", {}).get("stockLevel", 0) or 0
-                    if not item.get("price") or item["price"] <= 0:
-                        item["price"] = calculate_shop_price(cost_val, shop_id)
-                    item["ktw_url"] = f"https://shop.ktw.co.th/p/{sku}"
                     needs_save = True
-
-        # 2. Real-time Live Warehouse Stock Sync with KTW (Stock only, NEVER overwrite dealer cost)
-        if refresh_stock and (now - _LAST_STOCK_REFRESH > _STOCK_REFRESH_INTERVAL) and len(items) > 0:
-            _LAST_STOCK_REFRESH = now
-            from concurrent.futures import ThreadPoolExecutor
-
-            def _fetch_live(sku):
-                try:
-                    return sku, get_product_detail(sku)
-                except Exception:
-                    return sku, None
-
-            # Collect all distinct SKUs across ALL shops for efficient batch lookup
-            all_skus = set()
-            for s_id, s_items in raw_data.items():
-                all_skus.update(s_items.keys())
-
-            with ThreadPoolExecutor(max_workers=min(max(len(all_skus), 1), 6)) as executor:
-                results = list(executor.map(_fetch_live, list(all_skus)))
-
-            live_results = {s: d for s, d in results if d}
-            
-            for s_id, s_items in raw_data.items():
-                for sku, item in s_items.items():
-                    detail = live_results.get(sku)
-                    if detail:
-                        live_stock = detail.get("stock", {}).get("stockLevel")
-                        if live_stock is not None and item.get("stock") != live_stock:
-                            item["stock"] = live_stock
-                            needs_save = True
-                        # Dynamic cost sync: if KTW increases price on shop.ktw.co.th, update ALL shops immediately
-                        live_cost = detail.get("price", {}).get("value")
-                        if live_cost and float(live_cost) > 0:
-                            current_cost = float(item.get("cost_price", 0.0) or 0.0)
-                            # If KTW cost increased or was missing, apply new cost across all shops to protect margin
-                            if float(live_cost) > current_cost or current_cost <= 0:
-                                item["cost_price"] = float(live_cost)
-                                needs_save = True
+                live_stock = detail.get("stock", {}).get("stockLevel")
+                if live_stock is not None and item.get("stock") != live_stock:
+                    item["stock"] = live_stock
+                    needs_save = True
+                live_cost = detail.get("price", {}).get("value")
+                if live_cost and float(live_cost) > 0:
+                    current_cost = float(item.get("cost_price", 0.0) or 0.0)
+                    if float(live_cost) > current_cost or current_cost <= 0:
+                        item["cost_price"] = 100.0 if sku == "Z053-0073" else float(live_cost)
+                        needs_save = True
 
         if needs_save:
             _write_all_raw(raw_data)
-            
-        return raw_data.get(shop_id, {})
+    except Exception as e:
+        print("Background KTW stock/cost sync error:", e)
+    finally:
+        with _SYNC_LOCK:
+            _SYNC_IN_PROGRESS = False
+
+def get_all_listed(shop_id: str = "shop_1", refresh_stock: bool = True, force_sync_blocking: bool = False) -> Dict[str, dict]:
+    global _LAST_STOCK_REFRESH
+    try:
+        now = time.time()
+        if force_sync_blocking:
+            _sync_live_ktw_stock_and_cost(force_refresh=True)
+        elif refresh_stock and (now - _LAST_STOCK_REFRESH > _STOCK_REFRESH_INTERVAL):
+            threading.Thread(target=_sync_live_ktw_stock_and_cost, args=(False,), daemon=True).start()
+
+        raw_data = _read_all_raw()
+        items = raw_data.get(shop_id, {})
+        for sku, item in items.items():
+            if not item.get("ktw_url"):
+                item["ktw_url"] = f"https://shop.ktw.co.th/p/{sku}"
+            _enrich_listed_item(item)
+        return items
     except Exception as e:
         print(f"Error reading listed products for {shop_id}:", e)
         return {}

@@ -5,7 +5,7 @@ import re
 import json
 import xml.etree.ElementTree as ET
 from app.image_service import generate_cover, upload_to_cdn
-from app.ktw_service import get_product_detail, clean_brand_name, detect_brand_from_sku, extract_product_images
+from app.ktw_service import get_product_detail, prefetch_product_details, clean_brand_name, detect_brand_from_sku, extract_product_images
 from app.seo_service import build_shopee_seo_title, detect_shopee_category, auto_clean_option_name, get_brand_warranty_info
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -90,6 +90,10 @@ def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_nam
     import hashlib
     import requests
 
+    # Fast path: if already on Cloudflare iili.io CDN (e.g. saved cover or collage), return immediately!
+    if raw_img_url and 'iili.io' in str(raw_img_url):
+        return (img_idx, str(raw_img_url).strip())
+
     is_already_framed = (
         not use_template or 
         'collage_' in str(raw_img_url) or 
@@ -100,9 +104,19 @@ def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_nam
     )
 
     if is_already_framed:
-        # If the file is already a local static file (like /static/covers/collage_...)
+        # If the file is already a local static file (like /static/covers/collage_... or _preview.jpg)
         if '/static/covers/' in str(raw_img_url):
             fname = str(raw_img_url).split('/static/covers/')[-1].split('?')[0]
+            # Check saved_covers.json first for existing cdn_url
+            try:
+                if os.path.exists("app/data/saved_covers.json"):
+                    with open("app/data/saved_covers.json", "r", encoding="utf-8") as sc_f:
+                        sc_db = json.load(sc_f)
+                    for entry in sc_db.get(sku, []):
+                        if isinstance(entry, dict) and fname in str(entry.get("url", "")) and entry.get("cdn_url", "").startswith("http"):
+                            return (img_idx, entry["cdn_url"])
+            except Exception:
+                pass
             local_raw_path = f"app/static/covers/{fname}"
             if os.path.exists(local_raw_path):
                 uploaded_cdn = upload_to_cdn(local_raw_path)
@@ -201,6 +215,12 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
     """
     if not os.path.exists(TEMPLATE_PATH):
         raise FileNotFoundError(f"Template {TEMPLATE_PATH} not found")
+
+    # Prefetch all KTW product details concurrently in one burst
+    try:
+        prefetch_product_details([it.get('sku') for it in (product_items or []) if isinstance(it, dict) and it.get('sku')])
+    except Exception as e_pre:
+        print("Prefetch warning:", e_pre)
 
     with open(TEMPLATE_PATH, 'rb') as f:
         zip_bytes = f.read()

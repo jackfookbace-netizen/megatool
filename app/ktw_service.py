@@ -46,19 +46,31 @@ DEALER_MASTER_COSTS = {
     "P171-COMMANDO135N": {"cost": 2925.0, "suggested": 4149.0, "base_ktw": 4056.8}
 }
 
+import time
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from requests.adapters import HTTPAdapter
+
+_HTTP_SESSION = requests.Session()
+_adapter = HTTPAdapter(pool_connections=25, pool_maxsize=25)
+_HTTP_SESSION.mount("https://", _adapter)
+_HTTP_SESSION.mount("http://", _adapter)
+
 _cached_token = None
+_TOKEN_LOCK = threading.Lock()
 
 def refresh_token():
     global _cached_token
-    try:
-        r = requests.post(AUTH_URL, data=AUTH_DATA, headers=HEADERS_AUTH, timeout=10)
-        if r.status_code == 200:
-            token_json = r.json()
-            _cached_token = token_json.get("access_token", _cached_token)
-            return _cached_token
-    except Exception as e:
-        print("KTW auth token refresh error:", e)
-    return _cached_token
+    with _TOKEN_LOCK:
+        try:
+            r = _HTTP_SESSION.post(AUTH_URL, data=AUTH_DATA, headers=HEADERS_AUTH, timeout=10)
+            if r.status_code == 200:
+                token_json = r.json()
+                _cached_token = token_json.get("access_token", _cached_token)
+                return _cached_token
+        except Exception as e:
+            print("KTW auth token refresh error:", e)
+        return _cached_token
 
 def get_token():
     global _cached_token
@@ -115,30 +127,32 @@ _BESTSELLER_CACHE = {}
 _BESTSELLER_CACHE_EXPIRY = {}
 
 def _get_bestsellers_all(final_query, exclude_spare_parts, in_stock_only):
-    import time
     cache_key = f"{final_query}_{exclude_spare_parts}_{in_stock_only}"
     now = time.time()
     if cache_key in _BESTSELLER_CACHE and now < _BESTSELLER_CACHE_EXPIRY.get(cache_key, 0):
         return _BESTSELLER_CACHE[cache_key]
 
-    headers = get_headers()
-    raw_items = []
-    for p_idx in range(5):
+    get_token()
+
+    def _fetch_page(p_idx):
         url = f"{API_BASE}/products/search?query={urllib.parse.quote(final_query)}&pageSize=100&currentPage={p_idx}"
-        batch = []
         for attempt in range(2):
             try:
-                r = requests.get(url, headers=headers, timeout=15)
+                r = _HTTP_SESSION.get(url, headers=get_headers(), timeout=15)
                 if r.status_code == 401:
                     refresh_token()
-                    headers = get_headers()
-                    r = requests.get(url, headers=headers, timeout=15)
+                    r = _HTTP_SESSION.get(url, headers=get_headers(), timeout=15)
                 if r.status_code == 200:
-                    batch = r.json().get('products', [])
-                    break
+                    return p_idx, r.json().get('products', [])
             except Exception as e:
                 print(f"Error fetching bestsellers batch {p_idx} (attempt {attempt+1}):", e)
-                time.sleep(0.5)
+                time.sleep(0.3)
+        return p_idx, []
+
+    raw_items = []
+    with ThreadPoolExecutor(max_workers=5) as ex:
+        page_results = sorted(ex.map(_fetch_page, range(5)), key=lambda x: x[0])
+    for _, batch in page_results:
         if not batch:
             break
         raw_items.extend(batch)
@@ -252,11 +266,11 @@ def search_products(query="*", brand=None, in_stock_only=False, exclude_spare_pa
     fetch_size = min(page_size * multiplier, 100)
     url = f"{API_BASE}/products/search?query={urllib.parse.quote(final_query)}&pageSize={fetch_size}&currentPage={page}"
     try:
-        r = requests.get(url, headers=headers, timeout=15)
+        r = _HTTP_SESSION.get(url, headers=headers, timeout=15)
         if r.status_code == 401:
             refresh_token()
             headers = get_headers()
-            r = requests.get(url, headers=headers, timeout=15)
+            r = _HTTP_SESSION.get(url, headers=headers, timeout=15)
 
         if r.status_code == 200:
             data = r.json()
@@ -423,15 +437,29 @@ def extract_product_images(detail):
     sorted_items = sorted(candidates.values(), key=sort_key)
     return [x['url'] for x in sorted_items]
 
-def get_product_detail(sku, is_subfetch=False):
+_DETAIL_CACHE = {}
+_DETAIL_CACHE_EXPIRY = {}
+_DETAIL_CACHE_LOCK = threading.Lock()
+_DETAIL_TTL_SECONDS = 600  # 10 minutes fast cache
+
+def get_product_detail(sku, is_subfetch=False, force_refresh=False):
+    if not sku:
+        return None
+    cache_key = f"{str(sku).strip().upper()}_{bool(is_subfetch)}"
+    now = time.time()
+    if not force_refresh:
+        with _DETAIL_CACHE_LOCK:
+            if cache_key in _DETAIL_CACHE and now < _DETAIL_CACHE_EXPIRY.get(cache_key, 0):
+                return _DETAIL_CACHE[cache_key]
+
     headers = get_headers()
     url = f"{API_BASE}/products/{sku}?fields=FULL"
     try:
-        r = requests.get(url, headers=headers, timeout=15)
+        r = _HTTP_SESSION.get(url, headers=headers, timeout=15)
         if r.status_code == 401:
             refresh_token()
             headers = get_headers()
-            r = requests.get(url, headers=headers, timeout=15)
+            r = _HTTP_SESSION.get(url, headers=headers, timeout=15)
         if r.status_code == 200:
             data = r.json()
             data["ktw_url"] = f"https://shop.ktw.co.th/p/{sku}"
@@ -464,7 +492,7 @@ def get_product_detail(sku, is_subfetch=False):
                     data["price"]["wasPrice"] = 100.0
                 if not is_subfetch:
                     try:
-                        d75 = get_product_detail("Z053-0075", is_subfetch=True)
+                        d75 = get_product_detail("Z053-0075", is_subfetch=True, force_refresh=force_refresh)
                         if d75:
                             existing_urls = {im.get('url') for im in data.get('images', [])}
                             for im in d75.get('images', []):
@@ -479,10 +507,29 @@ def get_product_detail(sku, is_subfetch=False):
                     except Exception as e_merge:
                         print("Error merging Z053-0075 images into Z053-0073:", e_merge)
 
+            with _DETAIL_CACHE_LOCK:
+                _DETAIL_CACHE[cache_key] = data
+                _DETAIL_CACHE_EXPIRY[cache_key] = time.time() + _DETAIL_TTL_SECONDS
             return data
     except Exception as e:
         print(f"Error fetching detail {sku}:", e)
     return None
+
+def prefetch_product_details(skus, force_refresh=False):
+    """Fetches product details for a list of SKUs concurrently using ThreadPoolExecutor."""
+    unique_skus = [s for s in dict.fromkeys(skus) if s]
+    if not unique_skus:
+        return {}
+    get_token()
+    results = {}
+    with ThreadPoolExecutor(max_workers=min(len(unique_skus), 8)) as ex:
+        fut_map = {ex.submit(get_product_detail, s, False, force_refresh): s for s in unique_skus}
+        for fut, s in fut_map.items():
+            try:
+                results[s] = fut.result()
+            except Exception:
+                results[s] = None
+    return results
 
 import re
 
