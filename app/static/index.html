@@ -2419,18 +2419,20 @@
                         <i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i>
                         <h3 class="text-base font-bold text-slate-800">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                         <span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-bold" x-text="selectedItems.length + ' รายการ'"></span>
-                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.12-e (Turbo + Cloud 100%)</span>
+                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.12-f (Batch Auto-Spec Fixed)</span>
                     </div>
                     <div class="flex items-center space-x-2">
                         <button type="button" x-show="selectedItems.length > 0"
                                 @click="batchAutoSpecCart()"
                                 :disabled="batchGeneratingAutoSpec"
-                                class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-orange-600 to-rose-600 hover:from-orange-500 hover:to-rose-500 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
-                                title="สร้างและซิงค์รูปปก Auto-Spec (Ultra-HD 2400x2400px) ให้สินค้าทุกตัวในตะกร้าพร้อมอัปโหลดขึ้น Cloud อัตโนมัติ">
-                            <span x-show="!batchGeneratingAutoSpec">⚡ แต่งปก Auto-Spec ทั้งตะกร้า (1-Click)</span>
+                                :class="batchAutoSpecDoneMsg ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-gradient-to-r from-orange-600 to-rose-600 hover:from-orange-500 hover:to-rose-500'"
+                                class="px-3 py-1.5 rounded-xl text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-70"
+                                title="สร้างและซิงค์รูปปก Auto-Spec (Ultra-HD 2400x2400px) ให้สินค้าทุกตัวในตะกร้าและเก็บเข้าช่องรูปปกที่แต่งแล้วของแต่ละชิ้นอัตโนมัติ">
+                            <span x-show="!batchGeneratingAutoSpec && !batchAutoSpecDoneMsg">⚡ แต่งปก Auto-Spec ทั้งตะกร้า (1-Click)</span>
+                            <span x-show="!batchGeneratingAutoSpec && batchAutoSpecDoneMsg" x-text="batchAutoSpecDoneMsg"></span>
                             <span x-show="batchGeneratingAutoSpec" class="flex items-center space-x-1">
                                 <span class="animate-spin">⏳</span>
-                                <span>กำลังสร้างปก Ultra-HD ทั้งตะกร้า...</span>
+                                <span x-text="batchAutoSpecProgress || 'กำลังสร้างปก Ultra-HD ทั้งตะกร้า...'"></span>
                             </span>
                         </button>
                         <button @click="showQueueModal = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer" title="ปิดหน้าต่าง">
@@ -2844,6 +2846,8 @@
                 syncingKtwLive: false,
                 listedAlertFilter: 'all',
                 batchGeneratingAutoSpec: false,
+                batchAutoSpecProgress: '',
+                batchAutoSpecDoneMsg: '',
                 customUseTemplate: true,
                 coverTemplateType: 'auto_spec',
                 userManuallyTurnedOffTemplate: false,
@@ -2965,6 +2969,19 @@
 
                 async fetchCartForShop(shopId) {
                     try {
+                        fetch('/api/saved-covers')
+                            .then(r => r.ok ? r.json() : null)
+                            .then(scData => {
+                                if (scData && scData.saved_covers && typeof scData.saved_covers === 'object') {
+                                    try {
+                                        let cur = JSON.parse(localStorage.getItem('megatool_saved_covers') || '{}');
+                                        cur = { ...cur, ...scData.saved_covers };
+                                        localStorage.setItem('megatool_saved_covers', JSON.stringify(cur));
+                                    } catch (e) {}
+                                }
+                            })
+                            .catch(() => {});
+
                         const res = await fetch(`/api/cart?shop_id=${shopId}`);
                         const data = await res.json();
                         if (data && data.success && Array.isArray(data.items)) {
@@ -2995,7 +3012,7 @@
                     }
                 },
 
-                // Fetch the full image set (all angles) from KTW for cart items that only carry 1 image
+                // Fetch the full image set (all angles) from KTW for cart items without overwriting custom covers
                 async backfillCartImages() {
                     let changed = false;
                     for (const item of (this.selectedItems || [])) {
@@ -3012,14 +3029,21 @@
                             const data = await res.json();
                             const imgs = (data.images || []).filter(u => !this.isCollageDeleted(u));
                             if (imgs.length > 0) {
-                                const cover = item.selected_image || item.image;
-                                const ordered = cover && imgs.includes(cover)
-                                    ? [cover, ...imgs.filter(u => u !== cover)]
-                                    : imgs;
-                                item.all_images = ordered;
-                                item.selected_images = [...ordered];
-                                item.selected_image = ordered[0];
-                                item.image = ordered[0];
+                                const cover = item.cdn_url || item.selected_image || item.image;
+                                const isCustomCover = cover && (cover.includes('iili.io') || cover.includes('/static/covers/') || cover.includes('_preview'));
+                                item.all_images = imgs;
+                                if (isCustomCover) {
+                                    item.selected_image = cover;
+                                    item.image = cover;
+                                    item.selected_images = [cover, ...imgs.filter(u => u !== cover)];
+                                } else {
+                                    const ordered = cover && imgs.includes(cover)
+                                        ? [cover, ...imgs.filter(u => u !== cover)]
+                                        : imgs;
+                                    item.selected_images = [...ordered];
+                                    item.selected_image = ordered[0];
+                                    item.image = ordered[0];
+                                }
                                 item._imgs_filled = true;
                                 changed = true;
                             }
@@ -3945,8 +3969,9 @@ toggleListedSort(field) {
                 async syncLiveKtwListedNow() {
                     if (this.syncingKtwLive) return;
                     this.syncingKtwLive = true;
+                    const shopId = this.activeShopId || 'shop_1';
                     try {
-                        const res = await fetch(`/api/listed/sync-now?shop_id=${encodeURIComponent(this.currentShopId)}`, {
+                        const res = await fetch(`/api/listed/sync-now?shop_id=${encodeURIComponent(shopId)}`, {
                             method: 'POST'
                         });
                         if (res.ok) {
@@ -3967,33 +3992,73 @@ toggleListedSort(field) {
                 async batchAutoSpecCart() {
                     if (this.batchGeneratingAutoSpec || this.selectedItems.length === 0) return;
                     this.batchGeneratingAutoSpec = true;
+                    this.batchAutoSpecDoneMsg = '';
+                    const shopId = this.activeShopId || 'shop_1';
+                    const shopName = (this.currentShop && this.currentShop.brand_display) || (shopId === 'shop_2' ? 'BigPower Tools' : 'MEGATOOL');
+                    const allSkus = this.selectedItems.map(i => i.sku).filter(Boolean);
+                    const total = allSkus.length;
+                    const chunkSize = 3;
+
                     try {
-                        const res = await fetch('/api/cart/batch-auto-spec', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                shop_id: this.currentShopId,
-                                shop_name: this.currentShopName,
-                                force_regenerate: false
-                            })
-                        });
-                        if (res.ok) {
-                            const data = await res.json();
-                            if (Array.isArray(data.items) && data.items.length > 0) {
-                                this.selectedItems = data.items;
-                                try {
-                                    localStorage.setItem(this.getCartStorageKey(), JSON.stringify(this.selectedItems));
-                                } catch (e) {}
+                        for (let i = 0; i < total; i += chunkSize) {
+                            const chunkSkus = allSkus.slice(i, i + chunkSize);
+                            this.batchAutoSpecProgress = `กำลังแต่งปก Ultra-HD (${Math.min(i + chunkSize, total)} / ${total})...`;
+                            const res = await fetch('/api/cart/batch-auto-spec', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    shop_id: shopId,
+                                    shop_name: shopName,
+                                    skus: chunkSkus,
+                                    items: i === 0 ? this.selectedItems : undefined,
+                                    force_regenerate: false
+                                })
+                            });
+                            if (res.ok) {
+                                const data = await res.json();
+                                if (Array.isArray(data.items) && data.items.length > 0) {
+                                    const updatedMap = {};
+                                    for (const uIt of data.items) {
+                                        if (uIt && uIt.sku) updatedMap[uIt.sku] = uIt;
+                                    }
+                                    this.selectedItems = this.selectedItems.map(cur => {
+                                        const up = updatedMap[cur.sku];
+                                        if (up && (up.cdn_url || up.selected_image)) {
+                                            const cov = up.cdn_url || up.selected_image;
+                                            return {
+                                                ...cur,
+                                                cdn_url: up.cdn_url || cur.cdn_url,
+                                                selected_image: cov,
+                                                image: cov,
+                                                use_template: true,
+                                                template_type: 'auto_spec'
+                                            };
+                                        }
+                                        return cur;
+                                    });
+                                    try {
+                                        localStorage.setItem('megatool_selected_items', JSON.stringify(this.selectedItems));
+                                        localStorage.setItem(`cart_${shopId}`, JSON.stringify(this.selectedItems));
+                                    } catch (e) {}
+                                }
+                                if (data.saved_covers && typeof data.saved_covers === 'object') {
+                                    try {
+                                        let allSaved = JSON.parse(localStorage.getItem('megatool_saved_covers') || '{}');
+                                        allSaved = { ...allSaved, ...data.saved_covers };
+                                        localStorage.setItem('megatool_saved_covers', JSON.stringify(allSaved));
+                                    } catch (e) {}
+                                }
                             }
-                            if (data.saved_covers && typeof data.saved_covers === 'object') {
-                                this.savedCoversBySku = { ...this.savedCoversBySku, ...data.saved_covers };
-                            }
-                            this.$nextTick(() => lucide.createIcons());
                         }
+                        this.saveCartToStorage();
+                        this.batchAutoSpecDoneMsg = `✅ แต่งปกและบันทึกครบ ${total} รายการแล้ว!`;
+                        setTimeout(() => { this.batchAutoSpecDoneMsg = ''; }, 5000);
+                        this.$nextTick(() => lucide.createIcons());
                     } catch (e) {
                         console.error('Batch Auto-Spec error:', e);
                     } finally {
                         this.batchGeneratingAutoSpec = false;
+                        this.batchAutoSpecProgress = '';
                     }
                 },
 
@@ -4529,8 +4594,8 @@ toggleListedSort(field) {
                     } catch (e) {}
 
                     // Determine initial cover image: check cartItem or saved covers
-                    const cartCover = cartItem && cartItem.selected_image;
-                    const isCustomCartCover = cartCover && (cartCover.includes('/static/covers/') || cartCover.includes('_preview'));
+                    const cartCover = cartItem && (cartItem.cdn_url || cartItem.selected_image);
+                    const isCustomCartCover = cartCover && (cartCover.includes('iili.io') || cartCover.includes('/static/covers/') || cartCover.includes('_preview'));
                     if (isCustomCartCover) {
                         this.renderedCoverUrl = cartCover;
                         this.activeCustomCoverUrl = cartCover;

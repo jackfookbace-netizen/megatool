@@ -1,5 +1,7 @@
 import os
 import sys
+import json
+import re
 import threading
 import uuid
 import time
@@ -549,6 +551,11 @@ class SaveCoverRequest(BaseModel):
     image_url: Optional[str] = None
     specs: Optional[Dict[str, Any]] = None
 
+@app.get("/api/saved-covers")
+def api_get_all_saved_covers():
+    db = _load_saved_covers_db()
+    return {"success": True, "saved_covers": db}
+
 @app.get("/api/saved-covers/{sku}")
 def api_get_saved_covers(sku: str):
     db = _load_saved_covers_db()
@@ -940,6 +947,7 @@ class BatchAutoSpecRequest(BaseModel):
     shop_id: Optional[str] = "shop_1"
     shop_name: Optional[str] = "MEGATOOL"
     skus: Optional[List[str]] = None
+    items: Optional[List[dict]] = None
     force_regenerate: Optional[bool] = False
 
 @app.post("/api/cart/batch-auto-spec")
@@ -949,7 +957,7 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
     from datetime import datetime
     from concurrent.futures import ThreadPoolExecutor
     from app.ktw_service import get_product_detail, prefetch_product_details, clean_brand_name, extract_product_images
-    from app.image_service import generate_cover, upload_to_cdn
+    from app.image_service import generate_cover, upload_to_cdn, get_auto_cover_defaults
 
     sid = req.shop_id or "shop_1"
     s_name = req.shop_name or ("BIGPOWER TOOLS" if sid == "shop_2" else "MEGATOOL")
@@ -960,11 +968,15 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
         try:
             with open(cart_file, "r", encoding="utf-8") as f:
                 cart_data = json.load(f)
-        except Exception:
-            pass
+        except Exception as e:
+            print("Error loading cart.json in batch-auto-spec:", e)
+
+    if req.items and isinstance(req.items, list) and len(req.items) > 0:
+        cart_data[sid] = req.items
+
     items_list = cart_data.get(sid, [])
     if not items_list:
-        return {"success": True, "processed": 0, "items": []}
+        return {"success": True, "processed": 0, "items": [], "saved_covers": _load_saved_covers_db()}
 
     cust_file = "app/data/cover_customizations.json"
     cust_db = {}
@@ -978,6 +990,7 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
     saved_db = _load_saved_covers_db()
     target_skus = set(req.skus) if req.skus else {it.get("sku") for it in items_list if it.get("sku")}
     prefetch_product_details(list(target_skus))
+    db_lock = threading.Lock()
 
     def _process_cart_item(item):
         sku = item.get("sku")
@@ -985,10 +998,11 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
             return False
 
         # If item already has an active saved cover on iili.io and not force_regenerate, reuse it
-        existing_covers = saved_db.get(sku, [])
+        with db_lock:
+            existing_covers = saved_db.get(sku, [])
         if not req.force_regenerate and existing_covers:
             top_cov = existing_covers[0]
-            if isinstance(top_cov, dict) and top_cov.get("cdn_url", "").startswith("https://iili.io/"):
+            if isinstance(top_cov, dict) and (top_cov.get("cdn_url") or "").startswith("https://iili.io/"):
                 cdn_u = top_cov["cdn_url"]
                 item["selected_image"] = cdn_u
                 item["image"] = cdn_u
@@ -1008,13 +1022,14 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
             return False
 
         brand = item.get("brand") or clean_brand_name(detail.get("manufacturer"), sku)
+        defaults = get_auto_cover_defaults(sku, detail=detail, shop_name=s_name)
         cust = cust_db.get(sku, {})
-        c_model = item.get("custom_model") or cust.get("custom_model")
-        c_cat = item.get("custom_category") or cust.get("custom_category")
-        c_pills = item.get("custom_hero_pills") or cust.get("custom_hero_pills")
-        c_cards = item.get("custom_spec_cards") or cust.get("custom_spec_cards")
-        c_s1 = item.get("custom_trust_s1") or cust.get("custom_trust_s1")
-        c_s2 = item.get("custom_trust_s2") or cust.get("custom_trust_s2")
+        c_model = item.get("custom_model") or cust.get("custom_model") or defaults.get("model_name")
+        c_cat = item.get("custom_category") or cust.get("custom_category") or defaults.get("category_title")
+        c_pills = item.get("custom_hero_pills") or cust.get("custom_hero_pills") or defaults.get("hero_pills")
+        c_cards = item.get("custom_spec_cards") or cust.get("custom_spec_cards") or defaults.get("spec_cards")
+        c_s1 = item.get("custom_trust_s1") or cust.get("custom_trust_s1") or defaults.get("trust_s1")
+        c_s2 = item.get("custom_trust_s2") or cust.get("custom_trust_s2") or defaults.get("trust_s2")
         badge = item.get("badge") or "มีสต็อกพร้อมส่งทันที"
 
         shop_str = re.sub(r'[^a-zA-Z0-9]', '', s_name).lower()[:12] or "megatool"
@@ -1062,11 +1077,12 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
             },
             "created_at": datetime.now().isoformat()
         }
-        if sku not in saved_db:
-            saved_db[sku] = []
-        saved_db[sku] = [c for c in saved_db[sku] if isinstance(c, dict) and c.get("url", "").split("?")[0] != clean_url]
-        saved_db[sku].insert(0, entry)
-        saved_db[sku] = saved_db[sku][:15]
+        with db_lock:
+            if sku not in saved_db:
+                saved_db[sku] = []
+            saved_db[sku] = [c for c in saved_db[sku] if isinstance(c, dict) and c.get("url", "").split("?")[0] != clean_url]
+            saved_db[sku].insert(0, entry)
+            saved_db[sku] = saved_db[sku][:15]
 
         item["selected_image"] = final_u
         item["image"] = final_u
