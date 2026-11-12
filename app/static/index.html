@@ -1806,23 +1806,23 @@
                     <!-- Image Area -->
                     <div class="md:col-span-7 flex flex-col items-center">
                         <div @click="openImageLightbox(renderedCoverUrl || (activePreviewItem?.all_images?.[selectedImageIndex] || activePreviewItem?.image))"
-                             class="w-full max-h-72 sm:max-h-80 aspect-square bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center relative shadow-inner cursor-zoom-in group transition-all hover:border-blue-400 hover:shadow-md"
-                             title="คลิกเพื่อดูภาพขนาดใหญ่ (Zoom Preview)">
-                            <img x-show="renderedCoverUrl" :src="renderedCoverUrl" class="max-h-full max-w-full object-contain transition-transform duration-200 group-hover:scale-[1.02]">
-                            <img x-show="!renderedCoverUrl" :src="activePreviewItem?.all_images?.[selectedImageIndex] || activePreviewItem?.image" class="max-h-full max-w-full object-contain transition-transform duration-200 group-hover:scale-[1.02]">
+                             class="w-full max-h-80 sm:max-h-[440px] aspect-square bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center relative shadow-inner cursor-zoom-in group transition-colors hover:border-blue-400 hover:shadow-md"
+                             title="คลิกเพื่อดูภาพขนาดใหญ่ (Ultra-HD 2400x2400px)">
+                            <img x-show="renderedCoverUrl" :src="renderedCoverUrl" class="max-h-full max-w-full object-contain" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;">
+                            <img x-show="!renderedCoverUrl" :src="activePreviewItem?.all_images?.[selectedImageIndex] || activePreviewItem?.image" class="max-h-full max-w-full object-contain" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;">
                             
                             <!-- Hover Action Pills: Download & Zoom -->
                             <div class="absolute bottom-3 right-3 flex items-center space-x-1.5 z-10">
                                 <button type="button"
                                         @click.stop="downloadCurrentImage()"
                                         class="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-lg backdrop-blur-sm transition-all flex items-center space-x-1 cursor-pointer"
-                                        title="ดาวน์โหลดรูปนี้ขนาดเต็ม 1200x1200px">
+                                        title="ดาวน์โหลดรูปนี้ขนาดเต็ม Ultra-HD 2400x2400px">
                                     <i data-lucide="download" class="w-3.5 h-3.5"></i>
                                     <span>ดาวน์โหลด</span>
                                 </button>
                                 <div class="bg-slate-900/80 hover:bg-slate-900 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-lg backdrop-blur-sm opacity-90 group-hover:opacity-100 transition-opacity flex items-center space-x-1.5 pointer-events-none">
                                     <i data-lucide="maximize-2" class="w-3.5 h-3.5"></i>
-                                    <span>คลิกดูรูปใหญ่</span>
+                                    <span>คลิกดูรูปใหญ่ (Ultra-HD)</span>
                                 </div>
                             </div>
 
@@ -2376,7 +2376,7 @@
                         <i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i>
                         <h3 class="text-base font-bold text-slate-800">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                         <span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-bold" x-text="selectedItems.length + ' รายการ'"></span>
-                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.12-b (Online 100%)</span>
+                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.12-c (Ultra-HD 2400p)</span>
                     </div>
                     <button @click="showQueueModal = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer" title="ปิดหน้าต่าง">
                         <i data-lucide="x" class="w-5 h-5"></i>
@@ -2660,30 +2660,39 @@
              x-transition:leave-start="opacity-100 scale-100"
              x-transition:leave-end="opacity-0 scale-95"
              class="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-3 sm:p-6"
-             @keydown.escape.window="showImageLightbox = false"
-             @click="showImageLightbox = false"
+             @keydown.escape.window="showImageLightbox = false; lightboxZoomed = false"
+             @click="showImageLightbox = false; lightboxZoomed = false"
              x-cloak>
-            <div class="relative max-w-5xl max-h-[92vh] flex flex-col items-center justify-center" @click.stop>
+            <div class="relative max-w-6xl max-h-[94vh] flex flex-col items-center justify-center" @click.stop>
                 <!-- Close Button -->
-                <button @click="showImageLightbox = false" 
+                <button @click="showImageLightbox = false; lightboxZoomed = false" 
                         class="absolute -top-12 right-0 bg-white/10 hover:bg-white/25 text-white rounded-full p-2 transition-colors cursor-pointer border border-white/20 shadow-lg"
                         title="ปิด (Esc)">
                     <i data-lucide="x" class="w-6 h-6"></i>
                 </button>
-                <!-- Big High-Res Image -->
-                <div class="bg-white rounded-2xl p-2 sm:p-3 shadow-2xl overflow-hidden max-h-[85vh] max-w-[88vw] flex items-center justify-center border border-white/10">
+                <!-- Big High-Res Image (Click to Toggle 1:1 Ultra-HD Zoom) -->
+                <div class="bg-white rounded-2xl p-2 sm:p-3 shadow-2xl max-h-[85vh] max-w-[92vw] flex items-center justify-center border border-white/10"
+                     :class="lightboxZoomed ? 'overflow-auto items-start justify-start cursor-zoom-out' : 'overflow-hidden cursor-zoom-in'"
+                     @click="lightboxZoomed = !lightboxZoomed"
+                     title="คลิกที่รูปเพื่อสลับซูมดูรายละเอียดตัวอักษรขนาดจริง (2400x2400px)">
                     <img :src="lightboxImageUrl" 
-                         class="max-h-[80vh] max-w-[85vw] object-contain rounded-xl select-none"
+                         :class="lightboxZoomed ? 'w-[1400px] max-w-none h-auto select-none' : 'max-h-[81vh] max-w-[88vw] object-contain rounded-xl select-none'"
+                         style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;"
                          alt="รูปขยายขนาดใหญ่">
                 </div>
                 <div class="mt-3 flex flex-wrap items-center justify-center gap-3">
                     <button type="button"
+                            @click="lightboxZoomed = !lightboxZoomed"
+                            class="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-lg flex items-center space-x-1.5 transition-all cursor-pointer">
+                        <span x-text="lightboxZoomed ? '🔍 ย่อพอดีหน้าจอ' : '🔍 ซูมขยายดูตัวอักษรชัดๆ (Ultra-HD)'"></span>
+                    </button>
+                    <button type="button"
                             @click="downloadCurrentImage(lightboxImageUrl)"
                             class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg flex items-center space-x-1.5 transition-all cursor-pointer">
                         <i data-lucide="download" class="w-4 h-4"></i>
-                        <span>📥 ดาวน์โหลดรูปภาพขนาดเต็ม (1200x1200px)</span>
+                        <span>📥 ดาวน์โหลดรูปภาพขนาดเต็ม (Ultra-HD 2400x2400px)</span>
                     </button>
-                    <span class="bg-white/10 text-white/80 text-xs px-3 py-1.5 rounded-xl border border-white/15">💡 กดปุ่ม Esc หรือคลิกพื้นที่ว่างเพื่อปิด</span>
+                    <span class="bg-white/10 text-white/80 text-xs px-3 py-1.5 rounded-xl border border-white/15">💡 คลิกที่รูปเพื่อซูม หรือกด Esc เพื่อปิด</span>
                 </div>
             </div>
         </div>
@@ -2744,6 +2753,7 @@
                 showPreviewModal: false,
                 showImageLightbox: false,
                 lightboxImageUrl: null,
+                lightboxZoomed: false,
                 activePreviewItem: null,
                 selectedImageIndex: 0,
                 excludedImageIndices: [],
@@ -5200,6 +5210,7 @@ toggleListedSort(field) {
                 openImageLightbox(url) {
                     if (!url) return;
                     this.lightboxImageUrl = url;
+                    this.lightboxZoomed = false;
                     this.showImageLightbox = true;
                     this.$nextTick(() => {
                         if (window.lucide) lucide.createIcons();
@@ -5210,7 +5221,7 @@ toggleListedSort(field) {
                     const url = targetUrl || this.renderedCoverUrl || (this.activePreviewItem?.all_images?.[this.selectedImageIndex] || this.activePreviewItem?.image);
                     if (!url) return;
                     const sku = (this.activePreviewItem?.sku || this.activePreviewItem?.code || 'shopee_cover').replace(/[^a-zA-Z0-9_-]/g, '_');
-                    const filename = `${sku}_cover_1200x1200.jpg`;
+                    const filename = `${sku}_cover_2400x2400.jpg`;
                     try {
                         const a = document.createElement('a');
                         a.href = url;

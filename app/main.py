@@ -628,8 +628,23 @@ def api_preview_cover(req: PreviewRequest):
             if req.sku not in db:
                 db[req.sku] = []
             clean_url = f"/static/covers/{output_filename}"
-            exists = any((c.get("url") if isinstance(c, dict) else str(c)).split("?")[0] == clean_url for c in db[req.sku])
-            if not exists:
+            existing_entry = next((c for c in db[req.sku] if isinstance(c, dict) and c.get("url", "").split("?")[0] == clean_url), None)
+            if existing_entry:
+                existing_entry["image_url"] = req.image_url
+                existing_entry["brand"] = brand
+                existing_entry["badge_text"] = req.badge_text
+                existing_entry["shop_name"] = req.shop_name or "MEGATOOL"
+                existing_entry["template_type"] = tmpl_type
+                existing_entry["specs"] = {
+                    "custom_category": req.custom_category,
+                    "custom_model": req.custom_model,
+                    "custom_hero_pills": req.custom_hero_pills,
+                    "custom_spec_cards": req.custom_spec_cards,
+                    "custom_trust_s1": req.custom_trust_s1,
+                    "custom_trust_s2": req.custom_trust_s2
+                }
+                existing_entry["created_at"] = datetime.now().isoformat()
+            else:
                 new_cover_entry = {
                     "url": clean_url,
                     "cdn_url": None,
@@ -651,46 +666,46 @@ def api_preview_cover(req: PreviewRequest):
                 }
                 db[req.sku].insert(0, new_cover_entry)
                 db[req.sku] = db[req.sku][:15]
-                _save_saved_covers_db(db)
+            _save_saved_covers_db(db)
 
-                # Auto-save customizations to app/data/cover_customizations.json
+            # Auto-save customizations to app/data/cover_customizations.json
+            try:
+                cust_file = "app/data/cover_customizations.json"
+                cust_data = {}
+                if os.path.exists(cust_file):
+                    with open(cust_file, "r", encoding="utf-8") as f:
+                        cust_data = json.load(f)
+                cust_data[req.sku] = {
+                    "custom_model": req.custom_model,
+                    "custom_category": req.custom_category,
+                    "custom_hero_pills": req.custom_hero_pills,
+                    "custom_spec_cards": req.custom_spec_cards,
+                    "custom_trust_s1": req.custom_trust_s1,
+                    "custom_trust_s2": req.custom_trust_s2,
+                    "updated_at": int(time.time())
+                }
+                with open(cust_file, "w", encoding="utf-8") as f:
+                    json.dump(cust_data, f, ensure_ascii=False, indent=2)
+            except Exception as ce:
+                print("Auto-save cover_customizations error:", ce)
+
+            # Background CDN upload so the cover has a permanent global URL
+            def bg_upload_cover(target_file, target_sku, target_clean_url):
                 try:
-                    cust_file = "app/data/cover_customizations.json"
-                    cust_data = {}
-                    if os.path.exists(cust_file):
-                        with open(cust_file, "r", encoding="utf-8") as f:
-                            cust_data = json.load(f)
-                    cust_data[req.sku] = {
-                        "custom_model": req.custom_model,
-                        "custom_category": req.custom_category,
-                        "custom_hero_pills": req.custom_hero_pills,
-                        "custom_spec_cards": req.custom_spec_cards,
-                        "custom_trust_s1": req.custom_trust_s1,
-                        "custom_trust_s2": req.custom_trust_s2,
-                        "updated_at": int(time.time())
-                    }
-                    with open(cust_file, "w", encoding="utf-8") as f:
-                        json.dump(cust_data, f, ensure_ascii=False, indent=2)
-                except Exception as ce:
-                    print("Auto-save cover_customizations error:", ce)
+                    from app.image_service import upload_to_cdn
+                    cdn_res = upload_to_cdn(target_file, force=True)
+                    if cdn_res and cdn_res.startswith("http"):
+                        cur_db = _load_saved_covers_db()
+                        if target_sku in cur_db:
+                            for it in cur_db[target_sku]:
+                                if isinstance(it, dict) and it.get("url", "").split("?")[0] == target_clean_url:
+                                    it["cdn_url"] = cdn_res
+                                    break
+                            _save_saved_covers_db(cur_db)
+                except Exception as ex:
+                    print("Background CDN upload error:", ex)
 
-                # Background CDN upload so the cover has a permanent global URL
-                def bg_upload_cover(target_file, target_sku, target_clean_url):
-                    try:
-                        from app.image_service import upload_to_cdn
-                        cdn_res = upload_to_cdn(target_file)
-                        if cdn_res and cdn_res.startswith("http"):
-                            cur_db = _load_saved_covers_db()
-                            if target_sku in cur_db:
-                                for it in cur_db[target_sku]:
-                                    if isinstance(it, dict) and it.get("url", "").split("?")[0] == target_clean_url:
-                                        it["cdn_url"] = cdn_res
-                                        break
-                                _save_saved_covers_db(cur_db)
-                    except Exception as ex:
-                        print("Background CDN upload error:", ex)
-
-                threading.Thread(target=bg_upload_cover, args=(output_path, req.sku, clean_url), daemon=True).start()
+            threading.Thread(target=bg_upload_cover, args=(output_path, req.sku, clean_url), daemon=True).start()
         except Exception as e:
             print("Auto-save cover failed:", e)
 

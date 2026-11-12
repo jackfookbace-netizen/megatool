@@ -84,35 +84,56 @@ PROMPT_FILES = {
 }
 
 
+def _text_alpha_curve(p):
+    """Razor-sharp S-curve for text edges: eliminates outer blur halo (<38 -> 0) and solidifies stroke core (>188 -> 255)."""
+    if p < 38:
+        return 0
+    if p > 188:
+        return 255
+    t = (p - 38.0) / (188.0 - 38.0)
+    v = t * t * (3.0 - 2.0 * t)
+    return int(255 * (v ** 0.78))
+
+
+_TEXT_LUT = [_text_alpha_curve(i) for i in range(256)]
+
+
 def measure_hq(text, weight="semibold", size=30):
-    """Width in px of text rendered with the Prompt font (same on Windows & Linux)."""
-    f = load_font(PROMPT_FILES[weight], size * 4)
+    """Width in logical 1200p px of text rendered with the Prompt font (same on Windows & Linux)."""
+    f = load_font(PROMPT_FILES[weight], int(round(size * 4)))
     return f.getlength(text) / 4.0
 
 
 def draw_hq(canvas, text, x, baseline, weight="semibold", size=30, color=(0, 0, 0)):
-    """Draw Thai/Latin text with the Prompt font: 4x supersampled, LANCZOS downsample, solid alpha curve.
-    (x, baseline) = left edge and text baseline in canvas pixels. Returns rendered width."""
+    """Draw Thai/Latin text with the Prompt font: Ultra-HD supersampled + UnsharpMask + Steep S-Curve LUT.
+    (x, baseline, size) are in logical 1200p coordinates and automatically scale to canvas resolution (e.g. 2400x2400)."""
     if not text:
         return 0
-    S = 4
-    f = load_font(PROMPT_FILES[weight], size * S)
+    hd_scale = canvas.width / 1200.0
+    real_x = x * hd_scale
+    real_baseline = baseline * hd_scale
+    real_size = max(8, int(round(size * hd_scale)))
+
+    S = 3 if hd_scale >= 2.0 else 4
+    f = load_font(PROMPT_FILES[weight], real_size * S)
     stripped_t, _mk = _thai_split_stacked(text)
     bb = f.getbbox(stripped_t, anchor="ls")
     if _mk:
-        bb = (bb[0], min(bb[1], bb[1] - int(size * 0.3 * S)), bb[2], bb[3])
-    pad = 6
+        bb = (bb[0], min(bb[1], bb[1] - int(real_size * 0.35 * S)), bb[2], bb[3])
+    pad = 8
     ox = ((-bb[0]) // S + pad + 1) * S
     oy = ((-bb[1]) // S + pad + 1) * S
     w = ox + (bb[2] // S + pad + 2) * S
     h = oy + (bb[3] // S + pad + 2) * S
     layer = Image.new("L", (w, h), 0)
     _draw_thai_text(ImageDraw.Draw(layer), (ox, oy), text, f, 255, anchor="ls")
-    a = layer.resize((w // S, h // S), Image.Resampling.LANCZOS).point(_TEXT_LUT)
+    down = layer.resize((w // S, h // S), Image.Resampling.BICUBIC)
+    down = down.filter(ImageFilter.UnsharpMask(radius=0.65, percent=155, threshold=2))
+    a = down.point(_TEXT_LUT)
     tl = Image.new("RGBA", a.size, (color[0], color[1], color[2], 0))
     tl.putalpha(a)
-    canvas.paste(tl, (int(x) - ox // S, int(baseline) - oy // S), tl)
-    return f.getlength(text) / S
+    canvas.paste(tl, (int(round(real_x)) - ox // S, int(round(real_baseline)) - oy // S), tl)
+    return (f.getlength(text) / S) / hd_scale
 
 
 def fit_hq(text, weight, max_size, min_size, max_w):
@@ -137,18 +158,6 @@ def split_two_lines(text):
 
 
 TEXT_SS = 4  # text supersampling factor (render at 4x then downsample => razor-sharp edges)
-
-
-def _text_alpha_curve(p):
-    """Alpha curve for text edges: removes faint fringe, makes strokes solid and dark (no washed-out look)."""
-    if p < 6:
-        return 0
-    if p > 200:
-        return 255
-    return int(255 * ((p - 6) / (200 - 6)) ** 0.72)
-
-
-_TEXT_LUT = [_text_alpha_curve(i) for i in range(256)]
 
 
 def draw_razor_thai(canvas, text, x, y, font_name="Leelawadee UI", font_size=44, bold=True, color=(0, 0, 0)):
@@ -373,24 +382,120 @@ def make_contact_shadow(prod_rgba, opacity=0.30):
     return shadow, pad
 
 
-def draw_smooth_hexagon(canvas, cx, cy, radius, fill_color):
-    hex_img = Image.new('RGBA', (radius * 4, radius * 4), (0, 0, 0, 0))
-    d_hex = ImageDraw.Draw(hex_img)
+def draw_aa_rounded_rect(canvas, box, radius, fill=None, outline=None, width=1):
+    """Anti-aliased 4x supersampled rounded rectangle. Scales coordinates automatically with canvas resolution."""
+    hd_scale = canvas.width / 1200.0
+    x0 = int(round(box[0] * hd_scale))
+    y0 = int(round(box[1] * hd_scale))
+    x1 = int(round(box[2] * hd_scale))
+    y1 = int(round(box[3] * hd_scale))
+    w = x1 - x0
+    h = y1 - y0
+    if w <= 0 or h <= 0:
+        return
+    S = 3 if hd_scale >= 2.0 else 4
+    pad = 4
+    im = Image.new('RGBA', ((w + pad * 2) * S, (h + pad * 2) * S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    r_px = int(round(radius * hd_scale * S))
+    w_px = int(round(width * hd_scale * S)) if outline else 0
+    d.rounded_rectangle(
+        [pad * S, pad * S, (pad + w) * S - 1, (pad + h) * S - 1],
+        radius=r_px,
+        fill=fill,
+        outline=outline,
+        width=w_px
+    )
+    down = im.resize((w + pad * 2, h + pad * 2), Image.Resampling.LANCZOS)
+    canvas.paste(down, (x0 - pad, y0 - pad), down)
+
+
+def draw_smooth_hexagon(canvas, cx, cy, radius, fill_color, icon_str=None):
+    """Draws an anti-aliased hexagon and optional crisp vector icon inside it (scales with canvas resolution)."""
+    hd_scale = canvas.width / 1200.0
+    real_cx = int(round(cx * hd_scale))
+    real_cy = int(round(cy * hd_scale))
+    real_r = int(round(radius * hd_scale))
+    S = 4
+    box_r = int(real_r * 1.15)
+    sz = box_r * 2 * S
+    im = Image.new('RGBA', (sz, sz), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    hcx = sz / 2.0
+    hcy = sz / 2.0
+    r_s = real_r * S
     pts = []
-    hcx = radius * 2
-    hcy = radius * 2
     for i in range(6):
         angle = math.radians(30 + i * 60)
-        px = hcx + radius * 1.8 * math.cos(angle)
-        py = hcy + radius * 1.8 * math.sin(angle)
-        pts.append((px, py))
-    d_hex.polygon(pts, fill=fill_color)
-    hex_scaled = hex_img.resize((radius * 2, radius * 2), Image.Resampling.LANCZOS)
-    canvas.paste(hex_scaled, (cx - radius, cy - radius), hex_scaled)
+        pts.append((hcx + r_s * 0.92 * math.cos(angle), hcy + r_s * 0.92 * math.sin(angle)))
+    d.polygon(pts, fill=fill_color)
+
+    if icon_str is not None:
+        white = (255, 255, 255, 255)
+        ic = str(icon_str or '⚡').strip()
+        if '📏' in ic or '📐' in ic:
+            # Crisp vector angled ruler with tick marks
+            angle = math.radians(-45)
+            cos_a, sin_a = math.cos(angle), math.sin(angle)
+            def _rot(x, y):
+                return (hcx + x * cos_a - y * sin_a, hcy + x * sin_a + y * cos_a)
+            rw, rh = r_s * 0.92, r_s * 0.36
+            rect_pts = [_rot(-rw/2, -rh/2), _rot(rw/2, -rh/2), _rot(rw/2, rh/2), _rot(-rw/2, rh/2)]
+            d.polygon(rect_pts, fill=white)
+            for t_i in range(-3, 4):
+                tx = t_i * (rw / 8.0)
+                th = rh * (0.55 if t_i % 2 == 0 else 0.36)
+                d.line([_rot(tx, -rh/2), _rot(tx, -rh/2 + th)], fill=fill_color, width=max(2, int(r_s * 0.07)))
+        elif '🔘' in ic or '⚙' in ic:
+            # Crisp concentric precision rings
+            r_out = r_s * 0.50
+            r_mid = r_s * 0.34
+            r_in = r_s * 0.20
+            d.ellipse([hcx - r_out, hcy - r_out, hcx + r_out, hcy + r_out], fill=white)
+            d.ellipse([hcx - r_mid, hcy - r_mid, hcx + r_mid, hcy + r_mid], fill=fill_color)
+            d.ellipse([hcx - r_in, hcy - r_in, hcx + r_in, hcy + r_in], fill=white)
+        elif '⏱' in ic or '🔄' in ic:
+            # Crisp vector stopwatch / gauge
+            r_out = r_s * 0.46
+            r_in = r_s * 0.32
+            oy = r_s * 0.04
+            d.ellipse([hcx - r_out, hcy - r_out + oy, hcx + r_out, hcy + r_out + oy], fill=white)
+            d.ellipse([hcx - r_in, hcy - r_in + oy, hcx + r_in, hcy + r_in + oy], fill=fill_color)
+            bw, bh = r_s * 0.22, r_s * 0.10
+            d.rectangle([hcx - bw/2, hcy - r_out - bh*0.7, hcx + bw/2, hcy - r_out + bh*0.5], fill=white)
+            d.line([(hcx, hcy + oy), (hcx, hcy - r_s*0.16)], fill=white, width=max(2, int(r_s * 0.09)))
+            d.line([(hcx, hcy + oy), (hcx + r_s*0.16, hcy + oy)], fill=white, width=max(2, int(r_s * 0.09)))
+        elif '🛡' in ic or '✔' in ic or '✅' in ic:
+            # Crisp mini checkmark
+            chk = [
+                (hcx - r_s * 0.28, hcy + r_s * 0.02),
+                (hcx - r_s * 0.06, hcy + r_s * 0.24),
+                (hcx + r_s * 0.32, hcy - r_s * 0.22)
+            ]
+            d.line(chk, fill=white, width=max(3, int(r_s * 0.14)), joint='curve')
+        else:
+            # Crisp high-voltage lightning bolt
+            bolt = [
+                (hcx + r_s * 0.08, hcy - r_s * 0.52),
+                (hcx - r_s * 0.28, hcy + r_s * 0.04),
+                (hcx - r_s * 0.02, hcy + r_s * 0.04),
+                (hcx - r_s * 0.12, hcy + r_s * 0.52),
+                (hcx + r_s * 0.28, hcy - r_s * 0.06),
+                (hcx + r_s * 0.02, hcy - r_s * 0.06),
+            ]
+            d.polygon(bolt, fill=white)
+
+    down = im.resize((box_r * 2, box_r * 2), Image.Resampling.LANCZOS)
+    canvas.paste(down, (real_cx - box_r, real_cy - box_r), down)
+
 
 def draw_vector_shield(canvas, cx, cy, size=52, fill_color=(239, 28, 37)):
+    hd_scale = canvas.width / 1200.0
+    real_cx = int(round(cx * hd_scale))
+    real_cy = int(round(cy * hd_scale))
+    real_size = int(round(size * hd_scale))
     scale = 4
-    sz = size * scale
+    sz = real_size * scale
     im = Image.new('RGBA', (sz, sz), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
 
@@ -415,10 +520,10 @@ def draw_vector_shield(canvas, cx, cy, size=52, fill_color=(239, 28, 37)):
         (sz * 0.47, sz * 0.59),
         (sz * 0.69, sz * 0.33)
     ]
-    d.line(chk, fill=(255, 255, 255, 255), width=int(scale * 4.5), joint='curve')
+    d.line(chk, fill=(255, 255, 255, 255), width=int(scale * 4.5 * hd_scale), joint='curve')
 
-    down = im.resize((size, size), Image.Resampling.LANCZOS)
-    canvas.paste(down, (cx - size // 2, cy - size // 2), down)
+    down = im.resize((real_size, real_size), Image.Resampling.LANCZOS)
+    canvas.paste(down, (real_cx - real_size // 2, real_cy - real_size // 2), down)
 
 def get_official_brand_logo(brand_name):
     if not brand_name:
@@ -454,17 +559,16 @@ def generate_auto_spec_cover(
     custom_trust_s2=None
 ):
     """
-    Auto-Spec Product Cover Template (Human Designer Architecture):
-    - 1200x1200px official shop background framing
+    Auto-Spec Product Cover Template (Ultra-HD 2400x2400 Human Designer Architecture):
+    - 2400x2400px (2x Ultra-HD) official shop background framing
     - Manufacturer brand logo (Makita, POLO, 3M, Dongcheng, Jasic, etc.)
-    - Category Title + Model Pill + Stacked/Inline Highlight Tags (bounded strictly in left corridor: x <= 348)
-    - 4 Enlarged Authentic Spec Cards with smooth hexagons
-    - Compact Trust & Warranty Guarantee Card (100% Thai Warranty, width <= 295px)
-    - HERO PRODUCT: Auto-cropped to actual silhouette, scaled to maximum possible size (785px Hero Scale)
-    - Zero overlap mathematically guaranteed: Left corridor stops at x <= 348, Product corridor starts at x >= 368
-    - Official shop branding and bottom ribbon 100% intact
+    - Category Title + Model Pill + Highlight Tags with razor-sharp supersampled typography
+    - 4 Authentic Spec Cards with vector hexagons and vector icons
+    - Compact Trust & Warranty Guarantee Card
+    - HERO PRODUCT: Auto-cropped to actual silhouette, scaled to maximum possible size
     """
-    canvas_size = 1200
+    HD_S = 2
+    canvas_size = 1200 * HD_S
     is_bigpower = bool(shop_name and ('bigpower' in shop_name.lower() or 'big power' in shop_name.lower() or 'shop2' in shop_name.lower() or 'shop_2' in shop_name.lower()))
     official_shop_name = "BIGPOWER TOOLS" if is_bigpower else "MEGATOOL"
 
@@ -473,31 +577,16 @@ def generate_auto_spec_cover(
     theme_color = TOOL_NAVY if is_bigpower else RED
     theme_rgb = (theme_color[0], theme_color[1], theme_color[2])
 
-    temp_dir = os.path.dirname(output_path) or "."
-    os.makedirs(temp_dir, exist_ok=True)
-    temp_white = Image.new('RGB', (canvas_size, canvas_size), (255, 255, 255))
-    temp_white_path = os.path.join(temp_dir, f"_temp_white_{os.getpid()}.png")
-    temp_canvas_path = os.path.join(temp_dir, f"_temp_canvas_{os.getpid()}.png")
-    temp_white.save(temp_white_path)
-
-    generate_cover(
-        temp_white_path,
-        temp_canvas_path,
+    canvas = generate_cover(
+        "",
+        None,
         badge_text=badge_text,
         shop_name=official_shop_name,
         overwrite=True,
-        template_type="standard"
+        template_type="standard",
+        return_image=True
     )
-
-    canvas = Image.open(temp_canvas_path).convert('RGBA')
     draw = ImageDraw.Draw(canvas)
-    border_w = 22
-
-    try:
-        if os.path.exists(temp_white_path): os.remove(temp_white_path)
-        if os.path.exists(temp_canvas_path): os.remove(temp_canvas_path)
-    except Exception:
-        pass
 
     from app.ktw_service import get_product_detail, detect_brand_from_sku
     detail = None
@@ -557,7 +646,6 @@ def generate_auto_spec_cover(
         print(f"Error loading product image: {e}")
 
     if prod_img:
-        # 1. Tightly crop to actual product silhouette (removes useless supplier margins)
         bbox = prod_img.getbbox()
         if bbox:
             pad = 4
@@ -571,38 +659,28 @@ def generate_auto_spec_cover(
 
         cw, ch = prod_crop.size
 
-        # Exact White Space Bounding Box (User defined Center):
-        # 1. Left: after last character of left spec text corridor (+ margin gap) -> x = 365
-        # 2. Right: inside right red frame (1200 - border_w 22 - inner margin 14) -> x = 1164
-        # 3. Top: below shop header / logo (header baseline + curve ends at ~125 + gap) -> y = 140
-        # 4. Bottom: above top of "ของแท้ 100%" badge text (badge top is at ~995 - gap) -> y = 985
-        box_left = 365
-        box_right = 1164
-        box_top = 140
-        box_bottom = 985
+        box_left = 368 * HD_S
+        box_right = 1164 * HD_S
+        box_top = 140 * HD_S
+        box_bottom = 985 * HD_S
 
-        box_w = box_right - box_left   # 799 px
-        box_h = box_bottom - box_top   # 845 px
+        box_w = box_right - box_left
+        box_h = box_bottom - box_top
 
-        # Hero scale: fit cleanly inside the white box while maximizing size
         scale = min(box_w / cw, box_h / ch)
         tgt_w = int(cw * scale)
         tgt_h = int(ch * scale)
 
-        # Perfect Mathematical Center:
         pos_x = box_left + (box_w - tgt_w) // 2
         pos_y = box_top + (box_h - tgt_h) // 2
 
-
-        # Paste Hero Product (LANCZOS resample + studio sharpen/contrast + thin contact shadow)
         resized_prod = resize_hq(prod_crop, (tgt_w, tgt_h))
-        # Adaptive sharpening: heavily upscaled (low-res) sources get gentler sharpening to avoid amplifying noise/halos
         up = max(tgt_w / max(cw, 1), tgt_h / max(ch, 1))
-        adaptive_sharp = 1.0 if up <= 1.0 else max(0.35, 1.0 / up)
+        adaptive_sharp = 1.0 if up <= 1.0 else max(0.45, 1.2 / up)
         resized_prod = enhance_product(resized_prod, sharp=adaptive_sharp)
         try:
             shadow_img, sh_pad = make_contact_shadow(resized_prod)
-            sh_y = pos_y + tgt_h - sh_pad - 2
+            sh_y = pos_y + tgt_h - sh_pad - 2 * HD_S
             canvas.paste(shadow_img, (pos_x - sh_pad, sh_y), shadow_img)
         except Exception as e:
             print(f"Contact shadow skipped: {e}")
@@ -613,7 +691,6 @@ def generate_auto_spec_cover(
     if brand_logo_p and os.path.exists(brand_logo_p):
         try:
             b_img = Image.open(brand_logo_p).convert('RGBA')
-            # 1. Tightly auto-crop transparent margins so dead space doesn't make logo look tiny
             alpha_b = b_img.split()[-1]
             b_bbox = alpha_b.getbbox()
             if b_bbox:
@@ -621,58 +698,53 @@ def generate_auto_spec_cover(
             bw, bh = b_img.size
             ratio = bw / max(bh, 1)
 
-            # 2. Optical Sizing Logic:
-            # - Wide horizontal logos (ratio >= 2.0): Target area ~16500 px^2, max_w 275, max_h 82
-            # - Square/tall logos (ratio < 2.0): Target area ~12500 px^2, max_h 88
-            max_box_w = 275
-            max_box_h = 82 if ratio >= 1.6 else 88
-            target_area = 16500 if ratio >= 1.6 else 12500
+            max_box_w = 275 * HD_S
+            max_box_h = (82 if ratio >= 1.6 else 88) * HD_S
+            target_area = (16500 if ratio >= 1.6 else 12500) * (HD_S * HD_S)
             scale_area = math.sqrt(target_area / (bw * bh))
             b_scale = min(scale_area, max_box_w / bw, max_box_h / bh)
 
-            # Ensure minimum legible height for slender letterforms
-            if bh * b_scale < 55 and bw * (55 / bh) <= max_box_w:
-                b_scale = 55 / bh
+            if bh * b_scale < 55 * HD_S and bw * ((55 * HD_S) / bh) <= max_box_w:
+                b_scale = (55 * HD_S) / bh
 
             tgt_bw = max(1, int(bw * b_scale))
             tgt_bh = max(1, int(bh * b_scale))
             brand_logo = b_img.resize((tgt_bw, tgt_bh), Image.Resampling.LANCZOS)
 
-            # 3. Vertically center inside the 40..122 top header zone (baseline aligned with shop header)
-            logo_y = 40 + (82 - tgt_bh) // 2
-            canvas.paste(brand_logo, (52, logo_y), brand_logo)
+            logo_y = 40 * HD_S + (82 * HD_S - tgt_bh) // 2
+            canvas.paste(brand_logo, (52 * HD_S, logo_y), brand_logo)
         except Exception as e:
             print(f"Error placing brand logo: {e}")
 
     if is_bigpower:
-        TEXT_INK = (17, 24, 39)
-        TEXT_LABEL = (55, 63, 78)
+        TEXT_INK = (10, 15, 28)
+        TEXT_LABEL = (15, 23, 42)
         trust_s1_color = theme_rgb
-        trust_s2_color = TEXT_LABEL
+        trust_s2_color = (15, 23, 42)
     else:
-        # Shop 1: MEGATOOL - Solid crisp black typography for all auto-spec details & specs
+        # Shop 1: MEGATOOL - 100% Solid Pure Jet-Black typography for maximum sharpness & contrast
         TEXT_INK = (0, 0, 0)
-        TEXT_LABEL = (35, 35, 35)
+        TEXT_LABEL = (0, 0, 0)
         trust_s1_color = (0, 0, 0)
-        trust_s2_color = (55, 55, 55)
+        trust_s2_color = (0, 0, 0)
 
     DIVIDER_COLOR = (196, 202, 212, 255)
     WHITE = (255, 255, 255, 255)
     COL_L = 52
-    COL_R = 350   # left text column hard limit (product starts at x >= 368)
+    COL_R = 354   # left text column hard limit (product starts at x >= 368)
     max_text_w = COL_R - COL_L
 
     # --- Title (category) ---
-    t_sz, _tw = fit_hq(category_title, "semibold", 44, 30, max_text_w)
-    draw_hq(canvas, category_title, COL_L, 188, "semibold", t_sz, TEXT_INK)
+    t_sz, _tw = fit_hq(category_title, "bold", 44, 30, max_text_w)
+    draw_hq(canvas, category_title, COL_L, 188, "bold", t_sz, TEXT_INK)
 
     # --- Model pill ---
     pill_top = 214
     pill_h = 62
-    m_sz, m_w = fit_hq(model_name, "semibold", 34, 18, max_text_w - 36)
-    pill_w = int(m_w) + 36
-    draw.rounded_rectangle([COL_L, pill_top, COL_L + pill_w, pill_top + pill_h], radius=12, fill=theme_color)
-    draw_hq(canvas, model_name, COL_L + 18, pill_top + pill_h // 2 + int(m_sz * 0.36), "semibold", m_sz, (255, 255, 255))
+    m_sz, m_w = fit_hq(model_name, "bold", 34, 18, max_text_w - 32)
+    pill_w = min(max_text_w, int(m_w) + 32)
+    draw_aa_rounded_rect(canvas, [COL_L, pill_top, COL_L + pill_w, pill_top + pill_h], radius=12, fill=theme_color)
+    draw_hq(canvas, model_name, COL_L + (pill_w - m_w) / 2.0, pill_top + pill_h // 2 + int(m_sz * 0.36), "bold", m_sz, (255, 255, 255))
 
     # --- Highlight sub-pills (Max 2 compact badges, strictly <= max_text_w, never overlapping product) ---
     curr_y = pill_top + pill_h + 16
@@ -682,86 +754,74 @@ def generate_auto_spec_cover(
     clean_pills = []
     for hp in hero_pills[:2]:
         hp_clean = hp.strip()
-        # If long comma-separated list, take the concise first item
         if ',' in hp_clean and len(hp_clean) > 24:
             hp_clean = hp_clean.split(',')[0].strip()
-        # Truncate clean without awkward ellipsis if possible
         if len(hp_clean) > 26:
             hp_clean = hp_clean[:25].rstrip(' ,-/')
         clean_pills.append(hp_clean)
 
     for hp in clean_pills:
-        hp_sz, hp_w = fit_hq(hp, "semibold", 20, 17, max_text_w - 28)
+        hp_sz, hp_w = fit_hq(hp, "bold", 21, 17, max_text_w - 26)
         ph = 38
         bw_ = min(max_text_w, int(hp_w) + 26)
-        draw.rounded_rectangle([COL_L, curr_y, COL_L + bw_, curr_y + ph], radius=8, fill=sub_bg, outline=sub_border, width=2)
-        draw_hq(canvas, hp, COL_L + 13, curr_y + ph // 2 + int(hp_sz * 0.36), "semibold", hp_sz, TEXT_INK)
+        draw_aa_rounded_rect(canvas, [COL_L, curr_y, COL_L + bw_, curr_y + ph], radius=8, fill=sub_bg, outline=sub_border, width=2)
+        draw_hq(canvas, hp, COL_L + (bw_ - hp_w) / 2.0, curr_y + ph // 2 + int(hp_sz * 0.36), "bold", hp_sz, TEXT_INK)
         curr_y += ph + 8
 
-    # --- Spec rows (Standardized Typography & Height) ---
+    # --- Spec rows (Ultra-Crisp Standardized Typography & Vector Icons) ---
     spec_top = curr_y + 16
     n_rows = max(1, len(spec_cards[:4]))
     trust_card_h = 84
-    bottom_limit = COVER_SAFE_BOTTOM - 4   # trust card must end above the Shopee badge zone (y >= 1030)
+    bottom_limit = COVER_SAFE_BOTTOM - 4
     avail = bottom_limit - spec_top - trust_card_h - 18
     spec_row_h = max(96, min(136, avail // n_rows))
-
-    try:
-        f_sym = ImageFont.truetype(r"C:\Windows\Fonts\seguisym.ttf", 26)
-    except Exception:
-        f_sym = load_font("seguisym.ttf", 26)
 
     hex_radius = 26
     hex_center_x = COL_L + hex_radius
     hex_fill = (18, 56, 88, 255) if is_bigpower else (215, 25, 33, 255)
     text_x = hex_center_x + hex_radius + 14
-    val_max_w = COL_R - text_x  # strictly within 350 - text_x (~256px)
+    val_max_w = COL_R - text_x
 
-    # Standardized consistent font sizes across all specs
-    STD_LABEL_SZ = 20
-    STD_VAL_SZ = 28
-    STD_VAL_2LINE_SZ = 22
+    # Standardized consistent font sizes across all specs (SemiBold labels + Bold values)
+    STD_LABEL_SZ = 21
+    STD_VAL_SZ = 29
+    STD_VAL_2LINE_SZ = 23
 
     for idx, sp in enumerate(spec_cards[:4]):
         r_y = spec_top + idx * spec_row_h
         h_cy = r_y + spec_row_h // 2 - 4
 
-        draw_smooth_hexagon(canvas, hex_center_x, h_cy, hex_radius, fill_color=hex_fill)
-        draw.text((hex_center_x, h_cy - 1), sp.get('icon', '⚡'), fill=WHITE, font=f_sym, anchor='mm')
+        draw_smooth_hexagon(canvas, hex_center_x, h_cy, hex_radius, fill_color=hex_fill, icon_str=sp.get('icon', '⚡'))
 
         lbl = sp.get('label', '')
         val = sp.get('val', '')
-        # Clean up commas with repeating speed words
         if 'รอบ/นาที' in val and val.count('รอบ/นาที') > 1:
-            # Shorten repetitive speed lists to first and last
             speeds = [s.strip() for s in val.split(',') if s.strip()]
             if len(speeds) >= 2:
                 val = f"{speeds[0]} / {speeds[-1]}"
 
-        # Always use standardized label size 20 (shrink slightly only if super long label)
-        l_sz, _ = fit_hq(lbl, "medium", STD_LABEL_SZ, 16, val_max_w)
+        l_sz, _ = fit_hq(lbl, "semibold", STD_LABEL_SZ, 17, val_max_w)
 
-        # Check if 1-line standard value fits:
         v_sz, v_w = fit_hq(val, "bold", STD_VAL_SZ, 24, val_max_w)
         if v_w <= val_max_w and v_sz >= 24:
-            draw_hq(canvas, lbl, text_x, h_cy - 8, "medium", l_sz, TEXT_LABEL)
+            draw_hq(canvas, lbl, text_x, h_cy - 8, "semibold", l_sz, TEXT_LABEL)
             draw_hq(canvas, val, text_x, h_cy + 30, "bold", v_sz, TEXT_INK)
         else:
-            # 2 balanced lines with standardized size 22
             ln1, ln2 = split_two_lines(val)
-            draw_hq(canvas, lbl, text_x, h_cy - 22, "medium", l_sz, TEXT_LABEL)
+            draw_hq(canvas, lbl, text_x, h_cy - 22, "semibold", l_sz, TEXT_LABEL)
             draw_hq(canvas, ln1, text_x, h_cy + 6, "bold", STD_VAL_2LINE_SZ, TEXT_INK)
             if ln2:
                 draw_hq(canvas, ln2, text_x, h_cy + 6 + int(STD_VAL_2LINE_SZ * 1.25), "bold", STD_VAL_2LINE_SZ, TEXT_INK)
 
         div_y = r_y + spec_row_h - 2
-        draw.line([(COL_L, div_y), (COL_R, div_y)], fill=DIVIDER_COLOR, width=2)
+        draw.line([(COL_L * HD_S, div_y * HD_S), (COL_R * HD_S, div_y * HD_S)], fill=DIVIDER_COLOR, width=2 * HD_S)
+
     # --- Trust card ---
     trust_card_y = spec_top + n_rows * spec_row_h + 22
     trust_card_w = COL_R + 12 - COL_L
     card_bg = (247, 250, 253, 255) if is_bigpower else (255, 246, 246, 255)
     card_outline = (206, 218, 234, 255) if is_bigpower else (250, 205, 207, 255)
-    draw.rounded_rectangle([COL_L, trust_card_y, COL_L + trust_card_w, trust_card_y + trust_card_h], radius=12, fill=card_bg, outline=card_outline, width=2)
+    draw_aa_rounded_rect(canvas, [COL_L, trust_card_y, COL_L + trust_card_w, trust_card_y + trust_card_h], radius=12, fill=card_bg, outline=card_outline, width=2)
 
     shield_cx = COL_L + 30
     shield_cy = trust_card_y + trust_card_h // 2
@@ -769,12 +829,13 @@ def generate_auto_spec_cover(
 
     trust_txt_x = COL_L + 62
     tr_max_w = COL_L + trust_card_w - 14 - trust_txt_x
-    s1_sz, _ = fit_hq(trust_s1, "semibold", 22, 15, tr_max_w)
-    s2_sz, _ = fit_hq(trust_s2, "medium", 18, 13, tr_max_w)
-    draw_hq(canvas, trust_s1, trust_txt_x, trust_card_y + 38, "semibold", s1_sz, trust_s1_color)
-    draw_hq(canvas, trust_s2, trust_txt_x, trust_card_y + 64, "medium", s2_sz, trust_s2_color)
+    s1_sz, _ = fit_hq(trust_s1, "bold", 22, 16, tr_max_w)
+    s2_sz, _ = fit_hq(trust_s2, "semibold", 19, 14, tr_max_w)
+    draw_hq(canvas, trust_s1, trust_txt_x, trust_card_y + 37, "bold", s1_sz, trust_s1_color)
+    draw_hq(canvas, trust_s2, trust_txt_x, trust_card_y + 65, "semibold", s2_sz, trust_s2_color)
 
     final_rgb = canvas.convert('RGB')
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     final_rgb.save(output_path, "JPEG", quality=98, subsampling=0, optimize=True)
     return output_path
 
@@ -795,7 +856,8 @@ def generate_cover(
     custom_hero_pills=None,
     custom_spec_cards=None,
     custom_trust_s1=None,
-    custom_trust_s2=None
+    custom_trust_s2=None,
+    return_image=False
 ):
     if template_type == "auto_spec":
         return generate_auto_spec_cover(
@@ -815,111 +877,96 @@ def generate_cover(
             custom_trust_s1=custom_trust_s1,
             custom_trust_s2=custom_trust_s2
         )
-    """
-    Exact Zupertools Replica Template for Zonix Tools:
-    - 1200x1200px Clean White background
-    - Solid Red Outer Border (Zupertools Red #EF1C25)
-    - Top-Right: ZonixTools. + โซนิกซ์ ทูลส์
-    - Bottom-Right: 'ของแท้ 100%' with top/bottom lines + Slanted Red Ribbon
-    - Ribbon Text: 'มีสต็อกพร้อมส่งทันที' (or custom text)
-    - Product auto-cropped from whitespace and maximized to fill 80-85%
-    - ZERO brand logo clutter (product branding is on the physical tool)
-    """
-    if not overwrite and output_path and os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
+    if not return_image and not overwrite and output_path and os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
         return output_path
 
+    HD_S = 2
     RED = (239, 28, 37, 255) # #EF1C25 (MEGATOOL Red)
     TOOL_NAVY = (15, 62, 104, 255) # #0F3E68 (BigPower Tools Navy)
     POWER_ORANGE = (245, 130, 32, 255) # #F58220 (Tool City Orange)
     WHITE = (255, 255, 255, 255)
-    canvas_size = 1200
+    canvas_size = 1200 * HD_S
 
-    # Determine shop branding: MEGATOOL (Red) vs BigPower Tools (Navy Blue)
     is_bigpower = bool(shop_name and ('bigpower' in shop_name.lower() or 'big power' in shop_name.lower() or 'shop2' in shop_name.lower() or 'shop_2' in shop_name.lower()))
     is_mega = not is_bigpower and (not shop_name or 'mega' in shop_name.lower() or 'zonix' in shop_name.lower() or 'shop1' in shop_name.lower() or 'shop_1' in shop_name.lower())
 
     theme_color = TOOL_NAVY if is_bigpower else RED
-    
+
     # 1. Canvas
     canvas = Image.new('RGBA', (canvas_size, canvas_size), WHITE)
     draw = ImageDraw.Draw(canvas)
-    
-    # 2. Load Product Image (Original size & composition)
-    if raw_img_path_or_url.startswith('http'):
-        try:
-            r = requests.get(raw_img_path_or_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=15)
-            if r.status_code == 200 and len(r.content) > 100:
-                raw_img = Image.open(io.BytesIO(r.content)).convert('RGBA')
-            else:
-                raw_img = Image.new('RGBA', (canvas_size, canvas_size), WHITE)
-        except Exception:
-            raw_img = Image.new('RGBA', (canvas_size, canvas_size), WHITE)
-    else:
-        if os.path.exists(raw_img_path_or_url):
-            raw_img = Image.open(raw_img_path_or_url).convert('RGBA')
-        else:
-            raw_img = Image.new('RGBA', (canvas_size, canvas_size), WHITE)
 
-    # 3. Fit original image directly to 1200x1200 (preserve exact original framing & proportions)
-    w, h = raw_img.size
-    scale = min(canvas_size / w, canvas_size / h)
-    new_w = int(w * scale)
-    new_h = int(h * scale)
-    px = (canvas_size - new_w) // 2
-    py = (canvas_size - new_h) // 2
+    # 2. Load Product Image (if provided)
+    raw_img = None
+    if raw_img_path_or_url:
+        if raw_img_path_or_url.startswith('http'):
+            try:
+                r = requests.get(raw_img_path_or_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=15)
+                if r.status_code == 200 and len(r.content) > 100:
+                    raw_img = Image.open(io.BytesIO(r.content)).convert('RGBA')
+            except Exception:
+                raw_img = None
+        elif os.path.exists(raw_img_path_or_url):
+            try:
+                raw_img = Image.open(raw_img_path_or_url).convert('RGBA')
+            except Exception:
+                raw_img = None
 
-    # 3b. Shopee badge safe-zone: if the product silhouette reaches the bottom-left corner (where Shopee puts the
-    # free-shipping / discount badges), shift it up (and shrink only if needed) so nothing is covered.
-    bb = nonwhite_bbox(raw_img)
-    if bb:
-        k = new_w / float(w)
-        gx0, gy0 = px + bb[0] * k, py + bb[1] * k
-        gx1, gy1 = px + bb[2] * k, py + bb[3] * k
-        if gx0 < SHOPEE_BADGE_ZONE[2] and gy1 > COVER_SAFE_BOTTOM:
-            bh = gy1 - gy0
-            f = min(1.0, (COVER_SAFE_BOTTOM - COVER_SAFE_TOP) / max(bh, 1))
-            if f < 1.0:
-                new_w = max(1, int(new_w * f))
-                new_h = max(1, int(new_h * f))
-                k2 = new_w / float(w)
-                # keep horizontal center of the silhouette, put its bottom on the safe line
-                cx = (gx0 + gx1) / 2.0
-                px = int(cx - ((bb[0] + bb[2]) / 2.0) * k2)
-                py = int(COVER_SAFE_BOTTOM - bb[3] * k2)
-            else:
-                py = int(py - (gy1 - COVER_SAFE_BOTTOM))
-    resized_raw = resize_hq(raw_img, (new_w, new_h))
-    resized_raw = enhance_product(resized_raw, sharp=0.8, contrast=1.05, color=1.05)
+    if raw_img is not None:
+        w, h = raw_img.size
+        scale = min(canvas_size / w, canvas_size / h)
+        new_w = int(w * scale)
+        new_h = int(h * scale)
+        px = (canvas_size - new_w) // 2
+        py = (canvas_size - new_h) // 2
 
-    canvas.paste(resized_raw, (px, py), resized_raw if resized_raw.mode == 'RGBA' else None)
+        bb = nonwhite_bbox(raw_img)
+        if bb:
+            k = new_w / float(w)
+            gx0, gy0 = px + bb[0] * k, py + bb[1] * k
+            gx1, gy1 = px + bb[2] * k, py + bb[3] * k
+            if gx0 < SHOPEE_BADGE_ZONE[2] * HD_S and gy1 > COVER_SAFE_BOTTOM * HD_S:
+                bh = gy1 - gy0
+                f = min(1.0, ((COVER_SAFE_BOTTOM - COVER_SAFE_TOP) * HD_S) / max(bh, 1))
+                if f < 1.0:
+                    new_w = max(1, int(new_w * f))
+                    new_h = max(1, int(new_h * f))
+                    k2 = new_w / float(w)
+                    cx = (gx0 + gx1) / 2.0
+                    px = int(cx - ((bb[0] + bb[2]) / 2.0) * k2)
+                    py = int(COVER_SAFE_BOTTOM * HD_S - bb[3] * k2)
+                else:
+                    py = int(py - (gy1 - COVER_SAFE_BOTTOM * HD_S))
+        resized_raw = resize_hq(raw_img, (new_w, new_h))
+        resized_raw = enhance_product(resized_raw, sharp=0.8, contrast=1.05, color=1.05)
+        canvas.paste(resized_raw, (px, py), resized_raw if resized_raw.mode == 'RGBA' else None)
 
     # 4. Outer Red Frame (on top of image)
-    border_w = 22
+    border_w = 22 * HD_S
     draw.rectangle([(0, 0), (canvas_size - 1, canvas_size - 1)], outline=theme_color, width=border_w)
 
     # 4. Top-Right: Shop Logo (MEGATOOL Red vs BigPower Tools Navy)
     if is_bigpower:
-        # BigPower Tools: 'BIGPOWER' in Arial Bold, 'TOOLS' in Arial Black, Orange Smile under 'OO'
-        f_prefix = load_font('arialbd.ttf', 72)
-        f_tool = load_font('ariblk.ttf', 72)
-        
+        f_prefix = load_font('arialbd.ttf', 72 * HD_S)
+        f_tool = load_font('ariblk.ttf', 72 * HD_S)
+
         part_prefix = "BIGPOWER "
         char_t, char_o1, char_o2, char_l, char_s = 'T', 'O', 'O', 'L', 'S'
-        
+
         w_prefix = draw.textbbox((0, 0), part_prefix, font=f_prefix)[2]
         w_t = draw.textbbox((0, 0), char_t, font=f_tool)[2]
         w_o1 = draw.textbbox((0, 0), char_o1, font=f_tool)[2]
         w_o2 = draw.textbbox((0, 0), char_o2, font=f_tool)[2]
         w_l = draw.textbbox((0, 0), char_l, font=f_tool)[2]
         w_s = draw.textbbox((0, 0), char_s, font=f_tool)[2]
-        
+
         total_w = w_prefix + w_t + w_o1 + w_o2 + w_l + w_s
-        margin_right = 36
-        margin_top = 30
-        
+        margin_right = 36 * HD_S
+        margin_top = 30 * HD_S
+
         x_start = canvas_size - margin_right - total_w
         y_text = margin_top
-        
+
         draw.text((x_start, y_text), part_prefix, fill=theme_color, font=f_prefix)
         xt = x_start + w_prefix
         draw.text((xt, y_text), char_t, fill=theme_color, font=f_tool)
@@ -931,20 +978,18 @@ def generate_cover(
         draw.text((xl, y_text), char_l, fill=theme_color, font=f_tool)
         xs = xl + w_l
         draw.text((xs, y_text), char_s, fill=theme_color, font=f_tool)
-        
-        # Tool City Orange Smile Arc under OO with balanced gap
+
         o1_box = draw.textbbox((xo1, y_text), char_o1, font=f_tool)
         o2_box = draw.textbbox((xo2, y_text), char_o2, font=f_tool)
-        arc_left = o1_box[0] + 2
-        arc_right = o2_box[2] - 2
-        arc_top = o1_box[3] - 8
-        arc_bot = o1_box[3] + 22
-        draw.arc([arc_left, arc_top, arc_right, arc_bot], start=12, end=168, fill=POWER_ORANGE, width=6)
+        arc_left = o1_box[0] + 2 * HD_S
+        arc_right = o2_box[2] - 2 * HD_S
+        arc_top = o1_box[3] - 8 * HD_S
+        arc_bot = o1_box[3] + 22 * HD_S
+        draw.arc([arc_left, arc_top, arc_right, arc_bot], start=12, end=168, fill=POWER_ORANGE, width=6 * HD_S)
     elif is_mega:
-        f_prefix = load_font('arialbd.ttf', 84)
-        f_tool = load_font('ariblk.ttf', 84)
+        f_prefix = load_font('arialbd.ttf', 84 * HD_S)
+        f_tool = load_font('ariblk.ttf', 84 * HD_S)
 
-        # Support both all-caps MEGATOOL and mixed MegaTool
         is_all_caps = not shop_name or shop_name.isupper() or 'MEGATOOL' in (shop_name or '')
         if is_all_caps:
             part_prefix = 'MEGA'
@@ -960,41 +1005,33 @@ def generate_cover(
         w_l = draw.textbbox((0, 0), char_l, font=f_tool)[2]
 
         total_w = w_prefix + w_t + w_o1 + w_o2 + w_l
-        margin_right = 32
-        margin_top = 28
+        margin_right = 32 * HD_S
+        margin_top = 28 * HD_S
 
         x_start = canvas_size - margin_right - total_w
         y_text = margin_top
 
-        # Draw prefix (MEGA / Mega)
         draw.text((x_start, y_text), part_prefix, fill=RED, font=f_prefix)
-
-        # Draw TOOL / tool (NO S, NO dot)
         xt = x_start + w_prefix
         draw.text((xt, y_text), char_t, fill=RED, font=f_tool)
-
         xo1 = xt + w_t
         draw.text((xo1, y_text), char_o1, fill=RED, font=f_tool)
-
         xo2 = xo1 + w_o1
         draw.text((xo2, y_text), char_o2, fill=RED, font=f_tool)
-
         xl = xo2 + w_o2
         draw.text((xl, y_text), char_l, fill=RED, font=f_tool)
 
-        # Trademark curved smile mustache under OO
         o1_box = draw.textbbox((xo1, y_text), char_o1, font=f_tool)
         o2_box = draw.textbbox((xo2, y_text), char_o2, font=f_tool)
-        arc_left = o1_box[0] + 6
-        arc_right = o2_box[2] - 6
-        arc_top = o1_box[3] - 16
-        arc_bot = o1_box[3] + 16
-        draw.arc([arc_left, arc_top, arc_right, arc_bot], start=10, end=170, fill=RED, width=7)
+        arc_left = o1_box[0] + 6 * HD_S
+        arc_right = o2_box[2] - 6 * HD_S
+        arc_top = o1_box[3] - 16 * HD_S
+        arc_bot = o1_box[3] + 16 * HD_S
+        draw.arc([arc_left, arc_top, arc_right, arc_bot], start=10, end=170, fill=RED, width=7 * HD_S)
     else:
-        # Fallback for custom generic shop names
-        f_shop_main = load_font('arialbd.ttf', 76)
-        margin_right = 32
-        margin_top = 28
+        f_shop_main = load_font('arialbd.ttf', 76 * HD_S)
+        margin_right = 32 * HD_S
+        margin_top = 28 * HD_S
         title_text = shop_name.strip().rstrip('.')
         main_bbox = draw.textbbox((0, 0), title_text, font=f_shop_main)
         main_w = main_bbox[2] - main_bbox[0]
@@ -1002,12 +1039,12 @@ def generate_cover(
         draw.text((x_main, margin_top), title_text, fill=RED, font=f_shop_main)
 
     # 5. Bottom-Right: Slanted Red Ribbon Banner
-    banner_h = 120
+    banner_h = 120 * HD_S
     y_top = canvas_size - banner_h
     y_bot = canvas_size
-    
-    x_slant_bot = 620
-    x_slant_top = 685
+
+    x_slant_bot = 620 * HD_S
+    x_slant_top = 685 * HD_S
 
     draw.polygon([
         (x_slant_bot, y_bot),
@@ -1015,39 +1052,41 @@ def generate_cover(
         (canvas_size, y_top),
         (x_slant_top, y_top)
     ], fill=theme_color)
-    
-    # Text inside ribbon (default: 'มีสต็อกพร้อมส่งทันที')
+
     display_banner_text = badge_text if (badge_text and badge_text != 'ของแท้ 100%') else "มีสต็อกพร้อมส่งทันที"
-    
-    f_banner = load_font('tahomabd.ttf', 46)
+
+    f_banner = load_font('tahomabd.ttf', 46 * HD_S)
     text_center_x = (x_slant_top + canvas_size - border_w) // 2
-    text_center_y = y_top + (banner_h // 2) - 4
+    text_center_y = y_top + (banner_h // 2) - 4 * HD_S
     draw.text((text_center_x, text_center_y), display_banner_text, fill=WHITE, font=f_banner, anchor='mm')
 
     # 6. Above Banner: 'ของแท้  100%'
-    f_badge_thai = load_font('tahomabd.ttf', 54)
-    f_badge_num = load_font('arialbd.ttf', 62)
-    
-    badge_y = y_top - 22
-    
+    f_badge_thai = load_font('tahomabd.ttf', 54 * HD_S)
+    f_badge_num = load_font('arialbd.ttf', 62 * HD_S)
+
+    badge_y = y_top - 22 * HD_S
+
     num_str = "100%"
     thai_str = "ของแท้"
-    
+
     num_box = draw.textbbox((0, 0), num_str, font=f_badge_num)
     num_w = num_box[2] - num_box[0]
-    
+
     thai_box = draw.textbbox((0, 0), thai_str, font=f_badge_thai)
     thai_w = thai_box[2] - thai_box[0]
-    
-    num_x = canvas_size - 45 - num_w
-    thai_x = num_x - 30 - thai_w
-    
+
+    num_x = canvas_size - 45 * HD_S - num_w
+    thai_x = num_x - 30 * HD_S - thai_w
+
     draw.text((thai_x, badge_y), thai_str, fill=theme_color, font=f_badge_thai, anchor='ls')
     draw.text((num_x, badge_y), num_str, fill=theme_color, font=f_badge_num, anchor='ls')
-    
-    line_w = 4
-    draw.line([(num_x - 4, badge_y - 64), (num_x + num_w + 4, badge_y - 64)], fill=theme_color, width=line_w)
-    draw.line([(num_x - 4, badge_y + 8), (num_x + num_w + 4, badge_y + 8)], fill=theme_color, width=line_w)
+
+    line_w = 4 * HD_S
+    draw.line([(num_x - 4 * HD_S, badge_y - 64 * HD_S), (num_x + num_w + 4 * HD_S, badge_y - 64 * HD_S)], fill=theme_color, width=line_w)
+    draw.line([(num_x - 4 * HD_S, badge_y + 8 * HD_S), (num_x + num_w + 4 * HD_S, badge_y + 8 * HD_S)], fill=theme_color, width=line_w)
+
+    if return_image:
+        return canvas
 
     # 7. Save
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
@@ -1083,7 +1122,7 @@ def _save_cdn_cache_threadsafe(key, url):
         except Exception as e:
             print("Error saving cdn cache:", e)
 
-def upload_to_cdn(image_path, max_retries=1, force=False):
+def upload_to_cdn(image_path, max_retries=2, force=False):
     """
     Uploads image to Freeimage.host (Cloudflare-backed iili.io CDN)
     with thread-safe persistent caching and automatic retries.
@@ -1114,7 +1153,7 @@ def upload_to_cdn(image_path, max_retries=1, force=False):
                     url,
                     data={'key': api_key, 'action': 'upload', 'format': 'json'},
                     files={'source': f},
-                    timeout=5
+                    timeout=15
                 )
                 if r.status_code == 200:
                     data = r.json()
