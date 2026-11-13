@@ -431,11 +431,11 @@
                                         <tr class="hover:bg-slate-50/80 transition-colors cursor-pointer group"
                                             @click="viewProductDetail(item.sku)">
                                             <td class="py-3 px-4">
-                                                <div class="flex items-center space-x-3">
+                                                <div class="flex items-start space-x-3">
                                                     <img :src="item.image_url || 'https://via.placeholder.com/60?text=KTW'" 
-                                                         class="w-11 h-11 rounded-xl object-contain bg-white border border-slate-200 p-1 shrink-0 group-hover:scale-105 transition-transform">
-                                                    <div>
-                                                        <span class="font-bold text-slate-800 line-clamp-1 group-hover:text-orange-600 transition-colors" x-text="item.name || item.sku"></span>
+                                                         class="w-11 h-11 rounded-xl object-contain bg-white border border-slate-200 p-1 shrink-0 group-hover:scale-105 transition-transform mt-0.5">
+                                                    <div class="min-w-0 flex-1">
+                                                        <span class="font-bold text-slate-800 leading-snug break-words group-hover:text-orange-600 transition-colors block" x-text="item.shopee_title || item.name || item.sku"></span>
                                                         <template x-if="item.stock > 0">
                                                             <span class="text-[10px] text-emerald-600 font-medium flex items-center space-x-1 mt-0.5">
                                                                 <span>สต็อกคลัง:</span>
@@ -1183,13 +1183,58 @@
                                             </td>
 
                                             <!-- Product Info & Stock -->
-                                            <td class="py-3 px-4">
-                                                <div class="flex items-center space-x-3">
+                                            <td class="py-3 px-4 min-w-[320px] max-w-[460px]">
+                                                <div class="flex items-start space-x-3">
                                                     <img :src="item.image_url || 'https://via.placeholder.com/60?text=KTW'" 
-                                                         class="w-11 h-11 rounded-xl object-contain bg-white border border-slate-200/80 p-1 shrink-0 group-hover:scale-105 transition-transform">
-                                                    <div class="min-w-0">
-                                                        <span class="font-semibold text-slate-900 text-xs line-clamp-1 max-w-xs group-hover:text-orange-600 transition-colors" x-text="item.name || item.sku"></span>
-                                                        <div class="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                                         class="w-11 h-11 rounded-xl object-contain bg-white border border-slate-200/80 p-1 shrink-0 group-hover:scale-105 transition-transform mt-0.5">
+                                                    <div class="min-w-0 flex-1">
+                                                        <!-- Display Mode: Full SEO Title + Quick Inline Edit Trigger -->
+                                                        <template x-if="editingTitleSku !== item.sku">
+                                                            <div class="flex items-start justify-between gap-2 group/title">
+                                                                <span class="font-semibold text-slate-900 text-xs leading-snug break-words group-hover:text-orange-600 transition-colors" 
+                                                                      x-text="item.shopee_title || item.name || item.sku"></span>
+                                                                <button type="button"
+                                                                        @click.stop="startInlineTitleEdit(item)"
+                                                                        title="คลิกเพื่อแก้ไขชื่อ SEO บน Shopee ทันที (บันทึกจำถาวร)"
+                                                                        class="shrink-0 inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 border border-orange-200/80 transition-colors cursor-pointer">
+                                                                    <i data-lucide="pencil" class="w-2.5 h-2.5"></i>
+                                                                    <span>แก้ชื่อ</span>
+                                                                </button>
+                                                            </div>
+                                                        </template>
+
+                                                        <!-- Inline Edit Mode -->
+                                                        <template x-if="editingTitleSku === item.sku">
+                                                            <div class="space-y-1.5 bg-orange-50/70 p-2 rounded-xl border border-orange-300" @click.stop>
+                                                                <input type="text"
+                                                                       x-model="editingTitleValue"
+                                                                       maxlength="120"
+                                                                       @keydown.enter.prevent="saveInlineTitleEdit(item)"
+                                                                       @keydown.escape.prevent="cancelInlineTitleEdit()"
+                                                                       placeholder="ระบุชื่อสินค้า SEO สำหรับลงขายบน Shopee..."
+                                                                       class="w-full px-2.5 py-1.5 text-xs font-semibold text-slate-900 bg-white border border-orange-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300">
+                                                                <div class="flex items-center justify-between">
+                                                                    <span class="text-[10px] font-mono"
+                                                                          :class="(editingTitleValue || '').length > 110 ? 'text-rose-600 font-bold' : 'text-slate-500'"
+                                                                          x-text="((editingTitleValue || '').length) + ' / 120 ตัวอักษร'"></span>
+                                                                    <div class="flex items-center space-x-1.5">
+                                                                        <button type="button"
+                                                                                @click.stop="cancelInlineTitleEdit()"
+                                                                                class="px-2 py-1 rounded-md text-[10px] font-semibold text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 cursor-pointer">
+                                                                            ยกเลิก
+                                                                        </button>
+                                                                        <button type="button"
+                                                                                @click.stop="saveInlineTitleEdit(item)"
+                                                                                :disabled="savingQuickTitle"
+                                                                                class="px-2.5 py-1 rounded-md text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs cursor-pointer">
+                                                                            <span x-text="savingQuickTitle ? 'กำลังบันทึก...' : '💾 บันทึกชื่อ SEO'"></span>
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </template>
+
+                                                        <div class="flex flex-wrap items-center gap-1.5 mt-1">
                                                             <template x-if="item.variation_name">
                                                                 <span class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200/80 inline-flex items-center space-x-1">
                                                                     <i data-lucide="layers" class="w-2.5 h-2.5 text-slate-500"></i>
@@ -1488,6 +1533,25 @@
                     <div x-show="attachError" class="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center space-x-2">
                         <i data-lucide="alert-circle" class="w-4 h-4 text-rose-500 shrink-0"></i>
                         <span x-text="attachError"></span>
+                    </div>
+
+                    <!-- Editable Shopee SEO Title Field (Permanently Saved per SKU) -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-800 mb-1 flex items-center justify-between">
+                            <span class="flex items-center space-x-1">
+                                <i data-lucide="tag" class="w-3.5 h-3.5 text-orange-600"></i>
+                                <span>ชื่อสินค้าบน Shopee (SEO Title) *</span>
+                            </span>
+                            <span class="text-[10px] font-mono"
+                                  :class="((attachForm.name || '').length > 110) ? 'text-rose-600 font-bold' : 'text-emerald-600 font-bold'"
+                                  x-text="((attachForm.name || '').length) + ' / 120 ตัวอักษร (จำถาวร)'"></span>
+                        </label>
+                        <textarea rows="2" x-model="attachForm.name" maxlength="120" required
+                                  placeholder="ระบุชื่อสินค้า SEO สำหรับลงขายบน Shopee..."
+                                  class="w-full px-3 py-2 rounded-xl border border-orange-300 bg-orange-50/30 focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-xs font-semibold text-slate-900 outline-none leading-relaxed resize-none"></textarea>
+                        <p class="text-[10px] text-slate-400 mt-0.5">
+                            *ชื่อที่บันทึกไว้จะถูกจำผูกกับรหัส SKU นี้ตลอดไป ใช้เป็นชื่ออัตโนมัติทุกครั้งที่กด Export Mass Upload
+                        </p>
                     </div>
 
                     <!-- Single main field: Shopee URL -->
@@ -2419,7 +2483,7 @@
                         <i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i>
                         <h3 class="text-base font-bold text-slate-800">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                         <span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-bold" x-text="selectedItems.length + ' รายการ'"></span>
-                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.13-a (Permanent SEO Memory)</span>
+                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.13-b (Inline SEO Title Editor)</span>
                     </div>
                     <div class="flex items-center space-x-2">
                         <button type="button" x-show="selectedItems.length > 0"
@@ -3177,6 +3241,78 @@
                 },
 
                                 modalBackdropMouseDown: false,
+                editingTitleSku: null,
+                editingTitleValue: '',
+                savingQuickTitle: false,
+
+                startInlineTitleEdit(item) {
+                    if (!item || !item.sku) return;
+                    this.editingTitleSku = item.sku;
+                    this.editingTitleValue = item.shopee_title || item.name || item.sku || '';
+                    this.$nextTick(() => {
+                        if (window.lucide) lucide.createIcons();
+                    });
+                },
+
+                cancelInlineTitleEdit() {
+                    this.editingTitleSku = null;
+                    this.editingTitleValue = '';
+                    this.$nextTick(() => {
+                        if (window.lucide) lucide.createIcons();
+                    });
+                },
+
+                async saveInlineTitleEdit(item) {
+                    if (!item || !item.sku) return;
+                    const newTitle = (this.editingTitleValue || '').trim();
+                    if (!newTitle) {
+                        alert('กรุณาระบุชื่อสินค้าบน Shopee ครับ');
+                        return;
+                    }
+                    this.savingQuickTitle = true;
+                    try {
+                        item.shopee_title = newTitle;
+                        item.name = newTitle;
+                        item.has_custom_seo_title = true;
+                        this.saveCustomTitleLocalBackup(item.sku, newTitle);
+
+                        // Update cart item if in cart
+                        const cartIt = this.selectedItems.find(i => i.sku === item.sku);
+                        if (cartIt) {
+                            cartIt.shopee_title = newTitle;
+                            this.saveCartToStorage();
+                        }
+
+                        // Save to permanent custom title database on server
+                        await fetch('/api/shopee/save-custom-title', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ sku: item.sku, title: newTitle, source: 'inline_listed_edit' })
+                        });
+
+                        // Also update localbackup for listed_products
+                        try {
+                            const bKey = `megatool_listed_products_backup_${this.activeShopId || 'shop_1'}`;
+                            const localBackup = JSON.parse(localStorage.getItem(bKey) || '{}');
+                            if (localBackup[item.sku]) {
+                                localBackup[item.sku].name = newTitle;
+                                localBackup[item.sku].shopee_title = newTitle;
+                                localBackup[item.sku].updated_at = new Date().toISOString();
+                                localStorage.setItem(bKey, JSON.stringify(localBackup));
+                            }
+                        } catch (e) {}
+
+                        this.editingTitleSku = null;
+                        this.editingTitleValue = '';
+                    } catch (e) {
+                        alert('เกิดข้อผิดพลาดในการบันทึกชื่อสินค้า: ' + e);
+                    } finally {
+                        this.savingQuickTitle = false;
+                        this.$nextTick(() => {
+                            if (window.lucide) lucide.createIcons();
+                        });
+                    }
+                },
 
                 handleBackdropMouseDown(e) {
                     this.modalBackdropMouseDown = (e.target === e.currentTarget);
