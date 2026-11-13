@@ -1020,6 +1020,9 @@ class ExportItem(BaseModel):
     custom_spec_cards: Optional[List[Dict[str, Any]]] = None
     custom_trust_s1: Optional[str] = None
     custom_trust_s2: Optional[str] = None
+    shopee_url: Optional[str] = None
+    group_id: Optional[str] = None
+    group_parent_title: Optional[str] = None
 
 class ExportRequest(BaseModel):
     items: List[ExportItem]
@@ -1027,6 +1030,7 @@ class ExportRequest(BaseModel):
     shop_id: Optional[str] = "shop_1"
     shop_name: Optional[str] = None
     is_variation_group: Optional[bool] = False
+    export_mode: Optional[str] = "smart_mixed"
     parent_title: Optional[str] = None
     variation_group_name: Optional[str] = "รุ่นสินค้า"
     comparison_card_url: Optional[str] = None
@@ -1064,11 +1068,13 @@ def api_export(req: ExportRequest, request: Request, authorization: Optional[str
                 export_tasks[task_id]["sku"] = sku
 
         try:
+            eff_export_mode = req.export_mode or ("variations" if req.is_variation_group else "smart_mixed")
             file_url = export_shopee_batch(
                 items_data, 
                 req.filename, 
                 shop_name=eff_shop_name,
                 is_variation_group=req.is_variation_group or False,
+                export_mode=eff_export_mode,
                 parent_title=req.parent_title,
                 variation_group_name=req.variation_group_name or "รุ่นสินค้า",
                 comparison_card_url=req.comparison_card_url,

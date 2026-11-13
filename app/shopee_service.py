@@ -208,10 +208,12 @@ def col_to_idx(col_str):
         num = num * 26 + (ord(ch.upper()) - ord('A') + 1)
     return num
 
-def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx', shop_name='MEGATOOL', is_variation_group=False, parent_title=None, variation_group_name='รุ่นสินค้า', comparison_card_url=None, include_comparison=True, progress_callback=None):
+def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx', shop_name='MEGATOOL', is_variation_group=False, export_mode='smart_mixed', parent_title=None, variation_group_name='รุ่นสินค้า', comparison_card_url=None, include_comparison=True, progress_callback=None):
     """
     Takes product_items: [{'sku': '...', 'price': 145, 'badge': '...'}]
     Generates branded template images for ALL angles, uploads to CDN, and injects into official Shopee template.
+    Supports export_mode='smart_mixed' (auto groups multi-variation items + separates single items),
+    'single' (all separate products), or 'variations' (all in 1 variation group).
     """
     if not os.path.exists(TEMPLATE_PATH):
         raise FileNotFoundError(f"Template {TEMPLATE_PATH} not found")
@@ -255,431 +257,176 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
         ss_root.append(si_elem)
         return idx
 
+    def append_sorted_cells(row_el, cells_d, r_num):
+        for col_l in sorted(cells_d.keys(), key=col_to_idx):
+            c_type, val = cells_d[col_l]
+            if val is None or val == "":
+                continue
+            c_node = ET.SubElement(row_el, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c', {'r': f"{col_l}{r_num}"})
+            if c_type == 's':
+                c_node.attrib['t'] = 's'
+                s_idx = get_or_add_str(val)
+                v_node = ET.SubElement(c_node, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
+                v_node.text = str(s_idx)
+            else:
+                v_node = ET.SubElement(c_node, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
+                v_node.text = str(val)
+
     # Read sheet2.xml
     s2_bytes = in_zip.read('xl/worksheets/sheet2.xml')
     s2_root = ET.fromstring(s2_bytes)
     sheet_data = s2_root.find('main:sheetData', ns)
 
     start_row = 7
-    current_row_num = start_row
-    if is_variation_group and len(product_items) > 0:
-        parent_sku = f"PARENT_{product_items[0]['sku']}"
-        group_brand = "GENUINE"
-        group_cat_id = 101800
+
+    def process_item_data(item_info):
+        sku = item_info['sku']
+        override_price = item_info.get('price')
+        badge_text = item_info.get('badge')
+        custom_var_name = item_info.get('variation_name')
         
-        processed_items = []
-        all_gallery_images = []
-        combined_descs = []
-
-        total_group_items = len(product_items)
-        for p_idx, item_info in enumerate(product_items):
-            sku = item_info['sku']
-            if progress_callback:
-                try:
-                    progress_callback(p_idx + 1, total_group_items, sku)
-                except Exception:
-                    pass
-            override_price = item_info.get('price')
-            badge_text = item_info.get('badge')
-            custom_var_name = item_info.get('variation_name')
+        detail = get_product_detail(sku)
+        if not detail:
+            return None
             
-            detail = get_product_detail(sku)
-            if not detail:
-                continue
-                
-            brand = clean_brand_name(detail.get('manufacturer'), sku)
-            group_brand = brand
-            raw_name = detail.get('name', sku)
-            group_cat_id = detect_shopee_category(raw_name, brand)
-            raw_desc = clean_html(detail.get('description', ''))
-            cost_price = detail.get('price', {}).get('value', 0)
-            raw_warrenty = (detail.get('warrenty') or '').strip()
+        brand = clean_brand_name(detail.get('manufacturer'), sku)
+        raw_name = detail.get('name', sku)
+        raw_desc = clean_html(detail.get('description', ''))
+        cost_price = detail.get('price', {}).get('value', 0)
+        raw_warrenty = (detail.get('warrenty') or '').strip()
+        
+        if override_price and float(override_price) > 0:
+            sale_price = float(override_price)
+        else:
+            target_net = max(cost_price * 1.07, cost_price + 30)
+            sale_price = round(target_net / (1 - 0.28), 0)
             
-            if override_price and float(override_price) > 0:
-                sale_price = float(override_price)
-            else:
-                target_net = max(cost_price * 1.07, cost_price + 30)
-                sale_price = round(target_net / (1 - 0.28), 0)
-                
-            stock_qty = detail.get('stock', {}).get('stockLevel', 0)
-            if stock_qty is None or stock_qty < 0:
-                stock_qty = 0
-                
-            weight_kg = 1.0
-            width_cm = 10.0
-            length_cm = 15.0
-            height_cm = 10.0
-            units = detail.get('conversionUnits', [])
-            if units:
-                u0 = units[0]
-                weight_kg = u0.get('conversionGross', 1.0)
-                length_cm = round(u0.get('conversionLength', 150.0) / 10.0, 1)
-                width_cm = round(u0.get('conversionWidth', 100.0) / 10.0, 1)
-                height_cm = round(u0.get('conversionHeight', 100.0) / 10.0, 1)
+        stock_qty = detail.get('stock', {}).get('stockLevel', 0)
+        if stock_qty is None or stock_qty < 0:
+            stock_qty = 0
+            
+        weight_kg = 1.0
+        width_cm = 10.0
+        length_cm = 15.0
+        height_cm = 10.0
+        units = detail.get('conversionUnits', [])
+        if units:
+            u0 = units[0]
+            weight_kg = u0.get('conversionGross', 1.0)
+            length_cm = round(u0.get('conversionLength', 150.0) / 10.0, 1)
+            width_cm = round(u0.get('conversionWidth', 100.0) / 10.0, 1)
+            height_cm = round(u0.get('conversionHeight', 100.0) / 10.0, 1)
 
-            custom_images = item_info.get('selected_images')
-            if custom_images and isinstance(custom_images, list) and len(custom_images) > 0:
-                raw_images = [u for u in custom_images if u]
-            else:
-                raw_images = extract_product_images(detail)
+        custom_images = item_info.get('selected_images')
+        if custom_images and isinstance(custom_images, list) and len(custom_images) > 0:
+            raw_images = [u for u in custom_images if u]
+        else:
+            raw_images = extract_product_images(detail)
 
-            selected_cover = item_info.get('selected_image')
-            if selected_cover:
-                if selected_cover in raw_images:
-                    raw_images.remove(selected_cover)
-                raw_images.insert(0, selected_cover)
-            raw_images = raw_images[:9]
+        selected_cover = item_info.get('selected_image')
+        if selected_cover:
+            if selected_cover in raw_images:
+                raw_images.remove(selected_cover)
+            raw_images.insert(0, selected_cover)
+        raw_images = raw_images[:9]
 
-            use_template = item_info.get('use_template', True)
-            unframed_images = set(item_info.get('unframed_images') or [])
+        use_template = item_info.get('use_template', True)
+        unframed_images = set(item_info.get('unframed_images') or [])
 
-            def should_apply_template(img_u):
-                if not img_u:
+        def should_apply_template(img_u):
+            if not img_u:
+                return False
+            if unframed_images:
+                u_fname = str(img_u).split('/')[-1].split('?')[0]
+                if img_u in unframed_images or any(u_fname in str(x) for x in unframed_images):
                     return False
-                if unframed_images:
-                    u_fname = str(img_u).split('/')[-1].split('?')[0]
-                    if img_u in unframed_images or any(u_fname in str(x) for x in unframed_images):
-                        return False
-                    return True
-                return use_template
+                return True
+            return use_template
 
-            cdn_results = {}
-            with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
-                future_to_idx = {
-                    executor.submit(
-                        _process_single_image, 
-                        u, 
-                        idx, 
-                        sku, 
-                        brand, 
-                        badge_text, 
-                        shop_name, 
-                        use_template=should_apply_template(u),
-                        template_type=item_info.get('template_type', 'auto_spec'),
-                        item_info=item_info
-                    ): idx
-                    for idx, u in enumerate(raw_images)
-                }
-                for fut in concurrent.futures.as_completed(future_to_idx):
-                    idx = future_to_idx[fut]
-                    try:
-                        img_idx, cdn_url = fut.result()
-                        if cdn_url and cdn_url.startswith('http'):
-                            cdn_results[img_idx] = cdn_url
-                    except Exception as e:
-                        print(f"Failed processing image {idx} for {sku}:", e)
-
-            cdn_urls = [cdn_results[i] for i in range(len(raw_images)) if i in cdn_results]
-            if not cdn_urls and raw_images:
-                cdn_urls = [u for u in raw_images if u and u.startswith('http')]
-
-            var_cover = cdn_urls[0] if cdn_urls else ""
-            if var_cover and var_cover not in all_gallery_images:
-                all_gallery_images.append(var_cover)
-
-            opt_name = (custom_var_name or "").strip()
-            if not opt_name:
-                opt_name = auto_clean_option_name(raw_name, sku, brand)
-            if len(opt_name) > 20:
-                opt_name = opt_name[:20]
-
-            war_tag = f" | รับประกัน: {raw_warrenty}" if (raw_warrenty and raw_warrenty != '-') else ""
-
-            processed_items.append({
-                "sku": sku,
-                "raw_name": raw_name,
-                "raw_desc": raw_desc,
-                "brand": brand,
-                "sale_price": sale_price,
-                "stock_qty": stock_qty,
-                "weight_kg": weight_kg,
-                "length_cm": length_cm,
-                "width_cm": width_cm,
-                "height_cm": height_cm,
-                "opt_name": opt_name,
-                "warrenty": raw_warrenty,
-                "var_cover": var_cover,
-                "cdn_urls": cdn_urls
-            })
-
-        if processed_items:
-            if parent_title and parent_title.strip():
-                final_parent_title = parent_title.strip()
-            else:
-                first_name = processed_items[0]['raw_name']
-                final_parent_title = build_shopee_seo_title(group_brand, first_name, parent_sku, is_variation_group=True)
-            if len(final_parent_title) > 120:
-                final_parent_title = final_parent_title[:117] + "..."
-
-            # Use actual warranty from supplier items if present. If none, omit the section completely!
-            valid_warranties = [p['warrenty'] for p in processed_items if p.get('warrenty') and p['warrenty'] != '-']
-            warranty_section = ""
-            if valid_warranties:
-                actual_war = valid_warranties[0]
-                warranty_section = f"""\n\n【 การรับประกันสินค้าและศูนย์บริการ 】
-• การรับประกัน: ประกันศูนย์แท้ {actual_war}
-• เงื่อนไขการรับประกัน: ครอบคลุมข้อบกพร่องจากการผลิตตามมาตรฐานศูนย์บริการอย่างเป็นทางการ
-• หากมีข้อสงสัยหรือต้องการส่งตรวจเช็ค สามารถติดต่อประสานงานผ่านร้านค้าได้ตลอดอายุการใช้งานครับ"""
-
-            confidence_section = f"""\n\n【 มั่นใจได้เมื่อซื้อกับเรา 】
-• สินค้าของแท้ 100% ส่งตรงจากตัวแทนจำหน่ายอย่างเป็นทางการ
-• สินค้าใหม่มือ 1 บรรจุในกล่องแพ็คเกจซีลเรียบร้อย พร้อมส่งถึงมือคุณอย่างปลอดภัย
-• สินค้ามีสต็อกจริงพร้อมส่ง จัดส่งรวดเร็วทุกวัน มีบริการเก็บเงินปลายทาง (COD) ครับ"""
-
-            header_text = f"[{group_brand} แท้ 100%] รวมตัวเลือกสินค้าคุณภาพมาตรฐานสากล\nสินค้าของแท้ 100% สต็อกไทย พร้อมส่งทันที\n\n【 รายละเอียดตัวเลือกสินค้าในรายการนี้ 】"
-
-            # Compute character budget per item (Shopee total limit is 3,000 chars)
-            fixed_len = len(header_text) + len(warranty_section) + len(confidence_section) + 50
-            total_budget_for_items = max(1000, 2900 - fixed_len)
-            budget_per_item = max(400, total_budget_for_items // len(processed_items))
-
-            item_blocks = []
-            for p in processed_items:
-                opt_title = p['opt_name']
-                p_sku = p['sku']
-                p_war = f" | รับประกัน: {p['warrenty']}" if (p.get('warrenty') and p['warrenty'] != '-') else ""
-                item_header = f"▶ ตัวเลือก: {opt_title}{p_war}"
-                p_desc = p.get('raw_desc', '').strip()
-                formatted_body = prioritize_variation_lines(p_desc, budget=budget_per_item)
-                item_blocks.append(f"{item_header}\n{formatted_body}")
-
-            desc_bullet_text = "\n\n".join(item_blocks)
-            final_parent_desc = f"{header_text}\n\n{desc_bullet_text}{warranty_section}{confidence_section}"
-
-            final_gallery = all_gallery_images[:9]
-            # Inject Comparison Card as Image 2 if enabled and provided/auto-generated
-            if include_comparison:
-                if comparison_card_url and str(comparison_card_url).startswith('http'):
-                    if comparison_card_url in final_gallery:
-                        final_gallery.remove(comparison_card_url)
-                    if len(final_gallery) > 0:
-                        final_gallery.insert(1, comparison_card_url)
-                    else:
-                        final_gallery.append(comparison_card_url)
-                elif is_variation_group and len(processed_items) > 1:
-                    try:
-                        import hashlib
-                        var_skus = "_".join([p['sku'] for p in processed_items])
-                        comp_hash = hashlib.md5(f"comp_{var_skus}_v2".encode('utf-8')).hexdigest()[:8]
-                        comp_file = f"comparison_{comp_hash}.jpg"
-                        comp_local = f"app/static/covers/{comp_file}"
-                        from app.image_service import generate_comparison_card
-                        generate_comparison_card(processed_items, comp_local, parent_title=final_parent_title, shop_name=shop_name)
-                        uploaded_comp = upload_to_cdn(comp_local, force=True)
-                        comp_url = uploaded_comp if (uploaded_comp and uploaded_comp.startswith('http')) else f"https://megatool-yrho.onrender.com/static/covers/{comp_file}"
-                        if comp_url:
-                            if len(final_gallery) > 0:
-                                final_gallery.insert(1, comp_url)
-                            else:
-                                final_gallery.append(comp_url)
-                    except Exception as comp_err:
-                        print("Auto comparison card generation in batch:", comp_err)
-
-            if len(final_gallery) < 9:
-                for p in processed_items:
-                    for u in p.get('cdn_urls', []):
-                        if u and u not in final_gallery and len(final_gallery) < 9:
-                            final_gallery.append(u)
-            final_gallery = final_gallery[:9]
-
-            def append_sorted_cells(row_el, cells_d, r_num):
-                for col_l in sorted(cells_d.keys(), key=col_to_idx):
-                    c_type, val = cells_d[col_l]
-                    if val is None or val == "":
-                        continue
-                    c_node = ET.SubElement(row_el, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c', {'r': f"{col_l}{r_num}"})
-                    if c_type == 's':
-                        c_node.attrib['t'] = 's'
-                        s_idx = get_or_add_str(val)
-                        v_node = ET.SubElement(c_node, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
-                        v_node.text = str(s_idx)
-                    else:
-                        v_node = ET.SubElement(c_node, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
-                        v_node.text = str(val)
-
-            clean_var_tier = (variation_group_name or "รุ่นสินค้า").strip()
-            if len(clean_var_tier) > 14:
-                clean_var_tier = clean_var_tier[:14]
-
-            for idx, p_item in enumerate(processed_items):
-                row_elem = ET.Element('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row', {'r': str(current_row_num), 'spans': '1:39'})
-                cells = {}
-
-                # Category & Title (Columns A & B): Filled on ALL rows so Shopee never reports empty title
-                cells['A'] = ('n', group_cat_id)
-                cells['B'] = ('s', final_parent_title)
-                cells['C'] = ('s', final_parent_desc)
-
-                # Parent SKU in Column I
-                cells['I'] = ('s', parent_sku)
-                # Variation Integration No in Column J (Mandatory for Shopee variations!)
-                cells['J'] = ('s', "101")
-                # Variation Tier 1 Name in Column K (Strictly 1-14 chars limit in Shopee)
-                cells['K'] = ('s', clean_var_tier)
-                # Option 1 in Column L (Strictly 1-20 chars limit in Shopee)
-                clean_opt = (p_item['opt_name'] or "มาตรฐาน").strip()
-                if len(clean_opt) > 20:
-                    clean_opt = clean_opt[:20]
-                cells['L'] = ('s', clean_opt)
-                # Option Image in Column M
-                if p_item['var_cover']:
-                    cells['M'] = ('s', p_item['var_cover'])
-
-                cells['P'] = ('n', p_item['sale_price'])
-                cells['Q'] = ('n', p_item['stock_qty'])
-                cells['R'] = ('s', p_item['sku'])
-
-                # Main Gallery Images (Columns V to AD): on first row
-                if idx == 0:
-                    cols_img = ['V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD']
-                    for c_idx, col_l in enumerate(cols_img):
-                        if c_idx < len(final_gallery):
-                            cells[col_l] = ('s', final_gallery[c_idx])
-
-                cells['AE'] = ('n', p_item['weight_kg'])
-                cells['AF'] = ('n', int(p_item['length_cm']))
-                cells['AG'] = ('n', int(p_item['width_cm']))
-                cells['AH'] = ('n', int(p_item['height_cm']))
-                cells['AI'] = ('s', "เปิด")
-                cells['AJ'] = ('s', "ปิด")
-                cells['AK'] = ('s', "ปิด")
-
-                append_sorted_cells(row_elem, cells, current_row_num)
-                sheet_data.append(row_elem)
-                current_row_num += 1
-    else:
-        total_group_items = len(product_items)
-        for p_idx, item_info in enumerate(product_items):
-            sku = item_info['sku']
-            if progress_callback:
+        cdn_results = {}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+            future_to_idx = {
+                executor.submit(
+                    _process_single_image, 
+                    u, 
+                    idx, 
+                    sku, 
+                    brand, 
+                    badge_text, 
+                    shop_name, 
+                    use_template=should_apply_template(u),
+                    template_type=item_info.get('template_type', 'auto_spec'),
+                    item_info=item_info
+                ): idx
+                for idx, u in enumerate(raw_images)
+            }
+            for fut in concurrent.futures.as_completed(future_to_idx):
+                idx = future_to_idx[fut]
                 try:
-                    progress_callback(p_idx + 1, total_group_items, sku)
-                except Exception:
-                    pass
-            override_price = item_info.get('price')
-            badge_text = item_info.get('badge')
+                    img_idx, cdn_url = fut.result()
+                    if cdn_url and cdn_url.startswith('http'):
+                        cdn_results[img_idx] = cdn_url
+                except Exception as e:
+                    print(f"Failed processing image {idx} for {sku}:", e)
+
+        cdn_urls = [cdn_results[i] for i in range(len(raw_images)) if i in cdn_results]
+        if not cdn_urls and raw_images:
+            cdn_urls = [u for u in raw_images if u and u.startswith('http')]
+
+        var_cover = cdn_urls[0] if cdn_urls else ""
+
+        opt_name = (custom_var_name or "").strip()
+        if not opt_name:
+            opt_name = auto_clean_option_name(raw_name, sku, brand)
+        if len(opt_name) > 20:
+            opt_name = opt_name[:20]
+
+        return {
+            "sku": sku,
+            "raw_name": raw_name,
+            "raw_desc": raw_desc,
+            "brand": brand,
+            "sale_price": sale_price,
+            "stock_qty": stock_qty,
+            "weight_kg": weight_kg,
+            "length_cm": length_cm,
+            "width_cm": width_cm,
+            "height_cm": height_cm,
+            "opt_name": opt_name,
+            "warrenty": raw_warrenty,
+            "var_cover": var_cover,
+            "cdn_urls": cdn_urls,
+            "item_info": item_info
+        }
+
+    def write_single_row(p_data, r_num):
+        sku = p_data['sku']
+        brand = p_data['brand']
+        raw_name = p_data['raw_name']
+        raw_desc = p_data['raw_desc']
+        item_info = p_data['item_info']
         
-            detail = get_product_detail(sku)
-            if not detail:
-                continue
-            
-            row_elem = ET.Element('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row', {'r': str(current_row_num), 'spans': '1:39'})
+        from app.title_service import get_custom_shopee_title, save_custom_shopee_title
+        rec_seo_title = build_shopee_seo_title(brand, raw_name, sku, is_variation_group=False)
+        persisted_title = get_custom_shopee_title(sku, raw_ktw_name=raw_name)
+        ui_title = (item_info.get('shopee_title') or item_info.get('custom_shopee_title') or '').strip()
+        if ui_title and ui_title != raw_name.strip() and ui_title != rec_seo_title:
+            shopee_title = ui_title
+            save_custom_shopee_title(sku, ui_title, source="export_batch")
+        elif persisted_title and persisted_title.strip() and persisted_title.strip() != rec_seo_title:
+            shopee_title = persisted_title.strip()
+        else:
+            shopee_title = rec_seo_title
 
-
-            brand = clean_brand_name(detail.get('manufacturer'), sku)
-            raw_name = detail.get('name', sku)
-            raw_desc = clean_html(detail.get('description', ''))
-            ean = detail.get('ean') or ''
-            cost_price = detail.get('price', {}).get('value', 0)
-        
-            # Determine sale price using Shopee Net-Profit formula (Fee: 28%, Margin: 7%, min profit: 30 baht)
-            if override_price and float(override_price) > 0:
-                sale_price = float(override_price)
-            else:
-                target_net = max(cost_price * 1.07, cost_price + 30)
-                sale_price = round(target_net / (1 - 0.28), 0)
-
-            # Stock
-            stock_qty = detail.get('stock', {}).get('stockLevel', 0)
-            if stock_qty is None or stock_qty < 0:
-                stock_qty = 0
-
-            # Weight & Dims
-            weight_kg = 1.0
-            width_cm = 10.0
-            length_cm = 15.0
-            height_cm = 10.0
-            units = detail.get('conversionUnits', [])
-            if units:
-                u0 = units[0]
-                weight_kg = u0.get('conversionGross', 1.0)
-                length_cm = round(u0.get('conversionLength', 150.0) / 10.0, 1)
-                width_cm = round(u0.get('conversionWidth', 100.0) / 10.0, 1)
-                height_cm = round(u0.get('conversionHeight', 100.0) / 10.0, 1)
-
-            # Collect raw distinct angle images from detail or custom user selection (up to 9 images)
-            custom_images = item_info.get('selected_images')
-            if custom_images and isinstance(custom_images, list) and len(custom_images) > 0:
-                raw_images = [u for u in custom_images if u]
-            else:
-                raw_images = extract_product_images(detail)
-
-            selected_cover = item_info.get('selected_image')
-            if selected_cover:
-                if selected_cover in raw_images:
-                    raw_images.remove(selected_cover)
-                raw_images.insert(0, selected_cover)
-            
-            raw_images = raw_images[:9]
-
-            use_template = item_info.get('use_template', True)
-            unframed_images = set(item_info.get('unframed_images') or [])
-
-            def should_apply_template(img_u):
-                if not img_u:
-                    return False
-                if unframed_images:
-                    u_fname = str(img_u).split('/')[-1].split('?')[0]
-                    if img_u in unframed_images or any(u_fname in str(x) for x in unframed_images):
-                        return False
-                    return True
-                return use_template
-
-            cdn_results = {}
-            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-                future_to_idx = {
-                    executor.submit(
-                        _process_single_image, 
-                        u, 
-                        idx, 
-                        sku, 
-                        brand, 
-                        badge_text, 
-                        shop_name, 
-                        use_template=should_apply_template(u),
-                        template_type=item_info.get('template_type', 'auto_spec'),
-                        item_info=item_info
-                    ): idx
-                    for idx, u in enumerate(raw_images)
-                }
-                for fut in concurrent.futures.as_completed(future_to_idx):
-                    idx = future_to_idx[fut]
-                    try:
-                        img_idx, cdn_url = fut.result()
-                        if cdn_url and cdn_url.startswith('http'):
-                            cdn_results[img_idx] = cdn_url
-                    except Exception as e:
-                        print(f"Failed processing image {idx} for {sku}:", e)
-
-            # Build ordered list of CDN URLs
-            cdn_urls = [cdn_results[i] for i in range(len(raw_images)) if i in cdn_results]
-            if not cdn_urls and raw_images:
-                cdn_urls = [u for u in raw_images if u and u.startswith('http')]
-
-
-
-            # Smart Shopee SEO Title (Priority 1: User-customized UI title != raw KTW name, Priority 2: Persisted custom title from title_service, Priority 3: Auto SEO title)
-            from app.title_service import get_custom_shopee_title, save_custom_shopee_title
-            rec_seo_title = build_shopee_seo_title(brand, raw_name, sku, is_variation_group=False)
-            persisted_title = get_custom_shopee_title(sku, raw_ktw_name=raw_name)
-            ui_title = (item_info.get('shopee_title') or item_info.get('custom_shopee_title') or '').strip()
-            if ui_title and ui_title != raw_name.strip() and ui_title != rec_seo_title:
-                shopee_title = ui_title
-                save_custom_shopee_title(sku, ui_title, source="export_batch")
-            elif persisted_title and persisted_title.strip() and persisted_title.strip() != rec_seo_title:
-                shopee_title = persisted_title.strip()
-            else:
-                shopee_title = rec_seo_title
-
-            single_war = (detail.get('warrenty') or '').strip()
-            warranty_section = ""
-            if single_war and single_war != '-':
-                warranty_section = f"""\n\n【 การรับประกันสินค้าและศูนย์บริการ 】
+        single_war = p_data['warrenty']
+        warranty_section = ""
+        if single_war and single_war != '-':
+            warranty_section = f"""\n\n【 การรับประกันสินค้าและศูนย์บริการ 】
 • การรับประกัน: ประกันศูนย์แท้ {single_war}
 • เงื่อนไขการรับประกัน: ครอบคลุมข้อบกพร่องจากการผลิตตามมาตรฐานศูนย์บริการอย่างเป็นทางการ
 • หากมีข้อสงสัยหรือต้องการส่งตรวจเช็ค สามารถติดต่อประสานงานผ่านร้านค้าได้ตลอดอายุการใช้งานครับ"""
 
-            shopee_desc = f"""[{brand} แท้ 100%] {raw_name}
+        shopee_desc = f"""[{brand} แท้ 100%] {raw_name}
 สินค้าของแท้ 100% สต็อกไทย พร้อมส่งทันที
 
 【 จุดเด่นและสเปกสินค้า 】
@@ -693,47 +440,271 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
 • สินค้าใหม่มือ 1 บรรจุในกล่องแพ็คเกจซีลเรียบร้อย พร้อมส่งถึงมือคุณอย่างปลอดภัย
 • สินค้ามีสต็อกจริงพร้อมส่ง จัดส่งรวดเร็วทุกวัน มีบริการเก็บเงินปลายทาง (COD) ครับ"""
 
-            # Map Category ID using intelligent SEO detector
-            cat_id = detect_shopee_category(raw_name, brand)
+        cat_id = detect_shopee_category(raw_name, brand)
 
+        row_elem = ET.Element('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row', {'r': str(r_num), 'spans': '1:39'})
+        cells = {}
+        cells['A'] = ('n', cat_id)
+        cells['B'] = ('s', shopee_title)
+        cells['C'] = ('s', shopee_desc)
+        cells['I'] = ('s', sku)
+        cells['P'] = ('n', p_data['sale_price'])
+        cells['Q'] = ('n', p_data['stock_qty'])
+        cells['R'] = ('s', sku)
+
+        cols_img = ['V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD']
+        for c_idx, col_l in enumerate(cols_img):
+            if c_idx < len(p_data['cdn_urls']):
+                cells[col_l] = ('s', p_data['cdn_urls'][c_idx])
+
+        cells['AE'] = ('n', p_data['weight_kg'])
+        cells['AF'] = ('n', int(p_data['length_cm']))
+        cells['AG'] = ('n', int(p_data['width_cm']))
+        cells['AH'] = ('n', int(p_data['height_cm']))
+        cells['AI'] = ('s', "เปิด")
+        cells['AJ'] = ('s', "ปิด")
+        cells['AK'] = ('s', "ปิด")
+
+        append_sorted_cells(row_elem, cells, r_num)
+        sheet_data.append(row_elem)
+        return r_num + 1
+
+    def write_variation_group(processed_items, start_r_num, integration_no, group_parent_title=None, tier_name="รุ่นสินค้า"):
+        if not processed_items:
+            return start_r_num
+
+        first_p = processed_items[0]
+        group_brand = first_p['brand']
+        first_sku = first_p['sku']
+        parent_sku = f"PARENT_{first_sku}"
+        group_cat_id = detect_shopee_category(first_p['raw_name'], group_brand)
+
+        if group_parent_title and str(group_parent_title).strip():
+            final_parent_title = str(group_parent_title).strip()
+        else:
+            final_parent_title = build_shopee_seo_title(group_brand, first_p['raw_name'], parent_sku, is_variation_group=True)
+        if len(final_parent_title) > 120:
+            final_parent_title = final_parent_title[:117] + "..."
+
+        valid_warranties = [p['warrenty'] for p in processed_items if p.get('warrenty') and p['warrenty'] != '-']
+        warranty_section = ""
+        if valid_warranties:
+            actual_war = valid_warranties[0]
+            warranty_section = f"""\n\n【 การรับประกันสินค้าและศูนย์บริการ 】
+• การรับประกัน: ประกันศูนย์แท้ {actual_war}
+• เงื่อนไขการรับประกัน: ครอบคลุมข้อบกพร่องจากการผลิตตามมาตรฐานศูนย์บริการอย่างเป็นทางการ
+• หากมีข้อสงสัยหรือต้องการส่งตรวจเช็ค สามารถติดต่อประสานงานผ่านร้านค้าได้ตลอดอายุการใช้งานครับ"""
+
+        confidence_section = f"""\n\n【 มั่นใจได้เมื่อซื้อกับเรา 】
+• สินค้าของแท้ 100% ส่งตรงจากตัวแทนจำหน่ายอย่างเป็นทางการ
+• สินค้าใหม่มือ 1 บรรจุในกล่องแพ็คเกจซีลเรียบร้อย พร้อมส่งถึงมือคุณอย่างปลอดภัย
+• สินค้ามีสต็อกจริงพร้อมส่ง จัดส่งรวดเร็วทุกวัน มีบริการเก็บเงินปลายทาง (COD) ครับ"""
+
+        header_text = f"[{group_brand} แท้ 100%] รวมตัวเลือกสินค้าคุณภาพมาตรฐานสากล\nสินค้าของแท้ 100% สต็อกไทย พร้อมส่งทันที\n\n【 รายละเอียดตัวเลือกสินค้าในรายการนี้ 】"
+
+        fixed_len = len(header_text) + len(warranty_section) + len(confidence_section) + 50
+        total_budget_for_items = max(1000, 2900 - fixed_len)
+        budget_per_item = max(400, total_budget_for_items // len(processed_items))
+
+        item_blocks = []
+        for p in processed_items:
+            opt_title = p['opt_name']
+            p_war = f" | รับประกัน: {p['warrenty']}" if (p.get('warrenty') and p['warrenty'] != '-') else ""
+            item_header = f"▶ ตัวเลือก: {opt_title}{p_war}"
+            p_desc = p.get('raw_desc', '').strip()
+            formatted_body = prioritize_variation_lines(p_desc, budget=budget_per_item)
+            item_blocks.append(f"{item_header}\n{formatted_body}")
+
+        desc_bullet_text = "\n\n".join(item_blocks)
+        final_parent_desc = f"{header_text}\n\n{desc_bullet_text}{warranty_section}{confidence_section}"
+
+        # Build gallery images
+        all_gallery_images = []
+        for p in processed_items:
+            if p['var_cover'] and p['var_cover'] not in all_gallery_images:
+                all_gallery_images.append(p['var_cover'])
+        
+        final_gallery = all_gallery_images[:9]
+        if include_comparison:
+            if comparison_card_url and str(comparison_card_url).startswith('http'):
+                if comparison_card_url in final_gallery:
+                    final_gallery.remove(comparison_card_url)
+                if len(final_gallery) > 0:
+                    final_gallery.insert(1, comparison_card_url)
+                else:
+                    final_gallery.append(comparison_card_url)
+            elif len(processed_items) > 1:
+                try:
+                    import hashlib
+                    var_skus = "_".join([p['sku'] for p in processed_items])
+                    comp_hash = hashlib.md5(f"comp_{var_skus}_v2".encode('utf-8')).hexdigest()[:8]
+                    comp_file = f"comparison_{comp_hash}.jpg"
+                    comp_local = f"app/static/covers/{comp_file}"
+                    from app.image_service import generate_comparison_card
+                    generate_comparison_card(processed_items, comp_local, parent_title=final_parent_title, shop_name=shop_name)
+                    uploaded_comp = upload_to_cdn(comp_local, force=True)
+                    comp_url = uploaded_comp if (uploaded_comp and uploaded_comp.startswith('http')) else f"https://megatool-yrho.onrender.com/static/covers/{comp_file}"
+                    if comp_url:
+                        if len(final_gallery) > 0:
+                            final_gallery.insert(1, comp_url)
+                        else:
+                            final_gallery.append(comp_url)
+                except Exception as comp_err:
+                    print("Auto comparison card generation in batch:", comp_err)
+
+        if len(final_gallery) < 9:
+            for p in processed_items:
+                for u in p.get('cdn_urls', []):
+                    if u and u not in final_gallery and len(final_gallery) < 9:
+                        final_gallery.append(u)
+        final_gallery = final_gallery[:9]
+
+        clean_var_tier = (tier_name or "รุ่นสินค้า").strip()
+        if len(clean_var_tier) > 14:
+            clean_var_tier = clean_var_tier[:14]
+
+        r_num = start_r_num
+        for idx, p_item in enumerate(processed_items):
+            row_elem = ET.Element('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row', {'r': str(r_num), 'spans': '1:39'})
             cells = {}
-            cells['A'] = ('n', cat_id)
-            cells['B'] = ('s', shopee_title)
-            cells['C'] = ('s', shopee_desc)
-            cells['I'] = ('s', sku)
-            cells['P'] = ('n', sale_price)
-            cells['Q'] = ('n', stock_qty)
-            cells['R'] = ('s', sku)
+            cells['A'] = ('n', group_cat_id)
+            cells['B'] = ('s', final_parent_title)
+            cells['C'] = ('s', final_parent_desc)
+            cells['I'] = ('s', parent_sku)
+            cells['J'] = ('s', str(integration_no))
+            cells['K'] = ('s', clean_var_tier)
+            clean_opt = (p_item['opt_name'] or "มาตรฐาน").strip()
+            if len(clean_opt) > 20:
+                clean_opt = clean_opt[:20]
+            cells['L'] = ('s', clean_opt)
+            if p_item['var_cover']:
+                cells['M'] = ('s', p_item['var_cover'])
 
-            cols_img = ['V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD']
-            for c_idx, col_l in enumerate(cols_img):
-                if c_idx < len(cdn_urls):
-                    cells[col_l] = ('s', cdn_urls[c_idx])
+            cells['P'] = ('n', p_item['sale_price'])
+            cells['Q'] = ('n', p_item['stock_qty'])
+            cells['R'] = ('s', p_item['sku'])
 
-            cells['AE'] = ('n', weight_kg)
-            cells['AF'] = ('n', int(length_cm))
-            cells['AG'] = ('n', int(width_cm))
-            cells['AH'] = ('n', int(height_cm))
+            if idx == 0:
+                cols_img = ['V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD']
+                for c_idx, col_l in enumerate(cols_img):
+                    if c_idx < len(final_gallery):
+                        cells[col_l] = ('s', final_gallery[c_idx])
+
+            cells['AE'] = ('n', p_item['weight_kg'])
+            cells['AF'] = ('n', int(p_item['length_cm']))
+            cells['AG'] = ('n', int(p_item['width_cm']))
+            cells['AH'] = ('n', int(p_item['height_cm']))
             cells['AI'] = ('s', "เปิด")
             cells['AJ'] = ('s', "ปิด")
             cells['AK'] = ('s', "ปิด")
 
-            for col_l in sorted(cells.keys(), key=col_to_idx):
-                c_type, val = cells[col_l]
-                if val is None or val == "":
-                    continue
-                c_node = ET.SubElement(row_elem, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c', {'r': f"{col_l}{current_row_num}"})
-                if c_type == 's':
-                    c_node.attrib['t'] = 's'
-                    s_idx = get_or_add_str(val)
-                    v_node = ET.SubElement(c_node, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
-                    v_node.text = str(s_idx)
-                else:
-                    v_node = ET.SubElement(c_node, '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
-                    v_node.text = str(val)
-
+            append_sorted_cells(row_elem, cells, r_num)
             sheet_data.append(row_elem)
-            current_row_num += 1
+            r_num += 1
+
+        return r_num
+
+    # Build lookup for listed products so shared shopee URLs and group info are known
+    listed_lookup = {}
+    try:
+        lp_path = os.path.join(APP_DIR, 'data', 'listed_products.json')
+        if os.path.exists(lp_path):
+            with open(lp_path, 'r', encoding='utf-8') as f_lp:
+                all_lp_data = json.load(f_lp)
+                for s_key, s_items in all_lp_data.items():
+                    if isinstance(s_items, dict):
+                        for sku_k, v in s_items.items():
+                            if isinstance(v, dict) and sku_k not in listed_lookup:
+                                listed_lookup[sku_k] = v
+    except Exception as e_lp:
+        print("Warning loading listed_products for grouping:", e_lp)
+
+    # Count occurrences of non-empty shopee_url in the current export batch
+    url_counts = {}
+    for it in product_items:
+        sku = it.get('sku')
+        u = (it.get('shopee_url') or (listed_lookup.get(sku, {}).get('shopee_url')) or '').strip()
+        if u and u not in ['https://shopee.co.th', 'https://shopee.co.th/']:
+            url_counts[u] = url_counts.get(u, 0) + 1
+
+    batches = [] # List of tuples: ('single' | 'group', [items], group_title, group_tier)
+    eff_mode = export_mode or ("variations" if is_variation_group else "smart_mixed")
+
+    if eff_mode == 'single':
+        for it in product_items:
+            batches.append(('single', [it], None, None))
+    elif eff_mode == 'variations':
+        batches.append(('group', product_items, parent_title, variation_group_name or "รุ่นสินค้า"))
+    else: # 'smart_mixed'
+        from collections import OrderedDict
+        group_map = OrderedDict()
+        for it in product_items:
+            sku = it.get('sku')
+            gid = (it.get('group_id') or (listed_lookup.get(sku, {}).get('group_id')) or '').strip()
+            u = (it.get('shopee_url') or (listed_lookup.get(sku, {}).get('shopee_url')) or '').strip()
+            
+            if gid:
+                key = f"group_{gid}"
+            elif u and u not in ['https://shopee.co.th', 'https://shopee.co.th/'] and url_counts.get(u, 0) > 1:
+                key = f"url_{u}"
+            else:
+                key = f"single_{sku}"
+
+            if key not in group_map:
+                group_map[key] = {
+                    'items': [],
+                    'parent_title': it.get('group_parent_title') or (listed_lookup.get(sku, {}).get('group_parent_title')),
+                    'tier_name': variation_group_name or "รุ่นสินค้า"
+                }
+            group_map[key]['items'].append(it)
+            if not group_map[key]['parent_title'] and it.get('group_parent_title'):
+                group_map[key]['parent_title'] = it.get('group_parent_title')
+
+        for key, g_info in group_map.items():
+            g_items = g_info['items']
+            if len(g_items) > 1:
+                batches.append(('group', g_items, g_info['parent_title'] or parent_title, g_info['tier_name']))
+            else:
+                batches.append(('single', g_items, None, None))
+
+    current_row_num = start_row
+    var_group_counter = 101
+    total_items = len(product_items)
+    processed_count = 0
+
+    for b_type, b_items, b_title, b_tier in batches:
+        if b_type == 'single':
+            p_data = process_item_data(b_items[0])
+            processed_count += 1
+            if progress_callback:
+                try:
+                    progress_callback(processed_count, total_items, b_items[0]['sku'])
+                except Exception:
+                    pass
+            if p_data:
+                current_row_num = write_single_row(p_data, current_row_num)
+        else: # 'group'
+            group_processed = []
+            for it in b_items:
+                p_data = process_item_data(it)
+                processed_count += 1
+                if progress_callback:
+                    try:
+                        progress_callback(processed_count, total_items, it['sku'])
+                    except Exception:
+                        pass
+                if p_data:
+                    group_processed.append(p_data)
+            
+            if group_processed:
+                current_row_num = write_variation_group(
+                    group_processed,
+                    current_row_num,
+                    integration_no=var_group_counter,
+                    group_parent_title=b_title,
+                    tier_name=b_tier
+                )
+                var_group_counter += 1
 
     # Update sharedStrings counts
     total_ss = current_si_count + len(new_strings)

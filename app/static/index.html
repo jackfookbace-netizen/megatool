@@ -2741,31 +2741,46 @@
                 </div>
 
                 <div class="overflow-y-auto flex-1 pr-1 min-h-0 space-y-3 pt-2">
-                <!-- Export Mode Selection: Single vs Variations Group -->
+                <!-- Export Mode Selection: Smart Mixed vs Single vs Variations Group -->
                 <div x-show="selectedItems.length > 1" class="my-3 p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <span class="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
                             <i data-lucide="layers" class="w-4 h-4 text-orange-600"></i>
                             <span>รูปแบบการสร้างไฟล์ Excel Shopee:</span>
                         </span>
-                        <div class="inline-flex p-1 bg-white border border-slate-200 rounded-xl text-xs font-bold shadow-xs">
+                        <div class="inline-flex p-1 bg-white border border-slate-200 rounded-xl text-xs font-bold shadow-xs flex-wrap gap-1">
+                            <button type="button" @click="exportMode = 'smart_mixed'"
+                                    :class="exportMode === 'smart_mixed' ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                    class="px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer">
+                                <span>⚡ อัตโนมัติ: รวมรุ่น + แยกเดี่ยว</span>
+                                <span class="bg-amber-400 text-amber-950 text-[10px] px-1.5 py-0.2 rounded-full font-bold">แนะนำ</span>
+                            </button>
                             <button type="button" @click="exportMode = 'single'"
                                     :class="exportMode === 'single' ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                                    class="px-3 py-1 rounded-lg transition-all">
-                                แยกสินค้าเดี่ยว
+                                    class="px-3 py-1.5 rounded-lg transition-all cursor-pointer">
+                                📄 แยกสินค้าเดี่ยวทุกตัว
                             </button>
                             <button type="button" @click="exportMode = 'variations'; syncParentTitleIfNeeded()"
                                     :class="exportMode === 'variations' ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                                    class="px-3 py-1 rounded-lg transition-all flex items-center space-x-1">
-                                <span>🔗 รวมเป็น 1 สินค้ามีหลายรุ่น</span>
-                                <span class="bg-amber-400 text-amber-950 text-[10px] px-1.5 py-0.2 rounded-full">แนะนำ</span>
+                                    class="px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1 cursor-pointer">
+                                <span>📦 รวมทุกตัวเป็น 1 สินค้าเดียว</span>
                             </button>
                         </div>
                     </div>
 
+                    <!-- Summary Banner for Smart Mixed Mode -->
+                    <div x-show="exportMode === 'smart_mixed'" class="p-2.5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-start space-x-2 shadow-2xs">
+                        <span class="text-sm shrink-0">✨</span>
+                        <div class="text-[11px] leading-relaxed">
+                            <span class="font-bold">โหมดส่งออกอัจฉริยะ (ไฟล์เดียวจบ):</span>
+                            ระบบจะรวมกลุ่มรุ่นที่มีลิงก์เดียวกัน (เช่น Makita 2 รุ่น, POLO 4 รุ่น) เป็นตัวเลือกสินค้าให้อัตโนมัติ และสินค้าที่ไม่มีกลุ่มจะแยกเป็นสินค้าเดี่ยวให้ครบในไฟล์ Excel เดียวกันทันที
+                            <div class="font-bold text-emerald-800 mt-0.5" x-text="getSmartMixedSummaryText()"></div>
+                        </div>
+                    </div>
+
                     <!-- Variations Options Configuration -->
-                    <div x-show="exportMode === 'variations'" class="space-y-2.5 pt-2 border-t border-slate-200/60 text-xs">
-                        <div>
+                    <div x-show="exportMode === 'variations' || (exportMode === 'smart_mixed' && hasAnyCartVariationGroup())" class="space-y-2.5 pt-2 border-t border-slate-200/60 text-xs">
+                        <div x-show="exportMode === 'variations'">
                             <div class="flex items-center justify-between mb-1">
                                 <label class="block font-bold text-slate-700">
                                     ชื่อสินค้าหลักบน Shopee (Parent Title):
@@ -2830,12 +2845,12 @@
                 </div>
 
                 <!-- คำแนะนำลำดับรูปภาพใน Shopee -->
-                <div x-show="exportMode === 'variations' && selectedItems.length > 1" 
+                <div x-show="(exportMode === 'variations' || (exportMode === 'smart_mixed' && hasAnyCartVariationGroup())) && selectedItems.length > 1" 
                      class="my-2 p-2.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-xl text-xs text-amber-900 flex items-start space-x-2 shadow-2xs">
                     <span class="text-sm shrink-0">💡</span>
                     <div class="text-[11px] leading-relaxed">
                         <span class="font-bold">ลำดับรูปบน Shopee:</span> 
-                        รุ่นที่เป็น <span class="font-bold text-amber-800 bg-amber-100/80 px-1 py-0.2 rounded border border-amber-300">อันดับ 1</span> จะเป็น <b>ภาพหน้าปกหลัก (Image 1)</b> ที่ลูกค้าเห็นตอนค้นหา และรูปของรุ่นถัดไปจะเรียงตาม <b>อันดับ 2, 3, 4...</b> คุณสามารถคลิกเลือกเปลี่ยนอันดับของแต่ละรุ่นได้อิสระจากกล่องเลือกด้านล่างครับ
+                        สำหรับสินค้าที่เป็นตัวเลือก รุ่นแรกของแต่ละกลุ่มจะเป็น <b>ภาพหน้าปกหลัก (Image 1)</b> ที่ลูกค้าเห็นตอนค้นหา และรูปของรุ่นถัดไปจะเรียงตาม <b>อันดับ 2, 3, 4...</b>
                     </div>
                 </div>
 
@@ -2890,6 +2905,23 @@
                                         </div>
 
                                         <div class="flex items-center space-x-2 text-xs text-slate-500 mt-1 flex-wrap gap-y-1">
+                                            <!-- Smart Mixed Badge -->
+                                            <template x-if="exportMode === 'smart_mixed'">
+                                                <span>
+                                                    <template x-if="isCartItemInGroup(item)">
+                                                        <span class="px-2 py-0.5 rounded-md font-bold text-[11px] border bg-indigo-50 text-indigo-700 border-indigo-200 inline-flex items-center space-x-1"
+                                                              :title="'จะรวมกับอีก ' + (getCartItemSiblingCount(item) - 1) + ' รุ่นเป็น 1 สินค้าหลายตัวเลือกบน Shopee'">
+                                                            <span>🔗 รวมกลุ่ม</span>
+                                                            <span x-text="'(' + getCartItemSiblingCount(item) + ' รุ่น)'"></span>
+                                                        </span>
+                                                    </template>
+                                                    <template x-if="!isCartItemInGroup(item)">
+                                                        <span class="px-2 py-0.5 rounded-md font-bold text-[11px] border bg-slate-100 text-slate-700 border-slate-200 inline-flex items-center space-x-1">
+                                                            <span>📄 สินค้าเดี่ยว</span>
+                                                        </span>
+                                                    </template>
+                                                </span>
+                                            </template>
                                             <span class="font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 text-[11px]" x-text="item.sku"></span>
                                             <span>•</span>
                                             <span class="px-2 py-0.5 rounded-md font-bold text-[11px] border"
@@ -2935,8 +2967,8 @@
                                 </div>
                             </div>
 
-                            <!-- แถวชื่อตัวเลือกสินค้า Shopee (โชว์เฉพาะโหมดรวมหลายรุ่น) -->
-                            <div x-show="exportMode === 'variations'" class="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2.5 text-xs">
+                            <!-- แถวชื่อตัวเลือกสินค้า Shopee (โชว์เมื่อโหมดรวมหลายรุ่น หรือในโหมด smart_mixed ที่เป็นสินค้ากลุ่ม) -->
+                            <div x-show="exportMode === 'variations' || (exportMode === 'smart_mixed' && isCartItemInGroup(item))" class="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2.5 text-xs">
                                 <span class="font-bold text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200 shrink-0 inline-flex items-center space-x-1">
                                     <span>🏷️ ชื่อตัวเลือกบน Shopee:</span>
                                 </span>
@@ -3219,7 +3251,7 @@
                 listedSortField: '',
                 listedSortDir: 'desc',
                 ledgerSearch: '',
-                exportMode: 'single', // 'single' or 'variations'
+                exportMode: 'smart_mixed', // 'smart_mixed' (default: mixed single & groups), 'single', or 'variations'
                 groupParentTitle: '',
                 groupVariationTierName: 'รุ่นสินค้า',
                 isManualSkuInput: false,
@@ -3749,6 +3781,9 @@
                         use_template: true,
                         template_type: item.template_type || 'auto_spec',
                         variation_name: item.variation_name || this.autoCleanOptionName(item.ktw_name || item.name, item.sku, item.brand),
+                        shopee_url: item.shopee_url || '',
+                        group_id: item.group_id || '',
+                        group_parent_title: item.group_parent_title || '',
                         stock: item.stock || 0
                     };
                     if (existingIndex >= 0) {
@@ -3756,7 +3791,7 @@
                     } else {
                         this.selectedItems.push(queueItem);
                     }
-                    this.exportMode = 'single';
+                    this.exportMode = 'smart_mixed';
                     this.saveCartToStorage();
                     this.openQueueModal();
                 },
@@ -3796,14 +3831,15 @@
                             use_template: true,
                             template_type: item.template_type || 'auto_spec',
                             variation_name: item.variation_name || this.autoCleanOptionName(item.ktw_name || item.name, item.sku, item.brand),
+                            shopee_url: item.shopee_url || '',
+                            group_id: item.group_id || '',
+                            group_parent_title: item.group_parent_title || '',
                             stock: item.stock || 0
                         };
                     });
 
                     if (this.selectedItems.length > 1) {
-                        const firstBrand = (this.selectedItems[0].brand || '').toLowerCase();
-                        const allSameBrand = this.selectedItems.every(i => (i.brand || '').toLowerCase() === firstBrand);
-                        this.exportMode = (allSameBrand && this.selectedItems.length <= 10) ? 'variations' : 'single';
+                        this.exportMode = 'smart_mixed';
                     } else {
                         this.exportMode = 'single';
                     }
@@ -4739,8 +4775,68 @@ toggleListedSort(field) {
                         this.addSingleListedToQueue(item);
                     }
                     this.groupParentTitle = group.title || '';
+                    this.exportMode = 'variations';
                     this.switchTab('catalog');
                     this.openQueueModal();
+                },
+
+                getCartItemShopeeUrl(item) {
+                    if (!item) return '';
+                    if (item.shopee_url) return item.shopee_url;
+                    const lp = (this.listedProducts || []).find(p => p.sku === item.sku);
+                    return lp ? (lp.shopee_url || '') : '';
+                },
+
+                getCartItemGroupId(item) {
+                    if (!item) return '';
+                    if (item.group_id) return item.group_id;
+                    const lp = (this.listedProducts || []).find(p => p.sku === item.sku);
+                    return lp ? (lp.group_id || '') : '';
+                },
+
+                getCartItemSiblingCount(item) {
+                    if (!item) return 1;
+                    const url = (this.getCartItemShopeeUrl(item) || '').trim().toLowerCase();
+                    const gid = (this.getCartItemGroupId(item) || '').trim();
+                    if (gid) {
+                        return (this.selectedItems || []).filter(i => (this.getCartItemGroupId(i) || '').trim() === gid).length;
+                    }
+                    if (url && url !== 'https://shopee.co.th' && url !== 'https://shopee.co.th/') {
+                        return (this.selectedItems || []).filter(i => (this.getCartItemShopeeUrl(i) || '').trim().toLowerCase() === url).length;
+                    }
+                    return 1;
+                },
+
+                isCartItemInGroup(item) {
+                    return this.getCartItemSiblingCount(item) > 1;
+                },
+
+                hasAnyCartVariationGroup() {
+                    return (this.selectedItems || []).some(i => this.isCartItemInGroup(i));
+                },
+
+                getSmartMixedSummaryText() {
+                    if (!this.selectedItems || this.selectedItems.length === 0) return '';
+                    const total = this.selectedItems.length;
+                    const groupKeys = new Set();
+                    let groupCount = 0;
+                    let singleCount = 0;
+                    for (const it of this.selectedItems) {
+                        const url = (this.getCartItemShopeeUrl(it) || '').trim().toLowerCase();
+                        const gid = (this.getCartItemGroupId(it) || '').trim();
+                        const isShared = (gid || (url && url !== 'https://shopee.co.th' && url !== 'https://shopee.co.th/' && this.getCartItemSiblingCount(it) > 1));
+                        if (isShared) {
+                            const key = gid ? `gid_${gid}` : `url_${url}`;
+                            if (!groupKeys.has(key)) {
+                                groupKeys.add(key);
+                                groupCount++;
+                            }
+                        } else {
+                            singleCount++;
+                        }
+                    }
+                    const totalListings = groupCount + singleCount;
+                    return `(รวม ${total} SKU จะสร้างเป็น ${totalListings} สินค้าบน Shopee: รวมกลุ่ม ${groupCount} รายการ + เดี่ยว ${singleCount} รายการ)`;
                 },
 
                 openCloneGroupModal(group) {
@@ -6580,36 +6676,45 @@ toggleListedSort(field) {
                     this.downloadUrl = null;
                     
                     try {
-                        const isVar = (this.exportMode === 'variations' && this.selectedItems.length > 1);
+                        const effMode = this.exportMode || 'smart_mixed';
+                        const isVar = (effMode === 'variations' && this.selectedItems.length > 1);
                         const payload = {
-                            items: this.selectedItems.map(item => ({
-                                sku: item.sku,
-                                price: item.price,
-                                badge: item.badge || this.customBadgeText,
-                                variation_name: item.variation_name || item.name,
-                                shopee_title: item.shopee_title || undefined,
-                                selected_image: item.selected_image || item.image,
-                                selected_images: (item.selected_images && item.selected_images.length > 0)
-                                    ? item.selected_images
-                                    : (item.selected_image ? [item.selected_image] : undefined),
-                                use_template: item.use_template !== false,
-                                template_type: item.template_type || 'auto_spec',
-                                unframed_images: item.unframed_images || [],
-                                custom_model: item.custom_model || undefined,
-                                custom_category: item.custom_category || undefined,
-                                custom_hero_pills: item.custom_hero_pills || undefined,
-                                custom_spec_cards: item.custom_spec_cards || undefined,
-                                custom_trust_s1: item.custom_trust_s1 || undefined,
-                                custom_trust_s2: item.custom_trust_s2 || undefined
-                            })),
+                            items: this.selectedItems.map(item => {
+                                const sUrl = this.getCartItemShopeeUrl(item);
+                                const gId = this.getCartItemGroupId(item);
+                                return {
+                                    sku: item.sku,
+                                    price: item.price,
+                                    badge: item.badge || this.customBadgeText,
+                                    variation_name: item.variation_name || item.name,
+                                    shopee_title: item.shopee_title || undefined,
+                                    selected_image: item.selected_image || item.image,
+                                    selected_images: (item.selected_images && item.selected_images.length > 0)
+                                        ? item.selected_images
+                                        : (item.selected_image ? [item.selected_image] : undefined),
+                                    use_template: item.use_template !== false,
+                                    template_type: item.template_type || 'auto_spec',
+                                    unframed_images: item.unframed_images || [],
+                                    custom_model: item.custom_model || undefined,
+                                    custom_category: item.custom_category || undefined,
+                                    custom_hero_pills: item.custom_hero_pills || undefined,
+                                    custom_spec_cards: item.custom_spec_cards || undefined,
+                                    custom_trust_s1: item.custom_trust_s1 || undefined,
+                                    custom_trust_s2: item.custom_trust_s2 || undefined,
+                                    shopee_url: sUrl || undefined,
+                                    group_id: gId || undefined,
+                                    group_parent_title: item.group_parent_title || undefined
+                                };
+                            }),
                             shop_id: this.activeShopId || 'shop_1',
                             shop_name: this.currentShop ? (this.currentShop.brand_display || this.currentShop.name) : this.shopName,
+                            export_mode: effMode,
                             is_variation_group: isVar,
                             parent_title: this.groupParentTitle || undefined,
-                            variation_group_name: this.groupVariationTierName || "รุ่น / ตัวเลือกสินค้า",
-                            comparison_card_url: (isVar && this.includeComparisonCard) ? (this.comparisonCardUrl || undefined) : undefined,
-                            include_comparison: isVar ? this.includeComparisonCard : false,
-                            filename: isVar ? `Shopee_Variations_Group_${Date.now()}.xlsx` : `Shopee_Mass_Upload_${Date.now()}.xlsx`
+                            variation_group_name: this.groupVariationTierName || "รุ่นสินค้า",
+                            comparison_card_url: ((isVar || effMode === 'smart_mixed') && this.includeComparisonCard) ? (this.comparisonCardUrl || undefined) : undefined,
+                            include_comparison: this.includeComparisonCard,
+                            filename: `Shopee_Mass_Upload_${effMode}_${Date.now()}.xlsx`
                         };
 
                         this.exportProgress = { current: 0, total: this.selectedItems.length, percent: 0, sku: '' };
