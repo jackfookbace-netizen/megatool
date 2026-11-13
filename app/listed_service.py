@@ -166,9 +166,28 @@ def get_all_listed(shop_id: str = "shop_1", refresh_stock: bool = True, force_sy
 
         raw_data = _read_all_raw()
         items = raw_data.get(shop_id, {})
+        from app.title_service import get_all_custom_shopee_titles
+        from app.seo_service import build_shopee_seo_title
+        custom_titles_db = get_all_custom_shopee_titles()
         for sku, item in items.items():
             if not item.get("ktw_url"):
                 item["ktw_url"] = f"https://shop.ktw.co.th/p/{sku}"
+            saved_t = (custom_titles_db.get(sku) or {}).get("title")
+            if saved_t:
+                item["shopee_title"] = saved_t
+                item["name"] = saved_t
+                item["has_custom_seo_title"] = True
+            elif item.get("shopee_title") and item.get("shopee_title") != item.get("name"):
+                item["name"] = item["shopee_title"]
+                item["has_custom_seo_title"] = True
+            else:
+                item["shopee_title"] = build_shopee_seo_title(
+                    item.get("brand") or "",
+                    item.get("name") or sku,
+                    sku,
+                    is_variation_group=False
+                )
+                item["has_custom_seo_title"] = False
             _enrich_listed_item(item)
         return items
     except Exception as e:
@@ -284,6 +303,7 @@ def save_listed_product(
         "shopee_url": clean_url or existing.get("shopee_url", ""),
         "variation_name": (variation_name or existing.get("variation_name", "")).strip(),
         "name": name or clean_sku,
+        "shopee_title": name or existing.get("shopee_title") or clean_sku,
         "brand": brand or "OTHER",
         "price": final_price,
         "image_url": image_url,
@@ -297,6 +317,15 @@ def save_listed_product(
     
     items[clean_sku] = item_data
     _write_all_raw(raw_data)
+
+    # Permanently remember custom title in shopee_custom_titles.json ONLY if user customized it beyond raw KTW name
+    raw_ktw_name = (detail.get("name") or "").strip() if detail else ""
+    if name and name.strip() and name.strip() != clean_sku and name.strip() != raw_ktw_name:
+        try:
+            from app.title_service import save_custom_shopee_title
+            save_custom_shopee_title(clean_sku, name.strip(), source="listed_save")
+        except Exception as e_t:
+            print("Error saving custom title from listed_service:", e_t)
     
     return item_data
 

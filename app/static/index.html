@@ -2419,7 +2419,7 @@
                         <i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i>
                         <h3 class="text-base font-bold text-slate-800">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                         <span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-bold" x-text="selectedItems.length + ' รายการ'"></span>
-                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.12-g (Zero Redundant Render)</span>
+                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.13-a (Permanent SEO Memory)</span>
                     </div>
                     <div class="flex items-center space-x-2">
                         <button type="button" x-show="selectedItems.length > 0"
@@ -3223,7 +3223,7 @@
                         fee_rate_pct: 28,
                         min_profit: 30,
                         title_prefix: '[ส่งด่วนแท้ศูนย์]',
-                        title_suffix: 'พร้อมส่งทันที มีสต็อกจริง ออกใบกำกับภาษีได้',
+                        title_suffix: 'พร้อมส่งทันที มีสต็อกจริง ของแท้มาตรฐานโรงงาน',
                         description: ''
                     };
                     this.showShopModal = true;
@@ -3448,6 +3448,7 @@
 
                 async fetchListed() {
                     try {
+                        await this.syncCustomTitlesWithCloud();
                         const res = await fetch(`/api/listed?shop_id=${this.activeShopId || 'shop_1'}`, { headers: this.getHeaders() });
                         if (res.ok) {
                             const data = await res.json();
@@ -3694,7 +3695,7 @@
                             sku: product.sku || product.code || '',
                             shopee_url: currentUrl,
                             variation_name: product.variation_name || '',
-                            name: product.name || '',
+                            name: product.shopee_title || product.name || '',
                             brand: product.brand || product.manufacturer || '',
                             cost_price: cost,
                             price: Math.round(initialPrice),
@@ -3742,6 +3743,9 @@
                         });
                         const data = await res.json();
                         if (res.ok && data.success) {
+                            if (this.attachForm.sku && this.attachForm.name) {
+                                this.saveCustomTitleLocalBackup(this.attachForm.sku, this.attachForm.name);
+                            }
                             this.showAttachModal = false;
                             await this.fetchListed();
                             await this.fetchDashboardStats();
@@ -4809,13 +4813,26 @@ toggleListedSort(field) {
                             // Fill trust card lines if empty
                             if (serverSaved?.custom_trust_s1 && !this.customTrustS1) this.customTrustS1 = serverSaved.custom_trust_s1;
                             if (serverSaved?.custom_trust_s2 && !this.customTrustS2) this.customTrustS2 = serverSaved.custom_trust_s2;
+                            if (dData.saved_shopee_title) {
+                                this.itemShopeeTitle = dData.saved_shopee_title;
+                                if (cartItem) cartItem.shopee_title = dData.saved_shopee_title;
+                            } else if (serverSaved?.shopee_title && (!this.itemShopeeTitle || this.itemShopeeTitle === p.name)) {
+                                this.itemShopeeTitle = serverSaved.shopee_title;
+                            } else if (dData.recommended_seo_title && (!this.itemShopeeTitle || this.itemShopeeTitle === p.name)) {
+                                this.itemShopeeTitle = dData.recommended_seo_title;
+                                if (cartItem && (!cartItem.shopee_title || cartItem.shopee_title === p.name)) {
+                                    cartItem.shopee_title = dData.recommended_seo_title;
+                                }
+                            }
                         }
                     } catch (e) {
                         console.error('Failed fetching cover defaults:', e);
                     }
 
-                    // Restore custom Shopee title if saved on item or in cart, else default to p.name
-                    this.itemShopeeTitle = (cartItem && cartItem.shopee_title) || p.shopee_title || p.name || '';
+                    // Restore custom Shopee title if still empty
+                    if (!this.itemShopeeTitle) {
+                        this.itemShopeeTitle = (cartItem && cartItem.shopee_title) || localCoverCustom?.shopee_title || p.shopee_title || p.name || '';
+                    }
 
                     // 2. Title: Restore saved custom title for this SKU if present; otherwise last used title or default
                     if (savedSettings && savedSettings.title !== undefined && savedSettings.title !== '') {
@@ -5556,6 +5573,38 @@ toggleListedSort(field) {
                     }
                 },
 
+                saveCustomTitleLocalBackup(sku, title) {
+                    if (!sku || !title || !title.trim()) return;
+                    try {
+                        const map = JSON.parse(localStorage.getItem('megatool_custom_shopee_titles') || '{}');
+                        map[sku.trim()] = title.trim();
+                        localStorage.setItem('megatool_custom_shopee_titles', JSON.stringify(map));
+                    } catch (e) {}
+                },
+
+                async syncCustomTitlesWithCloud() {
+                    try {
+                        const localMap = JSON.parse(localStorage.getItem('megatool_custom_shopee_titles') || '{}');
+                        const res = await fetch('/api/shopee/sync-custom-titles', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ titles: localMap })
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.titles && typeof data.titles === 'object') {
+                                const merged = { ...localMap };
+                                for (const [k, v] of Object.entries(data.titles)) {
+                                    if (v && v.title) merged[k] = v.title;
+                                }
+                                localStorage.setItem('megatool_custom_shopee_titles', JSON.stringify(merged));
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error syncing custom titles with cloud:', e);
+                    }
+                },
+
                 syncActiveItemShopeeTitle() {
                     if (!this.activePreviewItem) return;
                     const sku = this.activePreviewItem.sku || this.activePreviewItem.code;
@@ -5565,6 +5614,7 @@ toggleListedSort(field) {
                         this.saveCartToStorage();
                     }
                     if (sku && this.itemShopeeTitle) {
+                        this.saveCustomTitleLocalBackup(sku, this.itemShopeeTitle);
                         fetch('/api/shopee/save-custom-title', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -5575,6 +5625,7 @@ toggleListedSort(field) {
 
                 saveItemShopeeTitle(item) {
                     if (!item || !item.sku || !item.shopee_title) return;
+                    this.saveCustomTitleLocalBackup(item.sku, item.shopee_title);
                     fetch('/api/shopee/save-custom-title', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },

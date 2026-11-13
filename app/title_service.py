@@ -7,8 +7,11 @@ from typing import Dict, Optional, Tuple, List
 DATA_DIR = "app/data"
 TITLES_FILE = os.path.join(DATA_DIR, "shopee_custom_titles.json")
 LISTED_FILE = os.path.join(DATA_DIR, "listed_products.json")
+CART_FILE = os.path.join(DATA_DIR, "cart.json")
+CUST_FILE = os.path.join(DATA_DIR, "cover_customizations.json")
 
 os.makedirs(DATA_DIR, exist_ok=True)
+
 
 def _load_titles() -> Dict[str, dict]:
     if os.path.exists(TITLES_FILE):
@@ -19,32 +22,37 @@ def _load_titles() -> Dict[str, dict]:
             print("Error loading shopee_custom_titles.json:", e)
     return {}
 
+
 def _save_titles(data: Dict[str, dict]):
     tmp = TITLES_FILE + ".tmp"
     try:
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        if os.path.exists(TITLES_FILE):
-            os.remove(TITLES_FILE)
-        os.rename(tmp, TITLES_FILE)
+        os.replace(tmp, TITLES_FILE)
     except Exception as e:
         print("Error saving shopee_custom_titles.json:", e)
+
 
 def get_custom_shopee_title(sku: str) -> Optional[str]:
     if not sku:
         return None
     db = _load_titles()
     clean_sku = sku.strip()
-    if clean_sku in db:
-        return db[clean_sku].get("title")
-    # Check case-insensitive
+    if clean_sku in db and isinstance(db[clean_sku], dict):
+        t = db[clean_sku].get("title")
+        if t and str(t).strip():
+            return str(t).strip()
     for k, v in db.items():
-        if k.lower() == clean_sku.lower():
-            return v.get("title")
+        if k.lower() == clean_sku.lower() and isinstance(v, dict):
+            t = v.get("title")
+            if t and str(t).strip():
+                return str(t).strip()
     return None
+
 
 def get_all_custom_shopee_titles() -> Dict[str, dict]:
     return _load_titles()
+
 
 def save_custom_shopee_title(sku: str, title: str, source: str = "manual") -> bool:
     if not sku or not title or not title.strip():
@@ -59,7 +67,7 @@ def save_custom_shopee_title(sku: str, title: str, source: str = "manual") -> bo
     }
     _save_titles(db)
 
-    # Also sync into listed_products.json if SKU is present
+    # 1. Sync into listed_products.json if SKU is present
     try:
         if os.path.exists(LISTED_FILE):
             with open(LISTED_FILE, "r", encoding="utf-8") as f:
@@ -75,13 +83,50 @@ def save_custom_shopee_title(sku: str, title: str, source: str = "manual") -> bo
                 tmp = LISTED_FILE + ".tmp"
                 with open(tmp, "w", encoding="utf-8") as f:
                     json.dump(listed, f, ensure_ascii=False, indent=2)
-                if os.path.exists(LISTED_FILE):
-                    os.remove(LISTED_FILE)
-                os.rename(tmp, LISTED_FILE)
+                os.replace(tmp, LISTED_FILE)
     except Exception as e:
-        print("Error syncing to listed_products.json:", e)
+        print("Error syncing title to listed_products.json:", e)
+
+    # 2. Sync into cart.json if SKU is present
+    try:
+        if os.path.exists(CART_FILE):
+            with open(CART_FILE, "r", encoding="utf-8") as f:
+                cart_data = json.load(f)
+            c_updated = False
+            for shop_id in ["shop_1", "shop_2"]:
+                for it in cart_data.get(shop_id, []):
+                    if isinstance(it, dict) and (it.get("sku") or "").strip().lower() == clean_sku.lower():
+                        if it.get("shopee_title") != clean_title:
+                            it["shopee_title"] = clean_title
+                            c_updated = True
+            if c_updated:
+                tmp = CART_FILE + ".tmp"
+                with open(tmp, "w", encoding="utf-8") as f:
+                    json.dump(cart_data, f, ensure_ascii=False, indent=2)
+                os.replace(tmp, CART_FILE)
+    except Exception as e:
+        print("Error syncing title to cart.json:", e)
+
+    # 3. Sync into cover_customizations.json if SKU is present
+    try:
+        cust_data = {}
+        if os.path.exists(CUST_FILE):
+            with open(CUST_FILE, "r", encoding="utf-8") as f:
+                cust_data = json.load(f)
+        if clean_sku not in cust_data or not isinstance(cust_data.get(clean_sku), dict):
+            cust_data[clean_sku] = {}
+        if cust_data[clean_sku].get("shopee_title") != clean_title:
+            cust_data[clean_sku]["shopee_title"] = clean_title
+            cust_data[clean_sku]["updated_at"] = int(time.time())
+            tmp = CUST_FILE + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(cust_data, f, ensure_ascii=False, indent=2)
+            os.replace(tmp, CUST_FILE)
+    except Exception as e:
+        print("Error syncing title to cover_customizations.json:", e)
 
     return True
+
 
 def import_shopee_titles_from_excel(file_bytes: bytes, filename: str = "") -> dict:
     import openpyxl

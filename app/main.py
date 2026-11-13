@@ -368,12 +368,27 @@ def api_get_cart(shop_id: Optional[str] = Query("shop_1")):
         try:
             import json
             from app.ktw_service import DEALER_MASTER_COSTS
+            from app.seo_service import build_shopee_seo_title
+            custom_titles_db = get_all_custom_shopee_titles()
             with open(cart_file, "r", encoding="utf-8") as f:
                 cdata = json.load(f)
             items = cdata.get(shop_id, [])
             listed_map = get_all_listed(shop_id=shop_id or "shop_1", refresh_stock=False)
             for it in items:
                 sku = (it.get("sku") or "").strip()
+                saved_t = (custom_titles_db.get(sku) or {}).get("title")
+                if saved_t:
+                    it["shopee_title"] = saved_t
+                elif not it.get("shopee_title") or it.get("shopee_title") == it.get("name"):
+                    if sku in listed_map and listed_map[sku].get("shopee_title"):
+                        it["shopee_title"] = listed_map[sku]["shopee_title"]
+                    else:
+                        it["shopee_title"] = build_shopee_seo_title(
+                            it.get("brand") or "",
+                            it.get("name") or sku,
+                            sku,
+                            is_variation_group=False
+                        )
                 if not it.get("cost_price") or float(it.get("cost_price") or 0) <= 0:
                     if sku.upper() in DEALER_MASTER_COSTS:
                         it["cost_price"] = DEALER_MASTER_COSTS[sku.upper()]["cost"]
@@ -401,6 +416,14 @@ def api_save_cart(req: SaveCartRequest):
         import json
         with open(cart_file, "w", encoding="utf-8") as f:
             json.dump(cdata, f, ensure_ascii=False, indent=2)
+        # Also persist any customized shopee_title in cart items into shopee_custom_titles.json
+        for it in (req.items or []):
+            if isinstance(it, dict):
+                sku = (it.get("sku") or "").strip()
+                s_title = (it.get("shopee_title") or "").strip()
+                raw_n = (it.get("name") or "").strip()
+                if sku and s_title and s_title != raw_n:
+                    save_custom_shopee_title(sku, s_title, source="cart_sync")
         return {"success": True, "saved_count": len(req.items)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -440,10 +463,28 @@ def api_search(
     
     # Cost is visible when logged in, hidden otherwise
     is_hidden = (user is None)
+    custom_titles_db = get_all_custom_shopee_titles()
+    from app.seo_service import build_shopee_seo_title
     filtered_products = []
     for p in data.get("products", []):
         p["is_cost_hidden"] = is_hidden
         sku = p.get("sku")
+        saved_custom_t = (custom_titles_db.get(sku) or {}).get("title") if sku else None
+        if saved_custom_t:
+            p["shopee_title"] = saved_custom_t
+            p["has_custom_seo_title"] = True
+        elif sku in listed_map and listed_map[sku].get("shopee_title"):
+            p["shopee_title"] = listed_map[sku]["shopee_title"]
+            p["has_custom_seo_title"] = True
+        else:
+            p["shopee_title"] = build_shopee_seo_title(
+                p.get("brand") or p.get("manufacturer") or "",
+                p.get("name") or sku or "",
+                sku or "",
+                is_variation_group=False
+            )
+            p["has_custom_seo_title"] = False
+
         if sku in listed_map:
             p["is_listed"] = True
             p["shopee_url"] = listed_map[sku].get("shopee_url")
@@ -494,6 +535,9 @@ class SaveCustomTitleRequest(BaseModel):
     title: str
     source: Optional[str] = "manual"
 
+class SyncCustomTitlesRequest(BaseModel):
+    titles: Dict[str, str]
+
 @app.get("/api/shopee/custom-titles")
 def api_get_custom_titles():
     return {"success": True, "titles": get_all_custom_shopee_titles()}
@@ -502,6 +546,16 @@ def api_get_custom_titles():
 def api_save_custom_title(req: SaveCustomTitleRequest):
     ok = save_custom_shopee_title(req.sku, req.title, source=req.source or "manual")
     return {"success": ok}
+
+@app.post("/api/shopee/sync-custom-titles")
+def api_sync_custom_titles(req: SyncCustomTitlesRequest):
+    cur_db = get_all_custom_shopee_titles()
+    for sku, title in (req.titles or {}).items():
+        clean_s = (sku or "").strip()
+        clean_t = (title or "").strip()
+        if clean_s and clean_t and clean_s not in cur_db:
+            save_custom_shopee_title(clean_s, clean_t, source="browser_backup_sync")
+    return {"success": True, "titles": get_all_custom_shopee_titles()}
 
 @app.post("/api/shopee/import-titles-excel")
 async def api_import_titles_excel(file: UploadFile = File(...)):
@@ -531,7 +585,16 @@ class PreviewRequest(BaseModel):
 def api_cover_spec_defaults(sku: str, shop_name: Optional[str] = "MEGATOOL"):
     try:
         from app.image_service import get_auto_cover_defaults
+        from app.seo_service import build_shopee_seo_title
+        from app.ktw_service import clean_brand_name
         defaults = get_auto_cover_defaults(sku, shop_name=shop_name or "MEGATOOL")
+        saved_t = get_custom_shopee_title(sku)
+        if saved_t:
+            defaults["saved_shopee_title"] = saved_t
+        ktw_raw = defaults.get("ktw_raw") or {}
+        b_name = clean_brand_name(ktw_raw.get("manufacturer"), sku)
+        r_name = ktw_raw.get("name") or sku
+        defaults["recommended_seo_title"] = build_shopee_seo_title(b_name, r_name, sku, is_variation_group=False)
         return defaults
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -554,9 +617,16 @@ def api_get_cover_customizations(sku: str):
             import json
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                return {"success": True, "customizations": data.get(sku)}
+                cust = data.get(sku) or {}
+                saved_t = get_custom_shopee_title(sku)
+                if saved_t and isinstance(cust, dict):
+                    cust["shopee_title"] = saved_t
+                return {"success": True, "customizations": cust or None}
         except Exception:
             pass
+    saved_t = get_custom_shopee_title(sku)
+    if saved_t:
+        return {"success": True, "customizations": {"shopee_title": saved_t}}
     return {"success": True, "customizations": None}
 
 @app.post("/api/cover-customizations")
@@ -572,6 +642,8 @@ def api_save_cover_customizations(req: CoverCustomizationRequest):
                 data = json.load(f)
         except Exception:
             data = {}
+    existing_t = (data.get(req.sku) or {}).get("shopee_title") if isinstance(data.get(req.sku), dict) else None
+    final_t = req.shopee_title if (req.shopee_title and req.shopee_title.strip()) else existing_t
     data[req.sku] = {
         "custom_model": req.custom_model,
         "custom_category": req.custom_category,
@@ -579,13 +651,15 @@ def api_save_cover_customizations(req: CoverCustomizationRequest):
         "custom_spec_cards": req.custom_spec_cards,
         "custom_trust_s1": req.custom_trust_s1,
         "custom_trust_s2": req.custom_trust_s2,
-        "shopee_title": req.shopee_title,
+        "shopee_title": final_t,
         "updated_at": int(time.time())
     }
     try:
         import json
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+        if req.shopee_title and req.shopee_title.strip():
+            save_custom_shopee_title(req.sku, req.shopee_title.strip(), source="cover_modal")
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -771,6 +845,7 @@ def api_preview_cover(req: PreviewRequest):
                 if os.path.exists(cust_file):
                     with open(cust_file, "r", encoding="utf-8") as f:
                         cust_data = json.load(f)
+                prev_t = (cust_data.get(req.sku) or {}).get("shopee_title") if isinstance(cust_data.get(req.sku), dict) else None
                 cust_data[req.sku] = {
                     "custom_model": req.custom_model,
                     "custom_category": req.custom_category,
@@ -778,6 +853,7 @@ def api_preview_cover(req: PreviewRequest):
                     "custom_spec_cards": req.custom_spec_cards,
                     "custom_trust_s1": req.custom_trust_s1,
                     "custom_trust_s2": req.custom_trust_s2,
+                    "shopee_title": prev_t or get_custom_shopee_title(req.sku),
                     "updated_at": int(time.time())
                 }
                 with open(cust_file, "w", encoding="utf-8") as f:
