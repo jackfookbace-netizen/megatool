@@ -41,9 +41,12 @@
       ],
       "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
       "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว",
-      "shopee_title": "(แพ็ค10ม้วน) TEMFLEX 150 19MMX10M สีดำ",
+      "shopee_title": "[3M แท้ 100%] (แพ็ค10ม้วน) TEMFLEX 150 19MMX10M สีดำ เทปพันสายไฟ ฉนวนกันไฟฟ้า เนื้อกาวเหนียวแน่น มาตรฐานโรงงาน",
       "template_type": "auto_spec",
-      "cost_price": 100.0
+      "cost_price": 100.0,
+      "ktw_name": "(แพ็ค10ม้วน) TEMFLEX 150 19MMX10M สีดำ",
+      "recommended_seo_title": "[3M แท้ 100%] (แพ็ค10ม้วน) TEMFLEX 150 19MMX10M สีดำ เทปพันสายไฟ ฉนวนกันไฟฟ้า เนื้อกาวเหนียวแน่น มาตรฐานโรงงาน",
+      "has_custom_seo_title": false
     },
     {
       "sku": "M011-M9513B",
@@ -57,7 +60,11 @@
       "stock": 47,
       "cost_price": 1086.4,
       "cdn_url": "https://iili.io/npNDKCu.jpg",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "shopee_title": "[MAKITA แท้ 100%] M9513B เครื่องเจียร์ 4” (850W)-ท้าย ลูกหมู หินเจียร์ไฟฟ้า ตัดขัดเหล็ก ประกันศูนย์",
+      "ktw_name": "M9513B เครื่องเจียร์ 4” (850W)-ท้าย",
+      "recommended_seo_title": "[MAKITA แท้ 100%] M9513B เครื่องเจียร์ 4” (850W)-ท้าย ลูกหมู หินเจียร์ไฟฟ้า ตัดขัดเหล็ก ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "P271-PL411C",
@@ -71,7 +78,11 @@
       "stock": 839,
       "cost_price": 1490.0,
       "cdn_url": "https://iili.io/npNDTj1.jpg",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "shopee_title": "[POLO แท้ 100%] PL-411C ตัดหญ้าสะพายข้าง 2 จังหวะ สีแดง เครื่องตัดหญ้า สะพายบ่า ลุยงานสวน ประกันศูนย์",
+      "ktw_name": "PL-411C ตัดหญ้าสะพายข้าง 2 จังหวะ สีแดง",
+      "recommended_seo_title": "[POLO แท้ 100%] PL-411C ตัดหญ้าสะพายข้าง 2 จังหวะ สีแดง เครื่องตัดหญ้า สะพายบ่า ลุยงานสวน ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "M316-0020",
@@ -85,7 +96,11 @@
       "stock": 4263,
       "cost_price": 85.0,
       "cdn_url": "https://iili.io/npNDq4j.jpg",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "shopee_title": "[MARATHON แท้ 100%] 4-32 MM ดอกสว่านเจดีย์ STEP DRILL HSSทอง ดอกสว่านคว้านรู เจาะเหล็ก/สแตนเลส มาตรฐานโรงงาน",
+      "ktw_name": "4-32 MM ดอกสว่านเจดีย์ STEP DRILL HSSทอง",
+      "recommended_seo_title": "[MARATHON แท้ 100%] 4-32 MM ดอกสว่านเจดีย์ STEP DRILL HSSทอง ดอกสว่านคว้านรู เจาะเหล็ก/สแตนเลส มาตรฐานโรงงาน",
+      "has_custom_seo_title": false
     },
     {
       "sku": "P231-0070AE",
@@ -99,7 +114,11 @@
       "stock": 259,
       "cost_price": 2500.0,
       "cdn_url": "https://iili.io/npNDC3x.jpg",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "shopee_title": "[POLO แท้ 100%] SHT-30 พัดลมอุตสาหกรรมดูดเป่า 12\"(รุ่นลิมิเต็ด) พัดลมท่อดูดเป่า ระบายอากาศ ลมแรง ประกันศูนย์",
+      "ktw_name": "SHT-30 พัดลมอุตฯดูดเป่า12\"(รุ่นลิมิเต็ด)",
+      "recommended_seo_title": "[POLO แท้ 100%] SHT-30 พัดลมอุตสาหกรรมดูดเป่า 12\"(รุ่นลิมิเต็ด) พัดลมท่อดูดเป่า ระบายอากาศ ลมแรง ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "M011-M5801B",
@@ -113,7 +132,11 @@
       "stock": 913,
       "cost_price": 2240.7,
       "cdn_url": "https://iili.io/npNDDt1.jpg",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "shopee_title": "[MAKITA แท้ 100%] M5801B เครื่องเลื่อยวงเดือน 7\" / 1,050W เลื่อยตัดไม้ งานไม้ ตัดแม่นยำ ประกันศูนย์",
+      "ktw_name": "M5801B เครื่องเลื่อยวงเดือน 7\" / 1,050W",
+      "recommended_seo_title": "[MAKITA แท้ 100%] M5801B เครื่องเลื่อยวงเดือน 7\" / 1,050W เลื่อยตัดไม้ งานไม้ ตัดแม่นยำ ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "I081-T0102EL4",
@@ -127,7 +150,11 @@
       "stock": 5703,
       "cost_price": 305.0,
       "cdn_url": "https://iili.io/npND8w7.jpg",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "shopee_title": "[IRWIN แท้ 100%] 10R คีมล็อคปากตรง ขนาด 10 นิ้ว VISE-GRIP จับท่อ/หัวน็อตแน่น เหล็กแข็งพิเศษ มาตรฐานโรงงาน",
+      "ktw_name": "10R คีมล็อคปากตรง ขนาด 10 นิ้ว",
+      "recommended_seo_title": "[IRWIN แท้ 100%] 10R คีมล็อคปากตรง ขนาด 10 นิ้ว VISE-GRIP จับท่อ/หัวน็อตแน่น เหล็กแข็งพิเศษ มาตรฐานโรงงาน",
+      "has_custom_seo_title": false
     },
     {
       "sku": "KT-J019-ARC200D+",
@@ -141,7 +168,11 @@
       "stock": 1422,
       "cost_price": 5650.0,
       "cdn_url": "https://iili.io/npND46b.jpg",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "shopee_title": "[JASIC แท้ 100%] ARC200D+ เครื่องเชื่อม ตู้เชื่อมอินเวอร์เตอร์ เชื่อมเหล็ก/สแตนเลส ไฟเสถียร ประกันศูนย์",
+      "ktw_name": "ARC200D+ เครื่องเชื่อม(JASIC)",
+      "recommended_seo_title": "[JASIC แท้ 100%] ARC200D+ เครื่องเชื่อม ตู้เชื่อมอินเวอร์เตอร์ เชื่อมเหล็ก/สแตนเลส ไฟเสถียร ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "M316-0030",
@@ -155,7 +186,11 @@
       "stock": 2758,
       "cost_price": 150.0,
       "cdn_url": "https://iili.io/npNDgne.jpg",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "shopee_title": "[MARATHON แท้ 100%] ดอกสว่านเจดีย์ 3 ดอก/ชุด HSS(4-12,20,32) ดอกสว่านคว้านรู เจาะเหล็ก/สแตนเลส มาตรฐานโรงงาน",
+      "ktw_name": "ดอกสว่านเจดีย์ 3 ดอก/ชุด HSS(4-12,20,32)",
+      "recommended_seo_title": "[MARATHON แท้ 100%] ดอกสว่านเจดีย์ 3 ดอก/ชุด HSS(4-12,20,32) ดอกสว่านคว้านรู เจาะเหล็ก/สแตนเลส มาตรฐานโรงงาน",
+      "has_custom_seo_title": false
     },
     {
       "sku": "N241-NOVO200",
@@ -169,7 +204,11 @@
       "stock": 626,
       "cost_price": 2490.0,
       "cdn_url": "https://iili.io/npNbwWF.jpg",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "shopee_title": "[NOVO แท้ 100%] ARC / NOVO200 เครื่องเชื่อม IGBT ตู้เชื่อมอินเวอร์เตอร์ เชื่อมเหล็ก/สแตนเลส ไฟเสถียร ประกันศูนย์",
+      "ktw_name": "ARC / NOVO200 เครื่องเชื่อม IGBT",
+      "recommended_seo_title": "[NOVO แท้ 100%] ARC / NOVO200 เครื่องเชื่อม IGBT ตู้เชื่อมอินเวอร์เตอร์ เชื่อมเหล็ก/สแตนเลส ไฟเสถียร ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "M011-M8701B",
@@ -183,7 +222,11 @@
       "stock": 1021,
       "cost_price": 2725.7,
       "cdn_url": "https://iili.io/npNbXDP.jpg",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "shopee_title": "[MAKITA แท้ 100%] M8701B26 สว่านโรตารี่ SDS 3 ระบบ 26MM สว่านกระแทก เจาะปูน/เหล็ก/ไม้ สกัดคอนกรีต ประกันศูนย์",
+      "ktw_name": "M8701B26 สว่านโรตารี่ SDS 3 ระบบ 26MM",
+      "recommended_seo_title": "[MAKITA แท้ 100%] M8701B26 สว่านโรตารี่ SDS 3 ระบบ 26MM สว่านกระแทก เจาะปูน/เหล็ก/ไม้ สกัดคอนกรีต ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "P041-2300",
@@ -197,7 +240,11 @@
       "stock": 0,
       "cost_price": 850.0,
       "cdn_url": "https://iili.io/npNbWOB.jpg",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "shopee_title": "[POLO แท้ 100%] K-101 ปั๊มจุ่ม 100W(ใหม่) ปั๊มแช่ดูดน้ำ ไดโว่สูบน้ำ น้ำท่วม/บ่อปลา ประกันศูนย์",
+      "ktw_name": "K-101 ปั๊มจุ่ม 100W(ใหม่)",
+      "recommended_seo_title": "[POLO แท้ 100%] K-101 ปั๊มจุ่ม 100W(ใหม่) ปั๊มแช่ดูดน้ำ ไดโว่สูบน้ำ น้ำท่วม/บ่อปลา ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "M011-M0910B",
@@ -211,7 +258,11 @@
       "stock": 367,
       "cost_price": 843.9,
       "cdn_url": "https://iili.io/npNbciu.jpg",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "shopee_title": "[MAKITA แท้ 100%] M0910B เครื่องเจียร์ 4\" 540W สวิทซ์ท้าย ลูกหมู หินเจียร์ไฟฟ้า ตัดขัดเหล็ก ประกันศูนย์",
+      "ktw_name": "M0910B เครื่องเจียร์ 4\" 540W สวิทซ์ท้าย",
+      "recommended_seo_title": "[MAKITA แท้ 100%] M0910B เครื่องเจียร์ 4\" 540W สวิทซ์ท้าย ลูกหมู หินเจียร์ไฟฟ้า ตัดขัดเหล็ก ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "M011-M0900B",
@@ -225,7 +276,11 @@
       "stock": 1983,
       "cost_price": 843.9,
       "cdn_url": "https://iili.io/npNmM1s.jpg",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "shopee_title": "[MAKITA แท้ 100%] M0900B เครื่องเจียร์ 4\" 540W สวิทซ์สไลด์ ลูกหมู หินเจียร์ไฟฟ้า ตัดขัดเหล็ก ประกันศูนย์",
+      "ktw_name": "M0900B เครื่องเจียร์ 4\" 540W สวิทซ์สไลด์",
+      "recommended_seo_title": "[MAKITA แท้ 100%] M0900B เครื่องเจียร์ 4\" 540W สวิทซ์สไลด์ ลูกหมู หินเจียร์ไฟฟ้า ตัดขัดเหล็ก ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "P171-WARRIOR90",
@@ -239,7 +294,11 @@
       "stock": 368,
       "cost_price": 1350.0,
       "cdn_url": "https://iili.io/npNm0Xt.jpg",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "shopee_title": "[POLO แท้ 100%] WARRIOR-90 เครื่องฉีดน้ำแรงดันสูง 90 บาร์ ปั๊มอัดฉีด ล้างรถ/ล้างพื้น ดูดน้ำได้เอง ประกันศูนย์",
+      "ktw_name": "WARRIOR-90 เครื่องฉีดน้ำฯ 90 บาร์",
+      "recommended_seo_title": "[POLO แท้ 100%] WARRIOR-90 เครื่องฉีดน้ำแรงดันสูง 90 บาร์ ปั๊มอัดฉีด ล้างรถ/ล้างพื้น ดูดน้ำได้เอง ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "P171-WARRIOR101N",
@@ -253,7 +312,11 @@
       "stock": 4,
       "cost_price": 1775.0,
       "cdn_url": "https://iili.io/npNmYep.jpg",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "shopee_title": "[POLO แท้ 100%] WARRIOR-101N เครื่องฉีดน้ำแรงดันสูง 100 บาร์ ปั๊มอัดฉีด ล้างรถ/ล้างพื้น ดูดน้ำได้เอง ประกันศูนย์",
+      "ktw_name": "WARRIOR-101N เครื่องฉีดน้ำฯ 100 บาร์",
+      "recommended_seo_title": "[POLO แท้ 100%] WARRIOR-101N เครื่องฉีดน้ำแรงดันสูง 100 บาร์ ปั๊มอัดฉีด ล้างรถ/ล้างพื้น ดูดน้ำได้เอง ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "P171-RANGER120",
@@ -267,7 +330,11 @@
       "stock": 525,
       "cost_price": 2150.0,
       "cdn_url": "https://iili.io/npNmlII.jpg",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "shopee_title": "[POLO แท้ 100%] RANGER120 เครื่องฉีดน้ำแรงดันสูง 120 บาร์ ปั๊มอัดฉีด ล้างรถ/ล้างพื้น ดูดน้ำได้เอง ประกันศูนย์",
+      "ktw_name": "RANGER120 เครื่องฉีดน้ำฯ 120 บาร์",
+      "recommended_seo_title": "[POLO แท้ 100%] RANGER120 เครื่องฉีดน้ำแรงดันสูง 120 บาร์ ปั๊มอัดฉีด ล้างรถ/ล้างพื้น ดูดน้ำได้เอง ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "P171-COMMANDO135N",
@@ -281,7 +348,11 @@
       "stock": 2476,
       "cost_price": 2925.0,
       "cdn_url": "https://iili.io/npNmOIS.jpg",
-      "template_type": "auto_spec"
+      "template_type": "auto_spec",
+      "shopee_title": "[POLO แท้ 100%] COMMANDO135N เครื่องฉีดน้ำแรงดันสูง 135 บาร์ ปั๊มอัดฉีด ล้างรถ/ล้างพื้น ดูดน้ำได้เอง ประกันศูนย์",
+      "ktw_name": "COMMANDO135N เครื่องฉีดน้ำฯ 135 บาร์",
+      "recommended_seo_title": "[POLO แท้ 100%] COMMANDO135N เครื่องฉีดน้ำแรงดันสูง 135 บาร์ ปั๊มอัดฉีด ล้างรถ/ล้างพื้น ดูดน้ำได้เอง ประกันศูนย์",
+      "has_custom_seo_title": false
     }
   ],
   "shop_2": [
@@ -326,9 +397,12 @@
       ],
       "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
       "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว",
-      "shopee_title": "(แพ็ค10ม้วน) TEMFLEX 150 19MMX10M สีดำ",
+      "shopee_title": "[3M แท้ 100%] (แพ็ค10ม้วน) TEMFLEX 150 19MMX10M สีดำ เทปพันสายไฟ ฉนวนกันไฟฟ้า เนื้อกาวเหนียวแน่น มาตรฐานโรงงาน",
       "template_type": "auto_spec",
-      "cost_price": 100.0
+      "cost_price": 100.0,
+      "ktw_name": "(แพ็ค10ม้วน) TEMFLEX 150 19MMX10M สีดำ",
+      "recommended_seo_title": "[3M แท้ 100%] (แพ็ค10ม้วน) TEMFLEX 150 19MMX10M สีดำ เทปพันสายไฟ ฉนวนกันไฟฟ้า เนื้อกาวเหนียวแน่น มาตรฐานโรงงาน",
+      "has_custom_seo_title": false
     },
     {
       "sku": "M011-M9513B",
@@ -340,7 +414,11 @@
       "use_template": true,
       "variation_name": "เครื่องเปล่า (สวิตช์ท้าย)",
       "stock": 47,
-      "cost_price": 1086.4
+      "cost_price": 1086.4,
+      "shopee_title": "[MAKITA แท้ 100%] M9513B เครื่องเจียร์ 4” (850W)-ท้าย ลูกหมู หินเจียร์ไฟฟ้า ตัดขัดเหล็ก ประกันศูนย์",
+      "ktw_name": "M9513B เครื่องเจียร์ 4” (850W)-ท้าย",
+      "recommended_seo_title": "[MAKITA แท้ 100%] M9513B เครื่องเจียร์ 4” (850W)-ท้าย ลูกหมู หินเจียร์ไฟฟ้า ตัดขัดเหล็ก ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "P271-PL411C",
@@ -352,7 +430,11 @@
       "use_template": true,
       "variation_name": "เครื่องเปล่าพร้อมก้าน",
       "stock": 839,
-      "cost_price": 1490.0
+      "cost_price": 1490.0,
+      "shopee_title": "[POLO แท้ 100%] PL-411C ตัดหญ้าสะพายข้าง 2 จังหวะ สีแดง เครื่องตัดหญ้า สะพายบ่า ลุยงานสวน ประกันศูนย์",
+      "ktw_name": "PL-411C ตัดหญ้าสะพายข้าง 2 จังหวะ สีแดง",
+      "recommended_seo_title": "[POLO แท้ 100%] PL-411C ตัดหญ้าสะพายข้าง 2 จังหวะ สีแดง เครื่องตัดหญ้า สะพายบ่า ลุยงานสวน ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "M316-0020",
@@ -364,7 +446,11 @@
       "use_template": true,
       "variation_name": "ขนาด 4-32 มม.",
       "stock": 4263,
-      "cost_price": 85.0
+      "cost_price": 85.0,
+      "shopee_title": "[MARATHON แท้ 100%] 4-32 MM ดอกสว่านเจดีย์ STEP DRILL HSSทอง ดอกสว่านคว้านรู เจาะเหล็ก/สแตนเลส มาตรฐานโรงงาน",
+      "ktw_name": "4-32 MM ดอกสว่านเจดีย์ STEP DRILL HSSทอง",
+      "recommended_seo_title": "[MARATHON แท้ 100%] 4-32 MM ดอกสว่านเจดีย์ STEP DRILL HSSทอง ดอกสว่านคว้านรู เจาะเหล็ก/สแตนเลส มาตรฐานโรงงาน",
+      "has_custom_seo_title": false
     },
     {
       "sku": "P231-0070AE",
@@ -376,7 +462,11 @@
       "use_template": true,
       "variation_name": "รุ่นมาตรฐาน (ไม่รวมถัง)",
       "stock": 259,
-      "cost_price": 2500.0
+      "cost_price": 2500.0,
+      "shopee_title": "[POLO แท้ 100%] SHT-30 พัดลมอุตสาหกรรมดูดเป่า 12\"(รุ่นลิมิเต็ด) พัดลมท่อดูดเป่า ระบายอากาศ ลมแรง ประกันศูนย์",
+      "ktw_name": "SHT-30 พัดลมอุตฯดูดเป่า12\"(รุ่นลิมิเต็ด)",
+      "recommended_seo_title": "[POLO แท้ 100%] SHT-30 พัดลมอุตสาหกรรมดูดเป่า 12\"(รุ่นลิมิเต็ด) พัดลมท่อดูดเป่า ระบายอากาศ ลมแรง ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "M011-M5801B",
@@ -388,7 +478,11 @@
       "use_template": true,
       "variation_name": "ขนาด 7 นิ้ว (1050W)",
       "stock": 913,
-      "cost_price": 2240.7
+      "cost_price": 2240.7,
+      "shopee_title": "[MAKITA แท้ 100%] M5801B เครื่องเลื่อยวงเดือน 7\" / 1,050W เลื่อยตัดไม้ งานไม้ ตัดแม่นยำ ประกันศูนย์",
+      "ktw_name": "M5801B เครื่องเลื่อยวงเดือน 7\" / 1,050W",
+      "recommended_seo_title": "[MAKITA แท้ 100%] M5801B เครื่องเลื่อยวงเดือน 7\" / 1,050W เลื่อยตัดไม้ งานไม้ ตัดแม่นยำ ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "I081-T0102EL4",
@@ -400,7 +494,11 @@
       "use_template": true,
       "variation_name": "ปากตรง 10 นิ้ว (10R)",
       "stock": 5703,
-      "cost_price": 305.0
+      "cost_price": 305.0,
+      "shopee_title": "[IRWIN แท้ 100%] 10R คีมล็อคปากตรง ขนาด 10 นิ้ว VISE-GRIP จับท่อ/หัวน็อตแน่น เหล็กแข็งพิเศษ มาตรฐานโรงงาน",
+      "ktw_name": "10R คีมล็อคปากตรง ขนาด 10 นิ้ว",
+      "recommended_seo_title": "[IRWIN แท้ 100%] 10R คีมล็อคปากตรง ขนาด 10 นิ้ว VISE-GRIP จับท่อ/หัวน็อตแน่น เหล็กแข็งพิเศษ มาตรฐานโรงงาน",
+      "has_custom_seo_title": false
     },
     {
       "sku": "KT-J019-ARC200D+",
@@ -412,7 +510,11 @@
       "use_template": true,
       "variation_name": "พร้อมสายเชื่อมครบชุด",
       "stock": 1422,
-      "cost_price": 5650.0
+      "cost_price": 5650.0,
+      "shopee_title": "[JASIC แท้ 100%] ARC200D+ เครื่องเชื่อม ตู้เชื่อมอินเวอร์เตอร์ เชื่อมเหล็ก/สแตนเลส ไฟเสถียร ประกันศูนย์",
+      "ktw_name": "ARC200D+ เครื่องเชื่อม(JASIC)",
+      "recommended_seo_title": "[JASIC แท้ 100%] ARC200D+ เครื่องเชื่อม ตู้เชื่อมอินเวอร์เตอร์ เชื่อมเหล็ก/สแตนเลส ไฟเสถียร ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "M316-0030",
@@ -424,7 +526,11 @@
       "use_template": true,
       "variation_name": "ชุด 3 ดอก (4-12,20,32)",
       "stock": 2758,
-      "cost_price": 150.0
+      "cost_price": 150.0,
+      "shopee_title": "[MARATHON แท้ 100%] ดอกสว่านเจดีย์ 3 ดอก/ชุด HSS(4-12,20,32) ดอกสว่านคว้านรู เจาะเหล็ก/สแตนเลส มาตรฐานโรงงาน",
+      "ktw_name": "ดอกสว่านเจดีย์ 3 ดอก/ชุด HSS(4-12,20,32)",
+      "recommended_seo_title": "[MARATHON แท้ 100%] ดอกสว่านเจดีย์ 3 ดอก/ชุด HSS(4-12,20,32) ดอกสว่านคว้านรู เจาะเหล็ก/สแตนเลส มาตรฐานโรงงาน",
+      "has_custom_seo_title": false
     },
     {
       "sku": "N241-NOVO200",
@@ -436,7 +542,11 @@
       "use_template": true,
       "variation_name": "พร้อมสายเชื่อมครบชุด",
       "stock": 626,
-      "cost_price": 2490.0
+      "cost_price": 2490.0,
+      "shopee_title": "[NOVO แท้ 100%] ARC / NOVO200 เครื่องเชื่อม IGBT ตู้เชื่อมอินเวอร์เตอร์ เชื่อมเหล็ก/สแตนเลส ไฟเสถียร ประกันศูนย์",
+      "ktw_name": "ARC / NOVO200 เครื่องเชื่อม IGBT",
+      "recommended_seo_title": "[NOVO แท้ 100%] ARC / NOVO200 เครื่องเชื่อม IGBT ตู้เชื่อมอินเวอร์เตอร์ เชื่อมเหล็ก/สแตนเลส ไฟเสถียร ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "M011-M8701B",
@@ -448,7 +558,11 @@
       "use_template": true,
       "variation_name": "3 ระบบ 26 มม. (กล่อง)",
       "stock": 1021,
-      "cost_price": 2725.7
+      "cost_price": 2725.7,
+      "shopee_title": "[MAKITA แท้ 100%] M8701B26 สว่านโรตารี่ SDS 3 ระบบ 26MM สว่านกระแทก เจาะปูน/เหล็ก/ไม้ สกัดคอนกรีต ประกันศูนย์",
+      "ktw_name": "M8701B26 สว่านโรตารี่ SDS 3 ระบบ 26MM",
+      "recommended_seo_title": "[MAKITA แท้ 100%] M8701B26 สว่านโรตารี่ SDS 3 ระบบ 26MM สว่านกระแทก เจาะปูน/เหล็ก/ไม้ สกัดคอนกรีต ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "P041-2300",
@@ -460,7 +574,11 @@
       "use_template": true,
       "variation_name": "กำลัง 100W",
       "stock": 0,
-      "cost_price": 850.0
+      "cost_price": 850.0,
+      "shopee_title": "[POLO แท้ 100%] K-101 ปั๊มจุ่ม 100W(ใหม่) ปั๊มแช่ดูดน้ำ ไดโว่สูบน้ำ น้ำท่วม/บ่อปลา ประกันศูนย์",
+      "ktw_name": "K-101 ปั๊มจุ่ม 100W(ใหม่)",
+      "recommended_seo_title": "[POLO แท้ 100%] K-101 ปั๊มจุ่ม 100W(ใหม่) ปั๊มแช่ดูดน้ำ ไดโว่สูบน้ำ น้ำท่วม/บ่อปลา ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "M011-M0910B",
@@ -472,7 +590,11 @@
       "use_template": true,
       "variation_name": "รุ่นสวิตช์ท้าย",
       "stock": 367,
-      "cost_price": 843.9
+      "cost_price": 843.9,
+      "shopee_title": "[MAKITA แท้ 100%] M0910B เครื่องเจียร์ 4\" 540W สวิทซ์ท้าย ลูกหมู หินเจียร์ไฟฟ้า ตัดขัดเหล็ก ประกันศูนย์",
+      "ktw_name": "M0910B เครื่องเจียร์ 4\" 540W สวิทซ์ท้าย",
+      "recommended_seo_title": "[MAKITA แท้ 100%] M0910B เครื่องเจียร์ 4\" 540W สวิทซ์ท้าย ลูกหมู หินเจียร์ไฟฟ้า ตัดขัดเหล็ก ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "M011-M0900B",
@@ -484,7 +606,11 @@
       "use_template": true,
       "variation_name": "รุ่นสวิตช์สไลด์",
       "stock": 1983,
-      "cost_price": 843.9
+      "cost_price": 843.9,
+      "shopee_title": "[MAKITA แท้ 100%] M0900B เครื่องเจียร์ 4\" 540W สวิทซ์สไลด์ ลูกหมู หินเจียร์ไฟฟ้า ตัดขัดเหล็ก ประกันศูนย์",
+      "ktw_name": "M0900B เครื่องเจียร์ 4\" 540W สวิทซ์สไลด์",
+      "recommended_seo_title": "[MAKITA แท้ 100%] M0900B เครื่องเจียร์ 4\" 540W สวิทซ์สไลด์ ลูกหมู หินเจียร์ไฟฟ้า ตัดขัดเหล็ก ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "P171-WARRIOR90",
@@ -496,7 +622,11 @@
       "use_template": true,
       "variation_name": "90 บาร์",
       "stock": 368,
-      "cost_price": 1350.0
+      "cost_price": 1350.0,
+      "shopee_title": "[POLO แท้ 100%] WARRIOR-90 เครื่องฉีดน้ำแรงดันสูง 90 บาร์ ปั๊มอัดฉีด ล้างรถ/ล้างพื้น ดูดน้ำได้เอง ประกันศูนย์",
+      "ktw_name": "WARRIOR-90 เครื่องฉีดน้ำฯ 90 บาร์",
+      "recommended_seo_title": "[POLO แท้ 100%] WARRIOR-90 เครื่องฉีดน้ำแรงดันสูง 90 บาร์ ปั๊มอัดฉีด ล้างรถ/ล้างพื้น ดูดน้ำได้เอง ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "P171-WARRIOR101N",
@@ -508,7 +638,11 @@
       "use_template": true,
       "variation_name": "100 บาร์",
       "stock": 4,
-      "cost_price": 1775.0
+      "cost_price": 1775.0,
+      "shopee_title": "[POLO แท้ 100%] WARRIOR-101N เครื่องฉีดน้ำแรงดันสูง 100 บาร์ ปั๊มอัดฉีด ล้างรถ/ล้างพื้น ดูดน้ำได้เอง ประกันศูนย์",
+      "ktw_name": "WARRIOR-101N เครื่องฉีดน้ำฯ 100 บาร์",
+      "recommended_seo_title": "[POLO แท้ 100%] WARRIOR-101N เครื่องฉีดน้ำแรงดันสูง 100 บาร์ ปั๊มอัดฉีด ล้างรถ/ล้างพื้น ดูดน้ำได้เอง ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "P171-RANGER120",
@@ -520,7 +654,11 @@
       "use_template": true,
       "variation_name": "120 บาร์",
       "stock": 525,
-      "cost_price": 2150.0
+      "cost_price": 2150.0,
+      "shopee_title": "[POLO แท้ 100%] RANGER120 เครื่องฉีดน้ำแรงดันสูง 120 บาร์ ปั๊มอัดฉีด ล้างรถ/ล้างพื้น ดูดน้ำได้เอง ประกันศูนย์",
+      "ktw_name": "RANGER120 เครื่องฉีดน้ำฯ 120 บาร์",
+      "recommended_seo_title": "[POLO แท้ 100%] RANGER120 เครื่องฉีดน้ำแรงดันสูง 120 บาร์ ปั๊มอัดฉีด ล้างรถ/ล้างพื้น ดูดน้ำได้เอง ประกันศูนย์",
+      "has_custom_seo_title": false
     },
     {
       "sku": "P171-COMMANDO135N",
@@ -532,7 +670,11 @@
       "use_template": true,
       "variation_name": "135 บาร์",
       "stock": 2476,
-      "cost_price": 2925.0
+      "cost_price": 2925.0,
+      "shopee_title": "[POLO แท้ 100%] COMMANDO135N เครื่องฉีดน้ำแรงดันสูง 135 บาร์ ปั๊มอัดฉีด ล้างรถ/ล้างพื้น ดูดน้ำได้เอง ประกันศูนย์",
+      "ktw_name": "COMMANDO135N เครื่องฉีดน้ำฯ 135 บาร์",
+      "recommended_seo_title": "[POLO แท้ 100%] COMMANDO135N เครื่องฉีดน้ำแรงดันสูง 135 บาร์ ปั๊มอัดฉีด ล้างรถ/ล้างพื้น ดูดน้ำได้เอง ประกันศูนย์",
+      "has_custom_seo_title": false
     }
   ]
 }

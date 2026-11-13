@@ -33,20 +33,22 @@ def _save_titles(data: Dict[str, dict]):
         print("Error saving shopee_custom_titles.json:", e)
 
 
-def get_custom_shopee_title(sku: str) -> Optional[str]:
+def get_custom_shopee_title(sku: str, raw_ktw_name: str = "") -> Optional[str]:
     if not sku:
         return None
     db = _load_titles()
     clean_sku = sku.strip()
-    if clean_sku in db and isinstance(db[clean_sku], dict):
-        t = db[clean_sku].get("title")
-        if t and str(t).strip():
-            return str(t).strip()
-    for k, v in db.items():
-        if k.lower() == clean_sku.lower() and isinstance(v, dict):
-            t = v.get("title")
-            if t and str(t).strip():
-                return str(t).strip()
+    raw_clean = (raw_ktw_name or "").strip()
+    entry = db.get(clean_sku)
+    if not isinstance(entry, dict):
+        for k, v in db.items():
+            if k.lower() == clean_sku.lower() and isinstance(v, dict):
+                entry = v
+                break
+    if isinstance(entry, dict):
+        t = str(entry.get("title") or "").strip()
+        if t and t != clean_sku and (not raw_clean or t != raw_clean):
+            return t
     return None
 
 
@@ -54,18 +56,128 @@ def get_all_custom_shopee_titles() -> Dict[str, dict]:
     return _load_titles()
 
 
+def delete_custom_shopee_title(sku: str) -> Optional[str]:
+    """Removes custom override for SKU and restores the system's recommended SEO title everywhere."""
+    if not sku:
+        return None
+    clean_sku = sku.strip()
+    db = _load_titles()
+    keys_to_remove = [k for k in db.keys() if k.lower() == clean_sku.lower()]
+    for k in keys_to_remove:
+        del db[k]
+    _save_titles(db)
+
+    from app.seo_service import build_shopee_seo_title
+    recommended_title = None
+
+    # 1. Restore recommended SEO title in listed_products.json
+    try:
+        if os.path.exists(LISTED_FILE):
+            with open(LISTED_FILE, "r", encoding="utf-8") as f:
+                listed = json.load(f)
+            updated = False
+            for shop_id in ["shop_1", "shop_2"]:
+                shop_items = listed.get(shop_id, {})
+                if clean_sku in shop_items:
+                    it = shop_items[clean_sku]
+                    raw_n = it.get("ktw_name") or it.get("name") or clean_sku
+                    brand = it.get("brand") or ""
+                    rec_t = build_shopee_seo_title(brand, raw_n, clean_sku, is_variation_group=False)
+                    recommended_title = rec_t
+                    it["shopee_title"] = rec_t
+                    it["has_custom_seo_title"] = False
+                    updated = True
+            if updated:
+                tmp = LISTED_FILE + ".tmp"
+                with open(tmp, "w", encoding="utf-8") as f:
+                    json.dump(listed, f, ensure_ascii=False, indent=2)
+                os.replace(tmp, LISTED_FILE)
+    except Exception as e:
+        print("Error restoring recommended title in listed_products.json:", e)
+
+    # 2. Restore recommended SEO title in cart.json
+    try:
+        if os.path.exists(CART_FILE):
+            with open(CART_FILE, "r", encoding="utf-8") as f:
+                cart_data = json.load(f)
+            c_updated = False
+            for shop_id in ["shop_1", "shop_2"]:
+                for it in cart_data.get(shop_id, []):
+                    if isinstance(it, dict) and (it.get("sku") or "").strip().lower() == clean_sku.lower():
+                        raw_n = it.get("ktw_name") or it.get("name") or clean_sku
+                        brand = it.get("brand") or ""
+                        rec_t = recommended_title or build_shopee_seo_title(brand, raw_n, clean_sku, is_variation_group=False)
+                        recommended_title = rec_t
+                        it["shopee_title"] = rec_t
+                        it["has_custom_seo_title"] = False
+                        c_updated = True
+            if c_updated:
+                tmp = CART_FILE + ".tmp"
+                with open(tmp, "w", encoding="utf-8") as f:
+                    json.dump(cart_data, f, ensure_ascii=False, indent=2)
+                os.replace(tmp, CART_FILE)
+    except Exception as e:
+        print("Error restoring recommended title in cart.json:", e)
+
+    # 3. Clear custom shopee_title in cover_customizations.json
+    try:
+        if os.path.exists(CUST_FILE):
+            with open(CUST_FILE, "r", encoding="utf-8") as f:
+                cust_data = json.load(f)
+            if clean_sku in cust_data and isinstance(cust_data[clean_sku], dict):
+                cust_data[clean_sku].pop("shopee_title", None)
+                tmp = CUST_FILE + ".tmp"
+                with open(tmp, "w", encoding="utf-8") as f:
+                    json.dump(cust_data, f, ensure_ascii=False, indent=2)
+                os.replace(tmp, CUST_FILE)
+    except Exception as e:
+        print("Error clearing custom title in cover_customizations.json:", e)
+
+    return recommended_title
+
+
 def save_custom_shopee_title(sku: str, title: str, source: str = "manual") -> bool:
     if not sku or not title or not title.strip():
         return False
     clean_sku = sku.strip()
     clean_title = title.strip()
+
+    # Check if clean_title is merely the raw KTW catalog name or identical to system recommended title
+    raw_ktw_name = ""
+    brand_val = ""
+    try:
+        if os.path.exists(LISTED_FILE):
+            with open(LISTED_FILE, "r", encoding="utf-8") as f:
+                listed_check = json.load(f)
+            for s_id in ["shop_1", "shop_2"]:
+                if clean_sku in listed_check.get(s_id, {}):
+                    it_c = listed_check[s_id][clean_sku]
+                    raw_ktw_name = (it_c.get("ktw_name") or it_c.get("name") or "").strip()
+                    brand_val = (it_c.get("brand") or "").strip()
+                    break
+    except Exception:
+        pass
+
+    # Never overwrite custom SEO title with the raw KTW catalog short name
+    if raw_ktw_name and clean_title == raw_ktw_name and not clean_title.startswith("["):
+        return False
+
+    from app.seo_service import build_shopee_seo_title
+    rec_title = build_shopee_seo_title(brand_val, raw_ktw_name or clean_title, clean_sku, is_variation_group=False) if raw_ktw_name else ""
+
     db = _load_titles()
-    db[clean_sku] = {
-        "title": clean_title,
-        "source": source,
-        "updated_at": int(time.time())
-    }
-    _save_titles(db)
+    if rec_title and clean_title == rec_title and source != "manual_lock":
+        # User set/kept the exact system recommended SEO title -> remove custom override if any
+        if clean_sku in db:
+            del db[clean_sku]
+            _save_titles(db)
+    else:
+        db[clean_sku] = {
+            "title": clean_title,
+            "source": source,
+            "updated_at": int(time.time())
+        }
+        _save_titles(db)
 
     # 1. Sync into listed_products.json if SKU is present
     try:
@@ -76,7 +188,9 @@ def save_custom_shopee_title(sku: str, title: str, source: str = "manual") -> bo
             for shop_id in ["shop_1", "shop_2"]:
                 shop_items = listed.get(shop_id, {})
                 if clean_sku in shop_items:
-                    shop_items[clean_sku]["name"] = clean_title
+                    old_n = (shop_items[clean_sku].get("ktw_name") or shop_items[clean_sku].get("name") or "").strip()
+                    if old_n and not old_n.startswith("[") and not shop_items[clean_sku].get("ktw_name"):
+                        shop_items[clean_sku]["ktw_name"] = old_n
                     shop_items[clean_sku]["shopee_title"] = clean_title
                     updated = True
             if updated:

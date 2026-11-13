@@ -660,15 +660,16 @@ def export_shopee_batch(product_items, output_filename='Shopee_Batch_Export.xlsx
 
             # Smart Shopee SEO Title (Priority 1: User-customized UI title != raw KTW name, Priority 2: Persisted custom title from title_service, Priority 3: Auto SEO title)
             from app.title_service import get_custom_shopee_title, save_custom_shopee_title
-            persisted_title = get_custom_shopee_title(sku)
+            rec_seo_title = build_shopee_seo_title(brand, raw_name, sku, is_variation_group=False)
+            persisted_title = get_custom_shopee_title(sku, raw_ktw_name=raw_name)
             ui_title = (item_info.get('shopee_title') or item_info.get('custom_shopee_title') or '').strip()
-            if ui_title and ui_title != raw_name.strip():
+            if ui_title and ui_title != raw_name.strip() and ui_title != rec_seo_title:
                 shopee_title = ui_title
                 save_custom_shopee_title(sku, ui_title, source="export_batch")
-            elif persisted_title and persisted_title.strip():
+            elif persisted_title and persisted_title.strip() and persisted_title.strip() != rec_seo_title:
                 shopee_title = persisted_title.strip()
             else:
-                shopee_title = build_shopee_seo_title(brand, raw_name, sku, is_variation_group=False)
+                shopee_title = rec_seo_title
 
             single_war = (detail.get('warrenty') or '').strip()
             warranty_section = ""

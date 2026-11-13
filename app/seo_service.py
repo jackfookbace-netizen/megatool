@@ -4,31 +4,47 @@ from typing import List, Dict
 SEO_KEYWORD_RULES: List[Dict] = [
     {
         "triggers": ["เครื่องเจียร์", "หินเจียร์", "ลูกหมู", "เจียร์ 4", "เจียร์ 5", "เจียร์ 7"],
-        "keywords": ["ลูกหมู", "หินเจียร์", "ตัดขัดเหล็ก"],
+        "keywords": ["ลูกหมู", "หินเจียร์ไฟฟ้า", "ตัดขัดเหล็ก"],
     },
     {
         "triggers": ["เครื่องฉีดน้ำ", "ปั๊มอัดฉีด", "เครื่องฉีด"],
-        "keywords": ["ปั๊มอัดฉีด", "แรงดันสูง", "ล้างรถ"],
+        "keywords": ["ปั๊มอัดฉีด", "ล้างรถ/ล้างพื้น", "ดูดน้ำได้เอง"],
     },
     {
         "triggers": ["ตัดหญ้า"],
-        "keywords": ["สะพายบ่า", "ตัดหญ้าสวน"],
+        "keywords": ["เครื่องตัดหญ้า", "สะพายบ่า", "ลุยงานสวน"],
     },
     {
         "triggers": ["สว่านโรตารี่", "โรตารี่", "sds"],
-        "keywords": ["สว่านกระแทก", "เจาะปูน"],
+        "keywords": ["สว่านกระแทก", "เจาะปูน/เหล็ก/ไม้", "สกัดคอนกรีต"],
     },
     {
-        "triggers": ["สว่าน", "สว่านไฟฟ้า", "สว่านไขควง", "สว่านแบต"],
-        "keywords": ["เจาะปูน/เหล็ก/ไม้"],
+        "triggers": ["ดอกสว่านเจดีย์", "สว่านเจดีย์", "step drill"],
+        "keywords": ["ดอกสว่านคว้านรู", "เจาะเหล็ก/สแตนเลส", "ชุบไทเทเนียม"],
+    },
+    {
+        "triggers": ["ดอกสว่าน", "ดอกเจาะ", "ดอกโรตารี่"],
+        "keywords": ["คมทนทาน", "เจาะแม่นยำ"],
+    },
+    {
+        "triggers": ["สว่านไฟฟ้า", "สว่านไขควง", "สว่านแบต", "สว่านไร้สาย"],
+        "keywords": ["เจาะปูน/เหล็ก/ไม้", "ขันสกรู"],
     },
     {
         "triggers": ["ปั๊มจุ่ม", "ปั๊มแช่", "ไดโว่"],
-        "keywords": ["ไดโว่", "สูบน้ำ", "ดูดน้ำ"],
+        "keywords": ["ปั๊มแช่ดูดน้ำ", "ไดโว่สูบน้ำ", "น้ำท่วม/บ่อปลา"],
+    },
+    {
+        "triggers": ["ปั๊มน้ำ", "ปั๊มอัตโนมัติ", "ปั๊มหอยโข่ง"],
+        "keywords": ["แรงดันสม่ำเสมอ", "สูบน้ำประปา/เกษตร"],
+    },
+    {
+        "triggers": ["พัดลมอุต", "ดูดเป่า", "พัดลมท่อ", "sht-"],
+        "keywords": ["พัดลมท่อดูดเป่า", "ระบายอากาศ", "ลมแรง"],
     },
     {
         "triggers": ["เลื่อยวงเดือน"],
-        "keywords": ["เลื่อยตัดไม้"],
+        "keywords": ["เลื่อยตัดไม้", "งานไม้", "ตัดแม่นยำ"],
     },
     {
         "triggers": ["แท่นตัด", "เครื่องตัด 14", "ไฟเบอร์ตัด"],
@@ -36,19 +52,31 @@ SEO_KEYWORD_RULES: List[Dict] = [
     },
     {
         "triggers": ["เทปพันสายไฟ", "temflex"],
-        "keywords": ["ฉนวนกันไฟฟ้า", "เนื้อกาวเหนียวแน่น"],
+        "keywords": ["เทปพันสายไฟ", "ฉนวนกันไฟฟ้า", "เนื้อกาวเหนียวแน่น"],
     },
     {
-        "triggers": ["ปั๊มลม"],
-        "keywords": ["ถังลม", "เติมลม พ่นสี"],
+        "triggers": ["คีมล็อค"],
+        "keywords": ["VISE-GRIP", "จับท่อ/หัวน็อตแน่น", "เหล็กแข็งพิเศษ"],
     },
     {
-        "triggers": ["ตู้เชื่อม", "เครื่องเชื่อม"],
-        "keywords": ["ตู้เชื่อมอินเวอร์เตอร์", "เชื่อมเหล็ก"],
+        "triggers": ["คีมปาก", "คีมตัด", "คีมรวม"],
+        "keywords": ["คีมช่าง", "ด้ามหุ้มฉนวน", "เหล็กเกรด CR-V"],
+    },
+    {
+        "triggers": ["ปั๊มลม", "ถังลม"],
+        "keywords": ["ถังลม", "เติมลม/พ่นสี", "ปั๊มลมเร็ว"],
+    },
+    {
+        "triggers": ["ตู้เชื่อม", "เครื่องเชื่อม", "igbt"],
+        "keywords": ["ตู้เชื่อมอินเวอร์เตอร์", "เชื่อมเหล็ก/สแตนเลส", "ไฟเสถียร"],
     },
     {
         "triggers": ["โบลเวอร์", "เครื่องเป่าลม"],
-        "keywords": ["โบลเวอร์", "เป่าฝุ่น ดูดฝุ่น"],
+        "keywords": ["โบลเวอร์", "เป่าฝุ่น/ดูดฝุ่น", "ลมแรง"],
+    },
+    {
+        "triggers": ["เครื่องดูดฝุ่น", "ดูดฝุ่น"],
+        "keywords": ["ดูดฝุ่นแห้ง-เปียก", "พลังดูดสูง"],
     },
     {
         "triggers": ["กบไสไม้"],
@@ -62,6 +90,16 @@ SEO_KEYWORD_RULES: List[Dict] = [
         "triggers": ["เครื่องขัดกระดาษทราย", "ขัดกระดาษทราย", "ขัดสี"],
         "keywords": ["ขัดไม้", "ขัดสีรถ"],
     },
+    {
+        "triggers": ["ประแจ", "ชุดบล็อก", "ลูกบล็อก", "ด้ามฟรี"],
+        "keywords": ["เหล็ก CR-V แท้", "งานช่างมืออาชีพ"],
+    },
+]
+
+CONSUMABLE_OR_HANDTOOL_TRIGGERS = [
+    "temflex", "เทป", "ดอกสว่าน", "ใบตัด", "ใบเจียร์", "ใบเลื่อย",
+    "คีม", "ประแจ", "ไขควง", "ตลับเมตร", "ค้อน", "ลูกบล็อก", "ชุดบล็อก",
+    "ถุงมือ", "แว่นตา", "สายยาง", "ลวดเชื่อม"
 ]
 
 def build_shopee_seo_title(brand: str, raw_name: str, sku: str = "", is_variation_group: bool = False) -> str:
@@ -70,16 +108,22 @@ def build_shopee_seo_title(brand: str, raw_name: str, sku: str = "", is_variatio
         brand = ""
     raw_name = (raw_name or "").strip()
     
-    # Clean redundant brand from the beginning of product name
+    # Clean redundant brand from the beginning or parentheses of product name
     if brand:
         clean_name = re.sub(rf"^\[?{re.escape(brand)}\]?\s*", "", raw_name, flags=re.IGNORECASE).strip()
+        clean_name = re.sub(rf"\(\s*{re.escape(brand)}\s*\)", "", clean_name, flags=re.IGNORECASE).strip()
     else:
         clean_name = raw_name
     # Remove existing square brackets e.g. [xxx]
     clean_name = re.sub(r"\[.*?\]", "", clean_name).strip()
-    clean_name = re.sub(r"\s+", " ", clean_name)
+    # Expand KTW shorthand abbreviations
     clean_name = re.sub(r'เครื่องฉีดน้ำ\s*ฯ', 'เครื่องฉีดน้ำแรงดันสูง', clean_name)
     clean_name = re.sub(r'เครื่องฉีดน้ำฯ', 'เครื่องฉีดน้ำแรงดันสูง', clean_name)
+    clean_name = re.sub(r'พัดลมอุต\s*ฯ\s*ดูดเป่า', 'พัดลมอุตสาหกรรมดูดเป่า ', clean_name)
+    clean_name = re.sub(r'พัดลมอุต\s*ฯ', 'พัดลมอุตสาหกรรม', clean_name)
+    # Strip trailing suffixes if already present
+    clean_name = re.sub(r'\s*(?:ของแท้มาตรฐานโรงงาน|มาตรฐานโรงงาน|ประกันศูนย์)\s*$', '', clean_name).strip()
+    clean_name = re.sub(r"\s+", " ", clean_name)
     clean_lower = clean_name.lower()
     
     # Collect SEO keywords not yet in title
@@ -91,10 +135,11 @@ def build_shopee_seo_title(brand: str, raw_name: str, sku: str = "", is_variatio
                     added_kw.append(kw)
     
     prefix = f"[{brand} แท้ 100%]" if brand else "[ของแท้ 100%]"
-    trust_suffix = "ประกันศูนย์"
+    is_handtool_or_consumable = any(t in clean_lower for t in CONSUMABLE_OR_HANDTOOL_TRIGGERS) or (brand.upper() in ["3M", "IRWIN", "MARATHON", "NACHI", "FORCE"])
+    trust_suffix = "มาตรฐานโรงงาน" if is_handtool_or_consumable else "ประกันศูนย์"
     
     if is_variation_group:
-        var_suffix = "รวมทุกรุ่นตัวเลือก ประกันศูนย์"
+        var_suffix = f"รวมทุกรุ่นตัวเลือก {trust_suffix}"
         parts = [prefix, clean_name] + added_kw + [var_suffix]
         title = " ".join(parts)
         while len(title) > 120 and added_kw:

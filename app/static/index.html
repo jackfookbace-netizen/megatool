@@ -1190,29 +1190,54 @@
                                                     <div class="min-w-0 flex-1">
                                                         <!-- Display Mode: Full SEO Title + Quick Inline Edit Trigger -->
                                                         <template x-if="editingTitleSku !== item.sku">
-                                                            <div class="flex items-start justify-between gap-2 group/title">
-                                                                <span class="font-semibold text-slate-900 text-xs leading-snug break-words group-hover:text-orange-600 transition-colors" 
-                                                                      x-text="item.shopee_title || item.name || item.sku"></span>
-                                                                <button type="button"
-                                                                        @click.stop="startInlineTitleEdit(item)"
-                                                                        title="คลิกเพื่อแก้ไขชื่อ SEO บน Shopee ทันที (บันทึกจำถาวร)"
-                                                                        class="shrink-0 inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 border border-orange-200/80 transition-colors cursor-pointer">
-                                                                    <i data-lucide="pencil" class="w-2.5 h-2.5"></i>
-                                                                    <span>แก้ชื่อ</span>
-                                                                </button>
+                                                            <div class="space-y-1">
+                                                                <div class="flex items-start justify-between gap-2 group/title">
+                                                                    <span class="font-semibold text-slate-900 text-xs leading-snug break-words group-hover:text-orange-600 transition-colors" 
+                                                                          x-text="resolveShopeeSeoTitle(item, item.shopee_title)"></span>
+                                                                    <button type="button"
+                                                                            @click.stop="startInlineTitleEdit(item)"
+                                                                            title="คลิกเพื่อแก้ไขเพิ่มเติมจากชื่อ SEO แนะนำ (บันทึกจำถาวร)"
+                                                                            class="shrink-0 inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 border border-orange-200/80 transition-colors cursor-pointer">
+                                                                        <i data-lucide="pencil" class="w-2.5 h-2.5"></i>
+                                                                        <span>แก้ชื่อ SEO</span>
+                                                                    </button>
+                                                                </div>
+                                                                <div class="flex items-center flex-wrap gap-1.5">
+                                                                    <template x-if="item.has_custom_seo_title && resolveShopeeSeoTitle(item, item.shopee_title) !== getRecommendedSeoTitle(item)">
+                                                                        <span class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                            <span>📌 ชื่อ SEO ที่คุณปรับแต่งแล้ว (จำถาวร)</span>
+                                                                        </span>
+                                                                    </template>
+                                                                    <template x-if="!item.has_custom_seo_title || resolveShopeeSeoTitle(item, item.shopee_title) === getRecommendedSeoTitle(item)">
+                                                                        <span class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                                                            <span>✨ ชื่อ SEO แนะนำโดยระบบ (ไกด์ตั้งต้น)</span>
+                                                                        </span>
+                                                                    </template>
+                                                                    <span class="text-[10px] text-slate-400 font-mono"
+                                                                          x-text="'(' + (resolveShopeeSeoTitle(item, item.shopee_title) || '').length + '/120)'"></span>
+                                                                </div>
                                                             </div>
                                                         </template>
 
                                                         <!-- Inline Edit Mode -->
                                                         <template x-if="editingTitleSku === item.sku">
-                                                            <div class="space-y-1.5 bg-orange-50/70 p-2 rounded-xl border border-orange-300" @click.stop>
-                                                                <input type="text"
-                                                                       x-model="editingTitleValue"
-                                                                       maxlength="120"
-                                                                       @keydown.enter.prevent="saveInlineTitleEdit(item)"
-                                                                       @keydown.escape.prevent="cancelInlineTitleEdit()"
-                                                                       placeholder="ระบุชื่อสินค้า SEO สำหรับลงขายบน Shopee..."
-                                                                       class="w-full px-2.5 py-1.5 text-xs font-semibold text-slate-900 bg-white border border-orange-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300">
+                                                            <div class="space-y-1.5 bg-orange-50/70 p-2.5 rounded-xl border border-orange-300" @click.stop>
+                                                                <div class="flex items-center justify-between">
+                                                                    <span class="text-[10px] font-bold text-orange-800">✏️ แก้ไขชื่อสินค้า SEO บน Shopee (ต่อยอดจากไกด์แนะนำ):</span>
+                                                                    <button type="button"
+                                                                            @click.stop="editingTitleValue = getRecommendedSeoTitle(item)"
+                                                                            title="รีเซ็ตกลับเป็นชื่อ SEO ที่ระบบแนะนำตั้งต้น"
+                                                                            class="px-2 py-0.5 rounded-md text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 cursor-pointer">
+                                                                        ✨ ใช้ชื่อ SEO แนะนำตั้งต้น
+                                                                    </button>
+                                                                </div>
+                                                                <textarea rows="2"
+                                                                          x-model="editingTitleValue"
+                                                                          maxlength="120"
+                                                                          @keydown.enter.prevent="saveInlineTitleEdit(item)"
+                                                                          @keydown.escape.prevent="cancelInlineTitleEdit()"
+                                                                          placeholder="ระบุชื่อสินค้า SEO สำหรับลงขายบน Shopee..."
+                                                                          class="w-full px-2.5 py-1.5 text-xs font-semibold text-slate-900 bg-white border border-orange-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 leading-snug resize-none"></textarea>
                                                                 <div class="flex items-center justify-between">
                                                                     <span class="text-[10px] font-mono"
                                                                           :class="(editingTitleValue || '').length > 110 ? 'text-rose-600 font-bold' : 'text-slate-500'"
@@ -1522,7 +1547,7 @@
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700 uppercase" x-text="attachForm.brand || 'KTW'"></span>
                             <span class="font-mono text-xs font-bold text-slate-600" x-text="attachForm.sku"></span>
                         </div>
-                        <h4 class="text-xs font-bold text-slate-800 line-clamp-1 mt-0.5" x-text="attachForm.name || attachForm.sku"></h4>
+                        <h4 class="text-xs font-bold text-slate-800 line-clamp-1 mt-0.5" x-text="attachForm.ktw_name || attachForm.name || attachForm.sku"></h4>
                         <span class="text-[10px] text-emerald-600 font-bold mt-0.5 block">
                             ✓ สินค้าจริงในคลัง KTW
                         </span>
@@ -1537,20 +1562,27 @@
 
                     <!-- Editable Shopee SEO Title Field (Permanently Saved per SKU) -->
                     <div>
-                        <label class="block text-xs font-bold text-slate-800 mb-1 flex items-center justify-between">
+                        <label class="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between flex-wrap gap-1">
                             <span class="flex items-center space-x-1">
                                 <i data-lucide="tag" class="w-3.5 h-3.5 text-orange-600"></i>
                                 <span>ชื่อสินค้าบน Shopee (SEO Title) *</span>
                             </span>
-                            <span class="text-[10px] font-mono"
-                                  :class="((attachForm.name || '').length > 110) ? 'text-rose-600 font-bold' : 'text-emerald-600 font-bold'"
-                                  x-text="((attachForm.name || '').length) + ' / 120 ตัวอักษร (จำถาวร)'"></span>
+                            <div class="flex items-center space-x-2">
+                                <button type="button"
+                                        @click="attachForm.name = getRecommendedSeoTitle(attachForm)"
+                                        class="px-2 py-0.5 rounded-md text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 cursor-pointer transition-colors">
+                                    ✨ ใช้ชื่อ SEO แนะนำตั้งต้น
+                                </button>
+                                <span class="text-[10px] font-mono"
+                                      :class="((attachForm.name || '').length > 110) ? 'text-rose-600 font-bold' : 'text-emerald-600 font-bold'"
+                                      x-text="((attachForm.name || '').length) + ' / 120 ตัวอักษร'"></span>
+                            </div>
                         </label>
                         <textarea rows="2" x-model="attachForm.name" maxlength="120" required
                                   placeholder="ระบุชื่อสินค้า SEO สำหรับลงขายบน Shopee..."
                                   class="w-full px-3 py-2 rounded-xl border border-orange-300 bg-orange-50/30 focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-xs font-semibold text-slate-900 outline-none leading-relaxed resize-none"></textarea>
-                        <p class="text-[10px] text-slate-400 mt-0.5">
-                            *ชื่อที่บันทึกไว้จะถูกจำผูกกับรหัส SKU นี้ตลอดไป ใช้เป็นชื่ออัตโนมัติทุกครั้งที่กด Export Mass Upload
+                        <p class="text-[10px] text-slate-500 mt-1">
+                            💡 <strong>ระบบตั้งชื่อ SEO แนะนำเป็นไกด์ให้แล้ว:</strong> คุณสามารถพิมพ์ต่อเติมคีย์เวิร์ดเพิ่มได้เลย (หากแก้ไข ระบบจะจำชื่อของคุณไว้ถาวร / หากไม่แก้ ระบบจะใช้ชื่อ SEO แนะนำนี้เป็นอันดับแรก)
                         </p>
                     </div>
 
@@ -1902,6 +1934,12 @@
                                       :class="{'text-amber-600 font-bold': (itemShopeeTitle?.length || 0) > 100, 'text-rose-600 font-bold': (itemShopeeTitle?.length || 0) >= 120}"
                                       x-text="(itemShopeeTitle?.length || 0) + ' / 120'"></span>
                             </div>
+                            <button type="button"
+                                    @click="itemShopeeTitle = getRecommendedSeoTitle(activePreviewItem); if (activePreviewItem) activePreviewItem.shopee_title = itemShopeeTitle; syncActiveItemShopeeTitle()"
+                                    title="ดึงชื่อ SEO ที่ระบบแนะนำตั้งต้นมาใช้"
+                                    class="shrink-0 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors cursor-pointer">
+                                ✨ SEO แนะนำ
+                            </button>
                         </div>
                     </div>
                     <button @click="closeCoverPreview()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer shrink-0 mt-0.5" title="ปิดหน้าต่าง">
@@ -2711,13 +2749,21 @@
                             </div>
 
                             <!-- แถวชื่อสินค้าบน Shopee (แก้ไขได้ก่อนลงขาย) -->
-                            <div class="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2.5 text-xs">
+                            <div class="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 text-xs">
                                 <span class="font-bold text-orange-800 bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-200 shrink-0 inline-flex items-center space-x-1">
                                     <span>🛍️ ชื่อสินค้าบน Shopee:</span>
                                 </span>
-                                <input type="text" x-model="item.shopee_title" @input="saveCartToStorage(); saveItemShopeeTitle(item)" :placeholder="item.name" maxlength="120"
+                                <input type="text" x-model="item.shopee_title" @input="saveCartToStorage(); saveItemShopeeTitle(item)" :placeholder="getRecommendedSeoTitle(item)" maxlength="120"
                                        class="flex-1 px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-800 text-xs font-medium outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 shadow-2xs">
-                                <span class="text-[11px] text-slate-400 shrink-0 font-mono" x-text="((item.shopee_title || item.name || '').length) + ' / 120'"></span>
+                                <div class="flex items-center space-x-1.5 shrink-0">
+                                    <button type="button"
+                                            @click="item.shopee_title = getRecommendedSeoTitle(item); saveCartToStorage(); saveItemShopeeTitle(item)"
+                                            title="ดึงชื่อ SEO ที่ระบบแนะนำตั้งต้นมาใช้"
+                                            class="px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 cursor-pointer">
+                                        ✨ SEO แนะนำ
+                                    </button>
+                                    <span class="text-[11px] text-slate-400 font-mono" x-text="((item.shopee_title || item.name || '').length) + ' / 120'"></span>
+                                </div>
                             </div>
                         </div>
                     </template>
@@ -3069,6 +3115,7 @@
                     for (const item of (this.selectedItems || [])) {
                         if (!item.template_type) item.template_type = 'auto_spec';
                         if (item.use_template === undefined) item.use_template = true;
+                        item.shopee_title = this.resolveShopeeSeoTitle(item, item.shopee_title);
                         if (!item.selected_images || item.selected_images.length === 0) {
                             if (item.all_images && item.all_images.length > 0) {
                                 item.selected_images = [...item.all_images];
@@ -3248,7 +3295,7 @@
                 startInlineTitleEdit(item) {
                     if (!item || !item.sku) return;
                     this.editingTitleSku = item.sku;
-                    this.editingTitleValue = item.shopee_title || item.name || item.sku || '';
+                    this.editingTitleValue = this.resolveShopeeSeoTitle(item, item.shopee_title);
                     this.$nextTick(() => {
                         if (window.lucide) lucide.createIcons();
                     });
@@ -3271,32 +3318,47 @@
                     }
                     this.savingQuickTitle = true;
                     try {
-                        item.shopee_title = newTitle;
-                        item.name = newTitle;
-                        item.has_custom_seo_title = true;
-                        this.saveCustomTitleLocalBackup(item.sku, newTitle);
+                        const recSeo = this.getRecommendedSeoTitle(item);
+                        const isCustom = (newTitle !== recSeo && newTitle !== (item.ktw_name || item.name || '').trim());
+                        const finalTitle = isCustom ? newTitle : recSeo;
+
+                        item.shopee_title = finalTitle;
+                        item.has_custom_seo_title = isCustom;
+                        if (isCustom) {
+                            this.saveCustomTitleLocalBackup(item.sku, finalTitle);
+                        } else {
+                            this.removeCustomTitleLocalBackup(item.sku);
+                        }
 
                         // Update cart item if in cart
                         const cartIt = this.selectedItems.find(i => i.sku === item.sku);
                         if (cartIt) {
-                            cartIt.shopee_title = newTitle;
+                            cartIt.shopee_title = finalTitle;
+                            cartIt.has_custom_seo_title = isCustom;
                             this.saveCartToStorage();
                         }
 
-                        // Save to permanent custom title database on server
-                        await fetch('/api/shopee/save-custom-title', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ sku: item.sku, title: newTitle, source: 'inline_listed_edit' })
-                        });
+                        if (isCustom) {
+                            await fetch('/api/shopee/save-custom-title', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ sku: item.sku, title: finalTitle, source: 'inline_listed_edit' })
+                            });
+                        } else {
+                            await fetch('/api/shopee/reset-custom-title', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ sku: item.sku })
+                            });
+                        }
 
                         // Also update localbackup for listed_products
                         try {
                             const bKey = `megatool_listed_products_backup_${this.activeShopId || 'shop_1'}`;
                             const localBackup = JSON.parse(localStorage.getItem(bKey) || '{}');
                             if (localBackup[item.sku]) {
-                                localBackup[item.sku].name = newTitle;
-                                localBackup[item.sku].shopee_title = newTitle;
+                                localBackup[item.sku].shopee_title = finalTitle;
+                                localBackup[item.sku].has_custom_seo_title = isCustom;
                                 localBackup[item.sku].updated_at = new Date().toISOString();
                                 localStorage.setItem(bKey, JSON.stringify(localBackup));
                             }
@@ -3473,8 +3535,10 @@
                         : (item.image_url ? [item.image_url] : (item.image ? [item.image] : []));
                     const queueItem = {
                         sku: item.sku,
-                        name: item.name,
-                        shopee_title: item.shopee_title || item.name,
+                        name: item.ktw_name || item.name,
+                        ktw_name: item.ktw_name || item.name,
+                        recommended_seo_title: this.getRecommendedSeoTitle(item),
+                        shopee_title: this.resolveShopeeSeoTitle(item, item.shopee_title),
                         custom_model: item.custom_model || '',
                         price: parseFloat(item.price) || 0,
                         brand: item.brand,
@@ -3485,7 +3549,7 @@
                         excluded_indices: [],
                         use_template: true,
                         template_type: item.template_type || 'auto_spec',
-                        variation_name: item.variation_name || this.autoCleanOptionName(item.name, item.sku, item.brand),
+                        variation_name: item.variation_name || this.autoCleanOptionName(item.ktw_name || item.name, item.sku, item.brand),
                         stock: item.stock || 0
                     };
                     if (existingIndex >= 0) {
@@ -3518,8 +3582,10 @@
                             : (item.image_url ? [item.image_url] : (item.image ? [item.image] : []));
                         return {
                             sku: item.sku,
-                            name: item.name,
-                            shopee_title: item.shopee_title || item.name,
+                            name: item.ktw_name || item.name,
+                            ktw_name: item.ktw_name || item.name,
+                            recommended_seo_title: this.getRecommendedSeoTitle(item),
+                            shopee_title: this.resolveShopeeSeoTitle(item, item.shopee_title),
                             custom_model: item.custom_model || '',
                             price: parseFloat(item.price) || 0,
                             brand: item.brand,
@@ -3530,7 +3596,7 @@
                             excluded_indices: [],
                             use_template: true,
                             template_type: item.template_type || 'auto_spec',
-                            variation_name: item.variation_name || this.autoCleanOptionName(item.name, item.sku, item.brand),
+                            variation_name: item.variation_name || this.autoCleanOptionName(item.ktw_name || item.name, item.sku, item.brand),
                             stock: item.stock || 0
                         };
                     });
@@ -3584,19 +3650,19 @@
 
                 async fetchListed() {
                     try {
+                        // One-time cache migration: wipe stale non-SEO raw title caches so recommended SEO titles appear first
+                        const SYNC_VERSION = 'v5_seo_recommended_guide_20261113';
+                        if (localStorage.getItem('megatool_sync_version') !== SYNC_VERSION) {
+                            localStorage.removeItem('megatool_listed_products_backup_shop_1');
+                            localStorage.removeItem('megatool_listed_products_backup_shop_2');
+                            localStorage.removeItem('megatool_custom_shopee_titles');
+                            localStorage.setItem('megatool_sync_version', SYNC_VERSION);
+                        }
                         await this.syncCustomTitlesWithCloud();
                         const res = await fetch(`/api/listed?shop_id=${this.activeShopId || 'shop_1'}`, { headers: this.getHeaders() });
                         if (res.ok) {
                             const data = await res.json();
                             let serverItems = data.items || [];
-
-                            // One-time cache migration: wipe stale 0-cost / distorted price caches
-                            const SYNC_VERSION = 'v4_exact_master_20261105';
-                            if (localStorage.getItem('megatool_sync_version') !== SYNC_VERSION) {
-                                localStorage.removeItem('megatool_listed_products_backup_shop_1');
-                                localStorage.removeItem('megatool_listed_products_backup_shop_2');
-                                localStorage.setItem('megatool_sync_version', SYNC_VERSION);
-                            }
 
                             // Two-way LocalStorage sync: Protect against Render container restarts & redeploys
                             let localBackup = {};
@@ -3831,7 +3897,9 @@
                             sku: product.sku || product.code || '',
                             shopee_url: currentUrl,
                             variation_name: product.variation_name || '',
-                            name: product.shopee_title || product.name || '',
+                            ktw_name: product.ktw_name || product.name || '',
+                            name: this.resolveShopeeSeoTitle(product, product.shopee_title),
+                            recommended_seo_title: this.getRecommendedSeoTitle(product),
                             brand: product.brand || product.manufacturer || '',
                             cost_price: cost,
                             price: Math.round(initialPrice),
@@ -4298,8 +4366,10 @@ toggleListedSort(field) {
                         if (res.ok) {
                             const data = await res.json();
                             this.attachForm.sku = sku;
-                            this.attachForm.name = data.name || sku;
+                            this.attachForm.ktw_name = data.name || sku;
                             this.attachForm.brand = data.brand || 'KTW';
+                            this.attachForm.recommended_seo_title = this.getRecommendedSeoTitle(data);
+                            this.attachForm.name = this.resolveShopeeSeoTitle(data, data.shopee_title);
                             this.attachForm.cost_price = (data.price && data.price.value) ? data.price.value : (data.cost_price || 0);
                             this.attachForm.image_url = data.image || data.image_url || (data.all_images && data.all_images[0]) || '';
                             if (!this.attachForm.price || this.attachForm.price <= 0) {
@@ -4386,19 +4456,29 @@ toggleListedSort(field) {
                     const cleanLower = clean.toLowerCase();
 
                     const rules = [
-                        { triggers: ['เครื่องเจียร์', 'หินเจียร์', 'ลูกหมู', 'เจียร์ 4', 'เจียร์ 5', 'เจียร์ 7'], keywords: ['ลูกหมู', 'หินเจียร์', 'ตัดขัดเหล็ก'] },
-                        { triggers: ['เครื่องฉีดน้ำ', 'ปั๊มอัดฉีด', 'เครื่องฉีด'], keywords: ['ปั๊มอัดฉีด', 'แรงดันสูง', 'ล้างรถ'] },
-                        { triggers: ['ตัดหญ้า'], keywords: ['สะพายบ่า', 'ตัดหญ้าสวน'] },
-                        { triggers: ['สว่านโรตารี่', 'โรตารี่', 'sds'], keywords: ['สว่านกระแทก', 'เจาะปูน'] },
-                        { triggers: ['สว่าน', 'สว่านไฟฟ้า', 'สว่านไขควง', 'สว่านแบต'], keywords: ['เจาะปูน/เหล็ก/ไม้'] },
-                        { triggers: ['ปั๊มจุ่ม', 'ปั๊มแช่', 'ไดโว่'], keywords: ['ไดโว่', 'สูบน้ำ', 'ดูดน้ำ'] },
-                        { triggers: ['เลื่อยวงเดือน'], keywords: ['เลื่อยตัดไม้'] },
+                        { triggers: ['เครื่องเจียร์', 'หินเจียร์', 'ลูกหมู', 'เจียร์ 4', 'เจียร์ 5', 'เจียร์ 7'], keywords: ['ลูกหมู', 'หินเจียร์ไฟฟ้า', 'ตัดขัดเหล็ก'] },
+                        { triggers: ['เครื่องฉีดน้ำ', 'ปั๊มอัดฉีด', 'เครื่องฉีด'], keywords: ['ปั๊มอัดฉีด', 'ล้างรถ/ล้างพื้น', 'ดูดน้ำได้เอง'] },
+                        { triggers: ['ตัดหญ้า'], keywords: ['เครื่องตัดหญ้า', 'สะพายบ่า', 'ลุยงานสวน'] },
+                        { triggers: ['สว่านโรตารี่', 'โรตารี่', 'sds'], keywords: ['สว่านกระแทก', 'เจาะปูน/เหล็ก/ไม้', 'สกัดคอนกรีต'] },
+                        { triggers: ['ดอกสว่านเจดีย์', 'สว่านเจดีย์', 'step drill'], keywords: ['ดอกสว่านคว้านรู', 'เจาะเหล็ก/สแตนเลส', 'ชุบไทเทเนียม'] },
+                        { triggers: ['ดอกสว่าน', 'ดอกเจาะ', 'ดอกโรตารี่'], keywords: ['คมทนทาน', 'เจาะแม่นยำ'] },
+                        { triggers: ['สว่านไฟฟ้า', 'สว่านไขควง', 'สว่านแบต', 'สว่านไร้สาย'], keywords: ['เจาะปูน/เหล็ก/ไม้', 'ขันสกรู'] },
+                        { triggers: ['ปั๊มจุ่ม', 'ปั๊มแช่', 'ไดโว่'], keywords: ['ปั๊มแช่ดูดน้ำ', 'ไดโว่สูบน้ำ', 'น้ำท่วม/บ่อปลา'] },
+                        { triggers: ['ปั๊มน้ำ', 'ปั๊มอัตโนมัติ', 'ปั๊มหอยโข่ง'], keywords: ['แรงดันสม่ำเสมอ', 'สูบน้ำประปา/เกษตร'] },
+                        { triggers: ['พัดลมอุต', 'ดูดเป่า', 'พัดลมท่อ', 'sht-'], keywords: ['พัดลมท่อดูดเป่า', 'ระบายอากาศ', 'ลมแรง'] },
+                        { triggers: ['เลื่อยวงเดือน'], keywords: ['เลื่อยตัดไม้', 'งานไม้', 'ตัดแม่นยำ'] },
                         { triggers: ['แท่นตัด', 'เครื่องตัด 14', 'ไฟเบอร์ตัด'], keywords: ['แท่นไฟเบอร์', 'ตัดเหล็ก'] },
-                        { triggers: ['เทปพันสายไฟ', 'temflex'], keywords: ['ฉนวนกันไฟฟ้า', 'เนื้อกาวเหนียวแน่น'] },
-                        { triggers: ['ปั๊มลม'], keywords: ['ถังลม', 'เติมลม พ่นสี'] },
-                        { triggers: ['ตู้เชื่อม', 'เครื่องเชื่อม'], keywords: ['ตู้เชื่อมอินเวอร์เตอร์', 'เชื่อมเหล็ก'] },
-                        { triggers: ['โบลเวอร์', 'เครื่องเป่าลม'], keywords: ['โบลเวอร์', 'เป่าฝุ่น ดูดฝุ่น'] },
-                        { triggers: ['กบไสไม้'], keywords: ['ไสไม้ไฟฟ้า', 'ปรับหน้าไม้'] }
+                        { triggers: ['เทปพันสายไฟ', 'temflex'], keywords: ['เทปพันสายไฟ', 'ฉนวนกันไฟฟ้า', 'เนื้อกาวเหนียวแน่น'] },
+                        { triggers: ['คีมล็อค'], keywords: ['VISE-GRIP', 'จับท่อ/หัวน็อตแน่น', 'เหล็กแข็งพิเศษ'] },
+                        { triggers: ['คีมปาก', 'คีมตัด', 'คีมรวม'], keywords: ['คีมช่าง', 'ด้ามหุ้มฉนวน', 'เหล็กเกรด CR-V'] },
+                        { triggers: ['ปั๊มลม', 'ถังลม'], keywords: ['ถังลม', 'เติมลม/พ่นสี', 'ปั๊มลมเร็ว'] },
+                        { triggers: ['ตู้เชื่อม', 'เครื่องเชื่อม', 'igbt'], keywords: ['ตู้เชื่อมอินเวอร์เตอร์', 'เชื่อมเหล็ก/สแตนเลส', 'ไฟเสถียร'] },
+                        { triggers: ['โบลเวอร์', 'เครื่องเป่าลม'], keywords: ['โบลเวอร์', 'เป่าฝุ่น/ดูดฝุ่น', 'ลมแรง'] },
+                        { triggers: ['เครื่องดูดฝุ่น', 'ดูดฝุ่น'], keywords: ['ดูดฝุ่นแห้ง-เปียก', 'พลังดูดสูง'] },
+                        { triggers: ['กบไสไม้'], keywords: ['ไสไม้ไฟฟ้า', 'ปรับหน้าไม้'] },
+                        { triggers: ['จิ๊กซอ', 'เลื่อยชัก'], keywords: ['ตัดไม้ ฉลุลาย'] },
+                        { triggers: ['เครื่องขัดกระดาษทราย', 'ขัดกระดาษทราย', 'ขัดสี'], keywords: ['ขัดไม้', 'ขัดสีรถ'] },
+                        { triggers: ['ประแจ', 'ชุดบล็อก', 'ลูกบล็อก', 'ด้ามฟรี'], keywords: ['เหล็ก CR-V แท้', 'งานช่างมืออาชีพ'] }
                     ];
 
                     const addedKw = [];
@@ -4413,10 +4493,12 @@ toggleListedSort(field) {
                     }
 
                     const prefix = brand ? `[${brand} แท้ 100%]` : '[ของแท้ 100%]';
-                    const trustSuffix = 'ประกันศูนย์';
+                    
+                    const isConsumableOrHandTool = ['temflex', 'เทป', 'ดอกสว่าน', 'ใบตัด', 'ใบเจียร์', 'ใบเลื่อย', 'คีม', 'ประแจ', 'ลูกบล็อก', 'ไขควง', 'ตลับเมตร', 'ระดับน้ำ', 'สิ่ว', 'แปรงลวด'].some(k => cleanLower.includes(k));
+                    const trustSuffix = isConsumableOrHandTool ? 'มาตรฐานโรงงาน' : 'ประกันศูนย์';
 
                     if (isVariationGroup) {
-                        const varSuffix = 'รวมทุกรุ่นตัวเลือก ประกันศูนย์';
+                        const varSuffix = `รวมทุกรุ่นตัวเลือก ${trustSuffix}`;
                         let parts = [prefix, clean, ...addedKw, varSuffix];
                         let title = parts.filter(Boolean).join(' ');
                         while (title.length > 120 && addedKw.length > 0) {
@@ -4443,6 +4525,34 @@ toggleListedSort(field) {
                         }
                         return title;
                     }
+                },
+
+                getRecommendedSeoTitle(item) {
+                    if (!item) return '';
+                    if (item.recommended_seo_title && item.recommended_seo_title.trim()) {
+                        return item.recommended_seo_title.trim();
+                    }
+                    const rawName = item.ktw_name || item.name || item.sku || '';
+                    const brand = item.brand || item.manufacturer || '';
+                    return this.buildShopeeSeoTitle(brand, rawName, item.sku || '');
+                },
+
+                resolveShopeeSeoTitle(item, currentTitle) {
+                    const t = (currentTitle || (item && item.shopee_title) || '').trim();
+                    const raw = (item && (item.ktw_name || item.name || '')).trim();
+                    if (t && t !== raw && t.startsWith('[')) {
+                        return t;
+                    }
+                    return this.getRecommendedSeoTitle(item);
+                },
+
+                removeCustomTitleLocalBackup(sku) {
+                    if (!sku) return;
+                    try {
+                        const map = JSON.parse(localStorage.getItem('megatool_custom_shopee_titles') || '{}');
+                        delete map[sku.trim()];
+                        localStorage.setItem('megatool_custom_shopee_titles', JSON.stringify(map));
+                    } catch (e) {}
                 },
 
                 getDefaultParentTitle() {

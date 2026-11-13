@@ -31,7 +31,8 @@ from app.listed_service import (
 )
 from app.title_service import (
     save_custom_shopee_title, get_custom_shopee_title,
-    get_all_custom_shopee_titles, import_shopee_titles_from_excel
+    get_all_custom_shopee_titles, import_shopee_titles_from_excel,
+    delete_custom_shopee_title
 )
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -376,19 +377,22 @@ def api_get_cart(shop_id: Optional[str] = Query("shop_1")):
             listed_map = get_all_listed(shop_id=shop_id or "shop_1", refresh_stock=False)
             for it in items:
                 sku = (it.get("sku") or "").strip()
+                raw_ktw = (it.get("ktw_name") or it.get("name") or sku).strip()
+                it["ktw_name"] = raw_ktw
+                rec_seo = build_shopee_seo_title(
+                    it.get("brand") or "",
+                    raw_ktw,
+                    sku,
+                    is_variation_group=False
+                )
+                it["recommended_seo_title"] = rec_seo
                 saved_t = (custom_titles_db.get(sku) or {}).get("title")
-                if saved_t:
-                    it["shopee_title"] = saved_t
-                elif not it.get("shopee_title") or it.get("shopee_title") == it.get("name"):
-                    if sku in listed_map and listed_map[sku].get("shopee_title"):
-                        it["shopee_title"] = listed_map[sku]["shopee_title"]
-                    else:
-                        it["shopee_title"] = build_shopee_seo_title(
-                            it.get("brand") or "",
-                            it.get("name") or sku,
-                            sku,
-                            is_variation_group=False
-                        )
+                if saved_t and saved_t.strip() != raw_ktw and saved_t.strip() != rec_seo:
+                    it["shopee_title"] = saved_t.strip()
+                    it["has_custom_seo_title"] = True
+                else:
+                    it["shopee_title"] = rec_seo
+                    it["has_custom_seo_title"] = False
                 if not it.get("cost_price") or float(it.get("cost_price") or 0) <= 0:
                     if sku.upper() in DEALER_MASTER_COSTS:
                         it["cost_price"] = DEALER_MASTER_COSTS[sku.upper()]["cost"]
@@ -414,6 +418,7 @@ def api_save_cart(req: SaveCartRequest):
     cdata[sid] = req.items
     try:
         import json
+        from app.seo_service import build_shopee_seo_title
         with open(cart_file, "w", encoding="utf-8") as f:
             json.dump(cdata, f, ensure_ascii=False, indent=2)
         # Also persist any customized shopee_title in cart items into shopee_custom_titles.json
@@ -421,8 +426,9 @@ def api_save_cart(req: SaveCartRequest):
             if isinstance(it, dict):
                 sku = (it.get("sku") or "").strip()
                 s_title = (it.get("shopee_title") or "").strip()
-                raw_n = (it.get("name") or "").strip()
-                if sku and s_title and s_title != raw_n:
+                raw_n = (it.get("ktw_name") or it.get("name") or "").strip()
+                rec_seo = build_shopee_seo_title(it.get("brand") or "", raw_n or sku, sku, is_variation_group=False)
+                if sku and s_title and s_title != raw_n and s_title != rec_seo:
                     save_custom_shopee_title(sku, s_title, source="cart_sync")
         return {"success": True, "saved_count": len(req.items)}
     except Exception as e:
@@ -469,20 +475,21 @@ def api_search(
     for p in data.get("products", []):
         p["is_cost_hidden"] = is_hidden
         sku = p.get("sku")
+        raw_ktw = (p.get("name") or sku or "").strip()
+        p["ktw_name"] = raw_ktw
+        rec_seo = build_shopee_seo_title(
+            p.get("brand") or p.get("manufacturer") or "",
+            raw_ktw,
+            sku or "",
+            is_variation_group=False
+        )
+        p["recommended_seo_title"] = rec_seo
         saved_custom_t = (custom_titles_db.get(sku) or {}).get("title") if sku else None
-        if saved_custom_t:
-            p["shopee_title"] = saved_custom_t
-            p["has_custom_seo_title"] = True
-        elif sku in listed_map and listed_map[sku].get("shopee_title"):
-            p["shopee_title"] = listed_map[sku]["shopee_title"]
+        if saved_custom_t and saved_custom_t.strip() != raw_ktw and saved_custom_t.strip() != rec_seo:
+            p["shopee_title"] = saved_custom_t.strip()
             p["has_custom_seo_title"] = True
         else:
-            p["shopee_title"] = build_shopee_seo_title(
-                p.get("brand") or p.get("manufacturer") or "",
-                p.get("name") or sku or "",
-                sku or "",
-                is_variation_group=False
-            )
+            p["shopee_title"] = rec_seo
             p["has_custom_seo_title"] = False
 
         if sku in listed_map:
@@ -535,6 +542,9 @@ class SaveCustomTitleRequest(BaseModel):
     title: str
     source: Optional[str] = "manual"
 
+class ResetCustomTitleRequest(BaseModel):
+    sku: str
+
 class SyncCustomTitlesRequest(BaseModel):
     titles: Dict[str, str]
 
@@ -546,6 +556,11 @@ def api_get_custom_titles():
 def api_save_custom_title(req: SaveCustomTitleRequest):
     ok = save_custom_shopee_title(req.sku, req.title, source=req.source or "manual")
     return {"success": ok}
+
+@app.post("/api/shopee/reset-custom-title")
+def api_reset_custom_title(req: ResetCustomTitleRequest):
+    rec_title = delete_custom_shopee_title(req.sku)
+    return {"success": True, "recommended_seo_title": rec_title}
 
 @app.post("/api/shopee/sync-custom-titles")
 def api_sync_custom_titles(req: SyncCustomTitlesRequest):

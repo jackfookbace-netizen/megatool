@@ -172,21 +172,21 @@ def get_all_listed(shop_id: str = "shop_1", refresh_stock: bool = True, force_sy
         for sku, item in items.items():
             if not item.get("ktw_url"):
                 item["ktw_url"] = f"https://shop.ktw.co.th/p/{sku}"
+            raw_ktw = (item.get("ktw_name") or item.get("name") or sku).strip()
+            item["ktw_name"] = raw_ktw
+            rec_seo = build_shopee_seo_title(
+                item.get("brand") or "",
+                raw_ktw,
+                sku,
+                is_variation_group=False
+            )
+            item["recommended_seo_title"] = rec_seo
             saved_t = (custom_titles_db.get(sku) or {}).get("title")
-            if saved_t:
-                item["shopee_title"] = saved_t
-                item["name"] = saved_t
-                item["has_custom_seo_title"] = True
-            elif item.get("shopee_title") and item.get("shopee_title") != item.get("name"):
-                item["name"] = item["shopee_title"]
+            if saved_t and saved_t.strip() != raw_ktw and saved_t.strip() != rec_seo:
+                item["shopee_title"] = saved_t.strip()
                 item["has_custom_seo_title"] = True
             else:
-                item["shopee_title"] = build_shopee_seo_title(
-                    item.get("brand") or "",
-                    item.get("name") or sku,
-                    sku,
-                    is_variation_group=False
-                )
+                item["shopee_title"] = rec_seo
                 item["has_custom_seo_title"] = False
             _enrich_listed_item(item)
         return items
@@ -268,10 +268,11 @@ def save_listed_product(
         ktw_price = detail.get("price", {}).get("value", 0.0) or 0.0
         stock_val = detail.get("stock", {}).get("stockLevel", 0) or 0
         
-        name = name or existing.get("name") or real_name
+        raw_ktw_name = real_name
         brand = brand or existing.get("brand") or real_brand
         image_url = image_url or existing.get("image_url") or real_img
     else:
+        raw_ktw_name = existing.get("ktw_name") or existing.get("name") or clean_sku
         ktw_price = 0.0
         stock_val = existing.get("stock", 0)
 
@@ -297,13 +298,28 @@ def save_listed_product(
         final_price = calculate_shop_price(cost_val, shop_id)
         
     now_str = datetime.now().isoformat()
+    from app.seo_service import build_shopee_seo_title
+    rec_seo_title = build_shopee_seo_title(brand or "OTHER", raw_ktw_name, clean_sku, is_variation_group=False)
+    submitted_title = (name or "").strip()
+
+    # If user submitted a customized SEO title (different from raw KTW name and different from recommended default)
+    is_custom_seo = bool(
+        submitted_title and
+        submitted_title != clean_sku and
+        submitted_title != raw_ktw_name.strip() and
+        submitted_title != rec_seo_title
+    )
+    active_shopee_title = submitted_title if is_custom_seo else rec_seo_title
     
     item_data = {
         "sku": clean_sku,
         "shopee_url": clean_url or existing.get("shopee_url", ""),
         "variation_name": (variation_name or existing.get("variation_name", "")).strip(),
-        "name": name or clean_sku,
-        "shopee_title": name or existing.get("shopee_title") or clean_sku,
+        "name": raw_ktw_name or clean_sku,
+        "ktw_name": raw_ktw_name or clean_sku,
+        "shopee_title": active_shopee_title,
+        "recommended_seo_title": rec_seo_title,
+        "has_custom_seo_title": is_custom_seo,
         "brand": brand or "OTHER",
         "price": final_price,
         "image_url": image_url,
@@ -318,14 +334,19 @@ def save_listed_product(
     items[clean_sku] = item_data
     _write_all_raw(raw_data)
 
-    # Permanently remember custom title in shopee_custom_titles.json ONLY if user customized it beyond raw KTW name
-    raw_ktw_name = (detail.get("name") or "").strip() if detail else ""
-    if name and name.strip() and name.strip() != clean_sku and name.strip() != raw_ktw_name:
+    # Permanently remember custom title in shopee_custom_titles.json ONLY if user customized it
+    if is_custom_seo:
         try:
             from app.title_service import save_custom_shopee_title
-            save_custom_shopee_title(clean_sku, name.strip(), source="listed_save")
+            save_custom_shopee_title(clean_sku, submitted_title, source="listed_save")
         except Exception as e_t:
             print("Error saving custom title from listed_service:", e_t)
+    elif submitted_title == rec_seo_title:
+        try:
+            from app.title_service import delete_custom_shopee_title
+            delete_custom_shopee_title(clean_sku)
+        except Exception:
+            pass
     
     return item_data
 
