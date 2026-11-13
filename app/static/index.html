@@ -1193,18 +1193,95 @@
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-slate-700">
                                     <template x-for="row in getDisplayListedRows()" :key="row.key">
-                                        <!-- 1. SINGLE ROW (OR FLAT VIEW MODE) -->
-                                        <template x-if="row.type === 'single' || row.type === 'flat'">
-                                            <tr class="hover:bg-slate-50/80 transition-colors cursor-pointer group"
-                                                @click="viewProductDetail(row.item.sku)">
-                                                
-                                                <!-- Checkbox for Batch Clone -->
-                                                <td class="py-3 px-3 text-center" @click.stop>
+                                        <tr :class="getRowClass(row)" @click="handleRowClick(row)">
+                                            
+                                            <!-- 1. CHECKBOX -->
+                                            <td class="py-3 px-3 text-center" @click.stop>
+                                                <template x-if="row.type === 'group_master'">
+                                                    <input type="checkbox"
+                                                           :checked="isGroupSelected(row.group)"
+                                                           @change="toggleSelectGroup(row.group, $event.target.checked)"
+                                                           title="เลือกสินค้าทุกรุ่นย่อยในลิงก์นี้"
+                                                           class="rounded text-orange-600 cursor-pointer">
+                                                </template>
+                                                <template x-if="row.type !== 'group_master'">
                                                     <input type="checkbox" :value="row.item.sku" x-model="selectedListedSkus" class="rounded text-blue-600 cursor-pointer">
-                                                </td>
+                                                </template>
+                                            </td>
 
-                                                <!-- Product Info & Stock -->
-                                                <td class="py-3 px-4 min-w-[320px] max-w-[460px]">
+                                            <!-- 2. PRODUCT INFO & TITLE -->
+                                            <td class="py-3 px-4 min-w-[320px] max-w-[460px]">
+                                                <!-- CASE A: GROUP MASTER -->
+                                                <template x-if="row.type === 'group_master'">
+                                                    <div class="flex items-start space-x-3">
+                                                        <div class="relative shrink-0 mt-0.5">
+                                                            <img :src="row.item.image_url || 'https://via.placeholder.com/60?text=KTW'" 
+                                                                 class="w-12 h-12 rounded-xl object-contain bg-white border-2 border-amber-300 p-1 shadow-2xs">
+                                                            <span class="absolute -bottom-1 -right-1 bg-amber-500 text-white font-mono text-[9px] font-extrabold px-1 rounded-full shadow-2xs"
+                                                                  x-text="row.group.count"></span>
+                                                        </div>
+                                                        <div class="min-w-0 flex-1">
+                                                            <!-- Group Badges & Collapse Toggle -->
+                                                            <div class="flex items-center flex-wrap gap-1.5 mb-1">
+                                                                <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500 text-white shadow-2xs inline-flex items-center space-x-1">
+                                                                    <i data-lucide="layers" class="w-3 h-3"></i>
+                                                                    <span>รวม <span x-text="row.group.count"></span> รุ่นใน 1 ลิงก์ Shopee</span>
+                                                                </span>
+                                                                <button type="button"
+                                                                        @click.stop="toggleGroupCollapse(row.group.id)"
+                                                                        class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white text-amber-900 border border-amber-300 hover:bg-amber-100 transition-colors inline-flex items-center space-x-1 cursor-pointer">
+                                                                    <i data-lucide="chevron-down" class="w-3 h-3 transition-transform" :class="isGroupCollapsed(row.group.id) ? '-rotate-90' : ''"></i>
+                                                                    <span x-text="isGroupCollapsed(row.group.id) ? 'ขยายดู ' + row.group.count + ' รุ่นย่อย' : 'พับเก็บรุ่นย่อย'"></span>
+                                                                </button>
+                                                            </div>
+                                                            <!-- Listing Title -->
+                                                            <span class="font-bold text-slate-900 text-xs leading-snug break-words block hover:text-orange-600 transition-colors" 
+                                                                  x-text="row.group.title"></span>
+                                                            <!-- Group Stock & Status -->
+                                                            <div class="flex items-center flex-wrap gap-2 mt-1">
+                                                                <span class="text-[11px] text-slate-600 font-medium">
+                                                                    สต็อกรวม: <strong class="text-emerald-600 font-bold" x-text="row.group.total_stock.toLocaleString() + ' ชิ้น'"></strong>
+                                                                </span>
+                                                                <template x-if="row.group.has_out_of_stock">
+                                                                    <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">
+                                                                        ⚠️ มีบางรุ่นหมดสต็อก
+                                                                    </span>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </template>
+
+                                                <!-- CASE B: GROUP SUB-ROW (NESTED VARIATION) -->
+                                                <template x-if="row.type === 'group_sub'">
+                                                    <div class="flex items-center space-x-3 pl-5">
+                                                        <span class="text-amber-500 font-mono text-base font-bold shrink-0 select-none">↳</span>
+                                                        <img :src="row.item.image_url || 'https://via.placeholder.com/40?text=KTW'" 
+                                                             class="w-9 h-9 rounded-lg object-contain bg-white border border-amber-200 p-0.5 shrink-0 group-hover/sub:scale-105 transition-transform">
+                                                        <div class="min-w-0 flex-1">
+                                                            <div class="flex items-center flex-wrap gap-2">
+                                                                <span class="px-2 py-0.5 rounded-md text-xs font-bold bg-amber-100/90 text-amber-900 border border-amber-300 inline-flex items-center space-x-1">
+                                                                    <i data-lucide="layers" class="w-3 h-3 text-amber-600"></i>
+                                                                    <span>รุ่น:</span>
+                                                                    <strong x-text="row.item.variation_name || row.item.name"></strong>
+                                                                </span>
+                                                                <template x-if="row.item.stock > 0">
+                                                                    <span class="text-[11px] text-slate-500 font-normal">
+                                                                        สต็อก: <strong class="text-emerald-600 font-medium" x-text="row.item.stock.toLocaleString() + ' ชิ้น'"></strong>
+                                                                    </span>
+                                                                </template>
+                                                                <template x-if="!row.item.stock || row.item.stock <= 0">
+                                                                    <span class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">
+                                                                        คลัง KTW หมด (0 ชิ้น)
+                                                                    </span>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </template>
+
+                                                <!-- CASE C: SINGLE OR FLAT PRODUCT ROW -->
+                                                <template x-if="row.type === 'single' || row.type === 'flat'">
                                                     <div class="flex items-start space-x-3">
                                                         <img :src="row.item.image_url || 'https://via.placeholder.com/60?text=KTW'" 
                                                              class="w-11 h-11 rounded-xl object-contain bg-white border border-slate-200/80 p-1 shrink-0 group-hover:scale-105 transition-transform mt-0.5">
@@ -1308,30 +1385,53 @@
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </td>
+                                                </template>
+                                            </td>
 
-                                                <!-- SKU with KTW Link -->
-                                                <td class="py-3 px-3" @click.stop>
+                                            <!-- 3. SKU -->
+                                            <td class="py-3 px-3" @click.stop>
+                                                <template x-if="row.type === 'group_master'">
+                                                    <span class="tabular-nums font-bold text-amber-900 text-xs inline-flex items-center space-x-1 bg-amber-100/80 px-2 py-1 rounded-md border border-amber-300">
+                                                        <span x-text="row.group.count + ' รหัสสินค้า'"></span>
+                                                    </span>
+                                                </template>
+                                                <template x-if="row.type !== 'group_master'">
                                                     <a :href="row.item.ktw_url || ('https://shop.ktw.co.th/p/' + row.item.sku)" target="_blank"
                                                        title="เปิดดูสินค้าบนเว็บ shop.ktw.co.th"
                                                        class="tabular-nums font-medium text-slate-700 hover:text-blue-600 hover:underline inline-flex items-center space-x-1 bg-slate-50 hover:bg-blue-50 px-2 py-1 rounded-md border border-slate-200/80 transition-colors">
                                                         <span x-text="row.item.sku"></span>
                                                         <i data-lucide="external-link" class="w-2.5 h-2.5 text-slate-400"></i>
                                                     </a>
-                                                </td>
+                                                </template>
+                                            </td>
 
-                                                <!-- Brand Badge -->
-                                                <td class="py-3 px-3 text-center">
+                                            <!-- 4. BRAND -->
+                                            <td class="py-3 px-3 text-center">
+                                                <template x-if="row.type === 'group_master'">
+                                                    <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-200 text-slate-800 border border-slate-300 uppercase" x-text="row.group.brand"></span>
+                                                </template>
+                                                <template x-if="row.type !== 'group_master'">
                                                     <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/80 uppercase" x-text="row.item.brand"></span>
-                                                </td>
+                                                </template>
+                                            </td>
 
-                                                <!-- 1. Cost Price -->
-                                                <td class="py-3 px-4 tabular-nums text-right font-medium text-slate-700 text-xs">
+                                            <!-- 5. COST PRICE -->
+                                            <td class="py-3 px-4 tabular-nums text-right font-medium text-slate-700 text-xs">
+                                                <template x-if="row.type === 'group_master'">
+                                                    <span x-text="row.group.min_cost === row.group.max_cost ? '฿' + Number(row.group.min_cost).toLocaleString() : '฿' + Number(row.group.min_cost).toLocaleString() + ' - ฿' + Number(row.group.max_cost).toLocaleString()"></span>
+                                                </template>
+                                                <template x-if="row.type !== 'group_master'">
                                                     <span x-text="'฿' + (row.item.cost_price ? Number(row.item.cost_price).toLocaleString(undefined, {minimumFractionDigits: (row.item.cost_price % 1 !== 0 ? 2 : 0)}) : '0')"></span>
-                                                </td>
+                                                </template>
+                                            </td>
 
-                                                <!-- 2. Selling Price with Quick Edit trigger -->
-                                                <td class="py-3 px-4 tabular-nums text-right">
+                                            <!-- 6. SELLING PRICE -->
+                                            <td class="py-3 px-4 tabular-nums text-right">
+                                                <template x-if="row.type === 'group_master'">
+                                                    <span class="font-bold text-orange-600 text-xs" 
+                                                          x-text="row.group.min_price === row.group.max_price ? '฿' + Number(row.group.min_price).toLocaleString() : '฿' + Number(row.group.min_price).toLocaleString() + ' - ฿' + Number(row.group.max_price).toLocaleString()"></span>
+                                                </template>
+                                                <template x-if="row.type !== 'group_master'">
                                                     <div class="inline-flex items-center justify-end space-x-1.5 cursor-pointer group/price"
                                                          @click.stop="quickEditPrice(row.item)"
                                                          title="คลิกเพื่อแก้ไขราคาขาย Shopee ทันที">
@@ -1340,279 +1440,40 @@
                                                             <i data-lucide="pencil" class="w-3 h-3"></i>
                                                         </button>
                                                     </div>
-                                                </td>
+                                                </template>
+                                            </td>
 
-                                                <!-- 3. Shopee Fee -->
-                                                <td class="py-3 px-4 tabular-nums text-right font-normal text-slate-500 text-xs">
-                                                    <span x-text="'-฿' + getShopeeFee(row.item.price).toLocaleString()"></span>
-                                                </td>
-
-                                                <!-- 4. Net Revenue (Money received from Shopee) -->
-                                                <td class="py-3 px-4 tabular-nums text-right font-semibold text-slate-800 text-xs">
-                                                    <span x-text="'฿' + getNetRevenue(row.item.price).toLocaleString()"></span>
-                                                </td>
-
-                                                <!-- 5. Net Profit (Margin) -->
-                                                <td class="py-3 px-4 tabular-nums text-right">
-                                                    <div class="inline-flex flex-col items-end">
-                                                        <span class="text-xs font-bold"
-                                                              :class="getNetProfit(row.item) >= 0 ? 'text-emerald-600' : 'text-rose-600'"
-                                                              x-text="(getNetProfit(row.item) >= 0 ? '+' : '') + '฿' + getNetProfit(row.item).toLocaleString()"></span>
-                                                        <span class="text-[10px] font-semibold mt-0.5 px-1.5 py-0.2 rounded"
-                                                              :class="getNetProfit(row.item) >= 0 ? 'text-emerald-700 bg-emerald-50 border border-emerald-200/60' : 'text-rose-700 bg-rose-50 border border-rose-200/60'"
-                                                              x-text="(getNetProfit(row.item) >= 0 ? '+' : '') + getNetProfitMargin(row.item) + '%'"></span>
-                                                    </div>
-                                                </td>
-
-                                                <!-- 6. Shopee Link -->
-                                                <td class="py-3 px-3 text-center" @click.stop>
-                                                    <a :href="row.item.shopee_url" target="_blank" 
-                                                       class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-700 font-semibold border border-orange-200/80 text-xs transition-colors">
-                                                        <span>เปิด Shopee</span>
-                                                        <i data-lucide="external-link" class="w-3 h-3"></i>
-                                                    </a>
-                                                </td>
-
-                                                <!-- 7. Actions -->
-                                                <td class="py-3 px-4 text-center space-x-1" @click.stop>
-                                                    <button @click="addSingleListedToQueue(row.item)" title="ส่งออกสินค้านี้เป็น Excel ใหม่ (ใช้ระบบ SEO และรายละเอียดล่าสุด)" 
-                                                            class="p-1 rounded-lg text-slate-400 hover:text-orange-600 hover:bg-orange-50 transition-colors border border-slate-200/70 cursor-pointer">
-                                                        <i data-lucide="shopping-bag" class="w-3.5 h-3.5"></i>
-                                                    </button>
-                                                    <button @click="openCloneModal(row.item.sku)" title="Clone สินค้านี้ไปร้านที่ 2 (ป้องกันสินค้าซ้ำซ้อน)" 
-                                                            class="p-1 rounded-lg text-slate-400 hover:text-blue-700 hover:bg-blue-50 transition-colors border border-slate-200/70 cursor-pointer">
-                                                        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
-                                                    </button>
-                                                    <button @click="openAttachModalForSameLink(row.item)" title="เพิ่มรุ่นย่อย/ตัวเลือกอื่นในลิงก์ Shopee เดียวกันนี้" 
-                                                            class="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 transition-colors border border-slate-200/70"
-                                                            x-show="row.item.shopee_url">
-                                                        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-                                                    </button>
-                                                    <button @click="openAttachModal(row.item)" title="แก้ไขราคาหรือลิงก์" 
-                                                            class="p-1 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors border border-slate-200/70">
-                                                        <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
-                                                    </button>
-                                                    <button @click="deleteAttach(row.item.sku)" title="ยกเลิกลิงก์สินค้า" 
-                                                            class="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors border border-slate-200/70">
-                                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        </template>
-
-                                        <!-- 2. GROUP MASTER ROW (MULTI-VARIATION SHOPEE LISTING) -->
-                                        <template x-if="row.type === 'group_master'">
-                                            <tr class="bg-amber-50/40 hover:bg-amber-50/70 transition-colors cursor-pointer border-t-2 border-t-amber-300 border-b border-b-amber-200"
-                                                @click="toggleGroupCollapse(row.group.id)">
-                                                
-                                                <!-- Checkbox for entire group -->
-                                                <td class="py-3 px-3 text-center" @click.stop>
-                                                    <input type="checkbox"
-                                                           :checked="isGroupSelected(row.group)"
-                                                           @change="toggleSelectGroup(row.group, $event.target.checked)"
-                                                           title="เลือกสินค้าทุกรุ่นย่อยในลิงก์นี้"
-                                                           class="rounded text-orange-600 cursor-pointer">
-                                                </td>
-
-                                                <!-- Master Listing Info -->
-                                                <td class="py-3 px-4 min-w-[320px] max-w-[460px]">
-                                                    <div class="flex items-start space-x-3">
-                                                        <div class="relative shrink-0 mt-0.5">
-                                                            <img :src="row.item.image_url || 'https://via.placeholder.com/60?text=KTW'" 
-                                                                 class="w-12 h-12 rounded-xl object-contain bg-white border-2 border-amber-300 p-1 shadow-2xs">
-                                                            <span class="absolute -bottom-1 -right-1 bg-amber-500 text-white font-mono text-[9px] font-extrabold px-1 rounded-full shadow-2xs"
-                                                                  x-text="row.group.count"></span>
-                                                        </div>
-                                                        <div class="min-w-0 flex-1">
-                                                            <!-- Group Header Badges & Collapse Toggle -->
-                                                            <div class="flex items-center flex-wrap gap-1.5 mb-1">
-                                                                <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500 text-white shadow-2xs inline-flex items-center space-x-1">
-                                                                    <i data-lucide="layers" class="w-3 h-3"></i>
-                                                                    <span>รวม <span x-text="row.group.count"></span> รุ่นใน 1 ลิงก์ Shopee</span>
-                                                                </span>
-                                                                <button type="button"
-                                                                        @click.stop="toggleGroupCollapse(row.group.id)"
-                                                                        class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white text-amber-900 border border-amber-300 hover:bg-amber-100 transition-colors inline-flex items-center space-x-1 cursor-pointer">
-                                                                    <i data-lucide="chevron-down" class="w-3 h-3 transition-transform" :class="isGroupCollapsed(row.group.id) ? '-rotate-90' : ''"></i>
-                                                                    <span x-text="isGroupCollapsed(row.group.id) ? 'ขยายดู ' + row.group.count + ' รุ่นย่อย' : 'พับเก็บรุ่นย่อย'"></span>
-                                                                </button>
-                                                            </div>
-
-                                                            <!-- Listing Title -->
-                                                            <span class="font-bold text-slate-900 text-xs leading-snug break-words block hover:text-orange-600 transition-colors" 
-                                                                  x-text="row.group.title"></span>
-
-                                                            <!-- Group Stock & Status -->
-                                                            <div class="flex items-center flex-wrap gap-2 mt-1">
-                                                                <span class="text-[11px] text-slate-600 font-medium">
-                                                                    สต็อกรวม: <strong class="text-emerald-600 font-bold" x-text="row.group.total_stock.toLocaleString() + ' ชิ้น'"></strong>
-                                                                </span>
-                                                                <template x-if="row.group.has_out_of_stock">
-                                                                    <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">
-                                                                        ⚠️ มีบางรุ่นหมดสต็อก
-                                                                    </span>
-                                                                </template>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </td>
-
-                                                <!-- SKU Summary -->
-                                                <td class="py-3 px-3" @click.stop="toggleGroupCollapse(row.group.id)">
-                                                    <span class="tabular-nums font-bold text-amber-900 text-xs inline-flex items-center space-x-1 bg-amber-100/80 px-2 py-1 rounded-md border border-amber-300">
-                                                        <span x-text="row.group.count + ' รหัสสินค้า'"></span>
-                                                    </span>
-                                                </td>
-
-                                                <!-- Brand Badge -->
-                                                <td class="py-3 px-3 text-center">
-                                                    <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-200 text-slate-800 border border-slate-300 uppercase" x-text="row.group.brand"></span>
-                                                </td>
-
-                                                <!-- 1. Cost Price Range -->
-                                                <td class="py-3 px-4 tabular-nums text-right font-medium text-slate-700 text-xs">
-                                                    <span x-text="row.group.min_cost === row.group.max_cost ? '฿' + Number(row.group.min_cost).toLocaleString() : '฿' + Number(row.group.min_cost).toLocaleString() + ' - ฿' + Number(row.group.max_cost).toLocaleString()"></span>
-                                                </td>
-
-                                                <!-- 2. Selling Price Range -->
-                                                <td class="py-3 px-4 tabular-nums text-right">
-                                                    <span class="font-bold text-orange-600 text-xs" 
-                                                          x-text="row.group.min_price === row.group.max_price ? '฿' + Number(row.group.min_price).toLocaleString() : '฿' + Number(row.group.min_price).toLocaleString() + ' - ฿' + Number(row.group.max_price).toLocaleString()"></span>
-                                                </td>
-
-                                                <!-- 3. Shopee Fee Range -->
-                                                <td class="py-3 px-4 tabular-nums text-right font-normal text-slate-500 text-xs">
+                                            <!-- 7. SHOPEE FEE -->
+                                            <td class="py-3 px-4 tabular-nums text-right font-normal text-slate-500 text-xs">
+                                                <template x-if="row.type === 'group_master'">
                                                     <span x-text="row.group.min_fee === row.group.max_fee ? '-฿' + row.group.min_fee.toLocaleString() : '-฿' + row.group.min_fee.toLocaleString() + ' - -฿' + row.group.max_fee.toLocaleString()"></span>
-                                                </td>
+                                                </template>
+                                                <template x-if="row.type !== 'group_master'">
+                                                    <span x-text="'-฿' + getShopeeFee(row.item.price).toLocaleString()"></span>
+                                                </template>
+                                            </td>
 
-                                                <!-- 4. Net Revenue Range -->
-                                                <td class="py-3 px-4 tabular-nums text-right font-semibold text-slate-800 text-xs">
+                                            <!-- 8. NET REVENUE -->
+                                            <td class="py-3 px-4 tabular-nums text-right font-semibold text-slate-800 text-xs">
+                                                <template x-if="row.type === 'group_master'">
                                                     <span x-text="row.group.min_net === row.group.max_net ? '฿' + row.group.min_net.toLocaleString() : '฿' + row.group.min_net.toLocaleString() + ' - ฿' + row.group.max_net.toLocaleString()"></span>
-                                                </td>
+                                                </template>
+                                                <template x-if="row.type !== 'group_master'">
+                                                    <span x-text="'฿' + getNetRevenue(row.item.price).toLocaleString()"></span>
+                                                </template>
+                                            </td>
 
-                                                <!-- 5. Net Profit Range -->
-                                                <td class="py-3 px-4 tabular-nums text-right">
+                                            <!-- 9. NET PROFIT -->
+                                            <td class="py-3 px-4 tabular-nums text-right">
+                                                <template x-if="row.type === 'group_master'">
                                                     <div class="inline-flex flex-col items-end">
                                                         <span class="text-xs font-bold text-emerald-600"
                                                               x-text="row.group.min_profit === row.group.max_profit ? '+฿' + row.group.min_profit.toLocaleString() : '+฿' + row.group.min_profit.toLocaleString() + ' - +฿' + row.group.max_profit.toLocaleString()"></span>
                                                         <span class="text-[10px] font-semibold mt-0.5 px-1.5 py-0.2 rounded text-emerald-700 bg-emerald-50 border border-emerald-200/60"
                                                               x-text="row.group.min_margin === row.group.max_margin ? '+' + row.group.min_margin + '%' : '+' + row.group.min_margin + '% - +' + row.group.max_margin + '%'"></span>
                                                     </div>
-                                                </td>
-
-                                                <!-- 6. Shopee Link (Single for entire group) -->
-                                                <td class="py-3 px-3 text-center" @click.stop>
-                                                    <a :href="row.group.shopee_url" target="_blank" 
-                                                       class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-xs transition-colors">
-                                                        <span>เปิด Shopee</span>
-                                                        <i data-lucide="external-link" class="w-3 h-3"></i>
-                                                    </a>
-                                                </td>
-
-                                                <!-- 7. Actions for entire group -->
-                                                <td class="py-3 px-4 text-center space-x-1" @click.stop>
-                                                    <button @click="addGroupListedToQueue(row.group)" title="ส่งออกสินค้าทั้งกลุ่มเป็น Excel ใหม่ (แบบมีรุ่นย่อย)" 
-                                                            class="p-1 rounded-lg text-amber-700 hover:text-white hover:bg-amber-600 transition-colors border border-amber-300 bg-amber-50 cursor-pointer">
-                                                        <i data-lucide="shopping-bag" class="w-3.5 h-3.5"></i>
-                                                    </button>
-                                                    <button @click="openCloneGroupModal(row.group)" title="Clone สินค้าทั้งกลุ่มไปร้านที่ 2" 
-                                                            class="p-1 rounded-lg text-blue-700 hover:text-white hover:bg-blue-600 transition-colors border border-blue-300 bg-blue-50 cursor-pointer">
-                                                        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
-                                                    </button>
-                                                    <button @click="openAttachModalForSameLink(row.item)" title="เพิ่มรุ่นย่อย/ตัวเลือกอื่นในลิงก์ Shopee นี้อีก" 
-                                                            class="p-1 rounded-lg text-emerald-700 hover:text-white hover:bg-emerald-600 transition-colors border border-emerald-300 bg-emerald-50 cursor-pointer">
-                                                        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-                                                    </button>
-                                                    <button @click="deleteGroup(row.group)" title="ยกเลิกลิงก์สินค้าทั้งกลุ่มนี้" 
-                                                            class="p-1 rounded-lg text-rose-600 hover:text-white hover:bg-rose-600 transition-colors border border-rose-300 bg-rose-50 cursor-pointer">
-                                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        </template>
-
-                                        <!-- 3. GROUP SUB-ROW (INDIVIDUAL VARIATION NESTED UNDER MASTER) -->
-                                        <template x-if="row.type === 'group_sub'">
-                                            <tr class="bg-amber-50/15 hover:bg-amber-100/35 transition-colors cursor-pointer border-l-4 border-l-amber-400 group/sub"
-                                                @click="viewProductDetail(row.item.sku)">
-                                                
-                                                <!-- Checkbox for this variation -->
-                                                <td class="py-2.5 px-3 text-center" @click.stop>
-                                                    <input type="checkbox" :value="row.item.sku" x-model="selectedListedSkus" class="rounded text-blue-600 cursor-pointer">
-                                                </td>
-
-                                                <!-- Variation Details with Tree Connector -->
-                                                <td class="py-2.5 px-4 min-w-[320px] max-w-[460px]">
-                                                    <div class="flex items-center space-x-3 pl-5">
-                                                        <span class="text-amber-500 font-mono text-base font-bold shrink-0 select-none">↳</span>
-                                                        <img :src="row.item.image_url || 'https://via.placeholder.com/40?text=KTW'" 
-                                                             class="w-9 h-9 rounded-lg object-contain bg-white border border-amber-200 p-0.5 shrink-0 group-hover/sub:scale-105 transition-transform">
-                                                        <div class="min-w-0 flex-1">
-                                                            <div class="flex items-center flex-wrap gap-2">
-                                                                <span class="px-2 py-0.5 rounded-md text-xs font-bold bg-amber-100/90 text-amber-900 border border-amber-300 inline-flex items-center space-x-1">
-                                                                    <i data-lucide="layers" class="w-3 h-3 text-amber-600"></i>
-                                                                    <span>รุ่น:</span>
-                                                                    <strong x-text="row.item.variation_name || row.item.name"></strong>
-                                                                </span>
-                                                                <template x-if="row.item.stock > 0">
-                                                                    <span class="text-[11px] text-slate-500 font-normal">
-                                                                        สต็อก: <strong class="text-emerald-600 font-medium" x-text="row.item.stock.toLocaleString() + ' ชิ้น'"></strong>
-                                                                    </span>
-                                                                </template>
-                                                                <template x-if="!row.item.stock || row.item.stock <= 0">
-                                                                    <span class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">
-                                                                        คลัง KTW หมด (0 ชิ้น)
-                                                                    </span>
-                                                                </template>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </td>
-
-                                                <!-- SKU with KTW Link -->
-                                                <td class="py-2.5 px-3" @click.stop>
-                                                    <a :href="row.item.ktw_url || ('https://shop.ktw.co.th/p/' + row.item.sku)" target="_blank"
-                                                       title="เปิดดูสินค้านี้บนเว็บ shop.ktw.co.th"
-                                                       class="tabular-nums font-medium text-slate-700 hover:text-blue-600 hover:underline inline-flex items-center space-x-1 bg-white hover:bg-blue-50 px-2 py-0.5 rounded-md border border-slate-200 text-xs transition-colors">
-                                                        <span x-text="row.item.sku"></span>
-                                                        <i data-lucide="external-link" class="w-2.5 h-2.5 text-slate-400"></i>
-                                                    </a>
-                                                </td>
-
-                                                <!-- Brand Badge -->
-                                                <td class="py-2.5 px-3 text-center">
-                                                    <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200 uppercase" x-text="row.item.brand"></span>
-                                                </td>
-
-                                                <!-- 1. Cost Price -->
-                                                <td class="py-2.5 px-4 tabular-nums text-right font-medium text-slate-600 text-xs">
-                                                    <span x-text="'฿' + (row.item.cost_price ? Number(row.item.cost_price).toLocaleString(undefined, {minimumFractionDigits: (row.item.cost_price % 1 !== 0 ? 2 : 0)}) : '0')"></span>
-                                                </td>
-
-                                                <!-- 2. Selling Price with Quick Edit trigger -->
-                                                <td class="py-2.5 px-4 tabular-nums text-right">
-                                                    <div class="inline-flex items-center justify-end space-x-1.5 cursor-pointer group/price"
-                                                         @click.stop="quickEditPrice(row.item)"
-                                                         title="คลิกเพื่อแก้ไขราคาขายรุ่นย่อยนี้ทันที">
-                                                        <span class="font-bold text-orange-600 text-xs group-hover/price:underline" x-text="'฿' + (row.item.price ? Number(row.item.price).toLocaleString() : '0')"></span>
-                                                        <button type="button" @click.stop="quickEditPrice(row.item)" title="แก้ไขราคาขายรุ่นย่อยนี้" class="text-slate-300 hover:text-orange-600 p-0.5 rounded transition-colors">
-                                                            <i data-lucide="pencil" class="w-3 h-3"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-
-                                                <!-- 3. Shopee Fee -->
-                                                <td class="py-2.5 px-4 tabular-nums text-right font-normal text-slate-500 text-xs">
-                                                    <span x-text="'-฿' + getShopeeFee(row.item.price).toLocaleString()"></span>
-                                                </td>
-
-                                                <!-- 4. Net Revenue -->
-                                                <td class="py-2.5 px-4 tabular-nums text-right font-semibold text-slate-800 text-xs">
-                                                    <span x-text="'฿' + getNetRevenue(row.item.price).toLocaleString()"></span>
-                                                </td>
-
-                                                <!-- 5. Net Profit -->
-                                                <td class="py-2.5 px-4 tabular-nums text-right">
+                                                </template>
+                                                <template x-if="row.type !== 'group_master'">
                                                     <div class="inline-flex flex-col items-end">
                                                         <span class="text-xs font-bold"
                                                               :class="getNetProfit(row.item) >= 0 ? 'text-emerald-600' : 'text-rose-600'"
@@ -1621,28 +1482,98 @@
                                                               :class="getNetProfit(row.item) >= 0 ? 'text-emerald-700 bg-emerald-50 border border-emerald-200/60' : 'text-rose-700 bg-rose-50 border border-rose-200/60'"
                                                               x-text="(getNetProfit(row.item) >= 0 ? '+' : '') + getNetProfitMargin(row.item) + '%'"></span>
                                                     </div>
-                                                </td>
+                                                </template>
+                                            </td>
 
-                                                <!-- 6. Shopee Link note -->
-                                                <td class="py-2.5 px-3 text-center" @click.stop>
+                                            <!-- 10. SHOPEE LINK -->
+                                            <td class="py-3 px-3 text-center" @click.stop>
+                                                <template x-if="row.type === 'group_master'">
+                                                    <a :href="row.group.shopee_url" target="_blank" 
+                                                       class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-xs transition-colors">
+                                                        <span>เปิด Shopee</span>
+                                                        <i data-lucide="external-link" class="w-3 h-3"></i>
+                                                    </a>
+                                                </template>
+                                                <template x-if="row.type === 'group_sub'">
                                                     <span class="text-[10px] text-amber-800/70 font-semibold italic bg-amber-50 px-2 py-0.5 rounded border border-amber-200/60">
                                                         ↳ ในลิงก์ข้างบน
                                                     </span>
-                                                </td>
+                                                </template>
+                                                <template x-if="row.type === 'single' || row.type === 'flat'">
+                                                    <a :href="row.item.shopee_url" target="_blank" 
+                                                       class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-700 font-semibold border border-orange-200/80 text-xs transition-colors">
+                                                        <span>เปิด Shopee</span>
+                                                        <i data-lucide="external-link" class="w-3 h-3"></i>
+                                                    </a>
+                                                </template>
+                                            </td>
 
-                                                <!-- 7. Actions for single variation -->
-                                                <td class="py-2.5 px-4 text-center space-x-1" @click.stop>
-                                                    <button @click="openAttachModal(row.item)" title="แก้ไขรุ่นย่อยหรือราคา" 
-                                                            class="p-1 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors border border-slate-200/70">
-                                                        <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
-                                                    </button>
-                                                    <button @click="deleteAttach(row.item.sku)" title="ลบรุ่นย่อยนี้ออกจากกลุ่ม" 
-                                                            class="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors border border-slate-200/70">
-                                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        </template>
+                                            <!-- 11. ACTIONS -->
+                                            <td class="py-3 px-4 text-center space-x-1" @click.stop>
+                                                <!-- Group Master Actions -->
+                                                <template x-if="row.type === 'group_master'">
+                                                    <div class="inline-flex items-center space-x-1">
+                                                        <button @click="addGroupListedToQueue(row.group)" title="ส่งออกสินค้าทั้งกลุ่มเป็น Excel ใหม่ (แบบมีรุ่นย่อย)" 
+                                                                class="p-1 rounded-lg text-amber-700 hover:text-white hover:bg-amber-600 transition-colors border border-amber-300 bg-amber-50 cursor-pointer">
+                                                            <i data-lucide="shopping-bag" class="w-3.5 h-3.5"></i>
+                                                        </button>
+                                                        <button @click="openCloneGroupModal(row.group)" title="Clone สินค้าทั้งกลุ่มไปร้านที่ 2" 
+                                                                class="p-1 rounded-lg text-blue-700 hover:text-white hover:bg-blue-600 transition-colors border border-blue-300 bg-blue-50 cursor-pointer">
+                                                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                                                        </button>
+                                                        <button @click="openAttachModalForSameLink(row.item)" title="เพิ่มรุ่นย่อย/ตัวเลือกอื่นในลิงก์ Shopee นี้อีก" 
+                                                                class="p-1 rounded-lg text-emerald-700 hover:text-white hover:bg-emerald-600 transition-colors border border-emerald-300 bg-emerald-50 cursor-pointer">
+                                                            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                                                        </button>
+                                                        <button @click="deleteGroup(row.group)" title="ยกเลิกลิงก์สินค้าทั้งกลุ่มนี้" 
+                                                                class="p-1 rounded-lg text-rose-600 hover:text-white hover:bg-rose-600 transition-colors border border-rose-300 bg-rose-50 cursor-pointer">
+                                                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                                        </button>
+                                                    </div>
+                                                </template>
+
+                                                <!-- Group Sub-row Actions -->
+                                                <template x-if="row.type === 'group_sub'">
+                                                    <div class="inline-flex items-center space-x-1">
+                                                        <button @click="openAttachModal(row.item)" title="แก้ไขรุ่นย่อยหรือราคา" 
+                                                                class="p-1 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors border border-slate-200/70">
+                                                            <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                                                        </button>
+                                                        <button @click="deleteAttach(row.item.sku)" title="ลบรุ่นย่อยนี้ออกจากกลุ่ม" 
+                                                                class="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors border border-slate-200/70">
+                                                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                                        </button>
+                                                    </div>
+                                                </template>
+
+                                                <!-- Single / Flat Actions -->
+                                                <template x-if="row.type === 'single' || row.type === 'flat'">
+                                                    <div class="inline-flex items-center space-x-1">
+                                                        <button @click="addSingleListedToQueue(row.item)" title="ส่งออกสินค้านี้เป็น Excel ใหม่ (ใช้ระบบ SEO และรายละเอียดล่าสุด)" 
+                                                                class="p-1 rounded-lg text-slate-400 hover:text-orange-600 hover:bg-orange-50 transition-colors border border-slate-200/70 cursor-pointer">
+                                                            <i data-lucide="shopping-bag" class="w-3.5 h-3.5"></i>
+                                                        </button>
+                                                        <button @click="openCloneModal(row.item.sku)" title="Clone สินค้านี้ไปร้านที่ 2 (ป้องกันสินค้าซ้ำซ้อน)" 
+                                                                class="p-1 rounded-lg text-slate-400 hover:text-blue-700 hover:bg-blue-50 transition-colors border border-slate-200/70 cursor-pointer">
+                                                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                                                        </button>
+                                                        <button @click="openAttachModalForSameLink(row.item)" title="เพิ่มรุ่นย่อย/ตัวเลือกอื่นในลิงก์ Shopee เดียวกันนี้" 
+                                                                class="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 transition-colors border border-slate-200/70"
+                                                                x-show="row.item.shopee_url">
+                                                            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                                                        </button>
+                                                        <button @click="openAttachModal(row.item)" title="แก้ไขราคาหรือลิงก์" 
+                                                                class="p-1 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors border border-slate-200/70">
+                                                            <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                                                        </button>
+                                                        <button @click="deleteAttach(row.item.sku)" title="ยกเลิกลิงก์สินค้า" 
+                                                                class="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors border border-slate-200/70">
+                                                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                                        </button>
+                                                    </div>
+                                                </template>
+                                            </td>
+                                        </tr>
                                     </template>
                                 </tbody>
                             </table>
@@ -4782,6 +4713,24 @@ toggleListedSort(field) {
                         }
                     }
                     return rows;
+                },
+
+                getRowClass(row) {
+                    if (row.type === 'group_master') {
+                        return 'bg-amber-50/50 hover:bg-amber-100/60 transition-colors cursor-pointer border-t-2 border-t-amber-300 border-b border-b-amber-200';
+                    } else if (row.type === 'group_sub') {
+                        return 'bg-amber-50/15 hover:bg-amber-100/35 transition-colors cursor-pointer border-l-4 border-l-amber-400 group/sub';
+                    } else {
+                        return 'hover:bg-slate-50/80 transition-colors cursor-pointer group';
+                    }
+                },
+
+                handleRowClick(row) {
+                    if (row.type === 'group_master') {
+                        this.toggleGroupCollapse(row.group.id);
+                    } else if (row.item && row.item.sku) {
+                        this.viewProductDetail(row.item.sku);
+                    }
                 },
 
                 addGroupListedToQueue(group) {
