@@ -2718,7 +2718,7 @@
                         <i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i>
                         <h3 class="text-base font-bold text-slate-800">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                         <span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-bold" x-text="selectedItems.length + ' รายการ'"></span>
-                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.13-b (Inline SEO Title Editor)</span>
+                        <span class="text-[10px] text-slate-400 font-mono" title="เวอร์ชันหน้าเว็บ (ถ้าไม่เห็นเลขนี้แปลว่ายังเป็นหน้าเก่า กด Ctrl+F5)">build 2026.11.15-a (Distinct Group Containers & Single Cards)</span>
                     </div>
                     <div class="flex items-center space-x-2">
                         <button type="button" x-show="selectedItems.length > 0"
@@ -2855,145 +2855,229 @@
                 </div>
 
                 <!-- Queue Items List -->
-                <div class="max-h-[54vh] overflow-y-auto space-y-3 my-3 pr-1">
-                    <template x-for="(item, index) in selectedItems" :key="item.sku">
-                        <div class="p-3.5 sm:p-4 rounded-2xl border transition-all space-y-2.5"
-                             :class="index === 0 && exportMode === 'variations' && selectedItems.length > 1 ? 'bg-amber-50/70 border-amber-300 shadow-xs' : 'bg-white hover:bg-slate-50/80 border-slate-200 shadow-2xs'">
-                            
-                            <!-- Main Item Header Row: Order Select + Thumb + Info + Price + Delete -->
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                <div class="flex items-center space-x-3.5 min-w-0 flex-1">
-                                    <!-- กล่องเลือกอันดับรูปภาพโดยตรง (Dropdown) -->
-                                    <div x-show="exportMode === 'variations' && selectedItems.length > 1" class="shrink-0">
-                                        <select :value="index" @change="changeItemOrder(index, $event.target.value)"
-                                                :class="index === 0 ? 'bg-amber-100 text-amber-900 border-amber-400 font-bold ring-2 ring-amber-300/60' : 'bg-slate-50 text-slate-700 border-slate-300 font-medium'"
-                                                class="text-xs px-2.5 py-1.5 rounded-xl border outline-none cursor-pointer hover:border-orange-400 focus:ring-2 focus:ring-orange-200 shadow-2xs transition-all">
-                                            <template x-for="(other, optIdx) in selectedItems" :key="optIdx">
-                                                <option :value="optIdx" :selected="optIdx === index" 
-                                                        x-text="optIdx === 0 ? 'อันดับ 1 (⭐ ปกหลัก)' : ('อันดับ ' + (optIdx + 1))">
-                                                </option>
-                                            </template>
-                                        </select>
-                                    </div>
-
-                                    <!-- ภาพหน้าปกย่อ -->
-                                    <div class="relative shrink-0">
-                                        <img :src="item.cdn_url || item.selected_image || item.image" @error="onCartItemImageError(item, $event)" class="w-13 h-13 sm:w-14 sm:h-14 object-contain rounded-xl border border-slate-200 p-1 bg-white shadow-2xs">
-                                        <span x-show="index === 0 && exportMode === 'variations' && selectedItems.length > 1"
-                                              class="absolute -top-1.5 -left-1.5 bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.2 rounded-full shadow-xs uppercase select-none">
-                                            ปกหลัก
+                <div class="max-h-[54vh] overflow-y-auto space-y-4 my-3 pr-1">
+                    <template x-for="batch in getCartDisplayBatches()" :key="batch.key">
+                        <div>
+                            <!-- ================= SINGLE PRODUCT CARD ================= -->
+                            <template x-if="batch.type === 'single'">
+                                <div class="p-3.5 sm:p-4 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 shadow-2xs space-y-2.5 transition-all">
+                                    <!-- Top Bar: Single Badge & Remove -->
+                                    <div class="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                                        <span class="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-bold">
+                                            <span>📄</span>
+                                            <span>สินค้าเดี่ยว (สร้าง 1 รายการบน Shopee)</span>
                                         </span>
+                                        <button @click="removeItemFromQueue(batch.item.sku)" class="text-slate-300 hover:text-rose-600 p-1 rounded-lg hover:bg-rose-50 transition-all cursor-pointer" title="ลบออกจากตะกร้า">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        </button>
                                     </div>
 
-                                    <!-- ชื่อและข้อมูลสินค้า -->
-                                    <div class="min-w-0 flex-1">
-                                        <div class="flex items-center space-x-2 flex-wrap gap-y-1">
-                                            <h4 class="text-xs sm:text-sm font-bold text-slate-800 line-clamp-1" x-text="item.name" :title="item.name"></h4>
-                                            <!-- ป้ายแสดงสถานะรูปหน้าปกหลัก / ปุ่มคลิกตั้งเป็นหน้าปก -->
-                                            <template x-if="exportMode === 'variations' && selectedItems.length > 1">
-                                                <span>
-                                                    <span x-show="index === 0" class="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full inline-flex items-center space-x-1 shadow-2xs select-none">
-                                                        <span>⭐ หน้าปกหลัก Shopee</span>
-                                                    </span>
-                                                    <button type="button" x-show="index > 0" @click="setAsMainItem(index)"
-                                                            class="text-[10px] font-bold text-slate-600 hover:text-amber-800 bg-slate-100 hover:bg-amber-100 border border-slate-200 hover:border-amber-300 px-2.5 py-0.5 rounded-full transition-all cursor-pointer shadow-2xs"
-                                                            title="คลิกเพื่อให้รุ่นนี้เป็นภาพหน้าปกหลัก (Image 1) ของสินค้าบน Shopee">
-                                                        ⭐ ตั้งเป็นหน้าปกหลัก
+                                    <!-- Main Item Row -->
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div class="flex items-center space-x-3.5 min-w-0 flex-1">
+                                            <!-- Thumbnail -->
+                                            <div class="relative shrink-0">
+                                                <img :src="batch.item.cdn_url || batch.item.selected_image || batch.item.image" @error="onCartItemImageError(batch.item, $event)" class="w-13 h-13 sm:w-14 sm:h-14 object-contain rounded-xl border border-slate-200 p-1 bg-white shadow-2xs">
+                                            </div>
+
+                                            <!-- Info -->
+                                            <div class="min-w-0 flex-1">
+                                                <h4 class="text-xs sm:text-sm font-bold text-slate-800 line-clamp-1" x-text="batch.item.name" :title="batch.item.name"></h4>
+                                                <div class="flex items-center space-x-2 text-xs text-slate-500 mt-1 flex-wrap gap-y-1">
+                                                    <span class="font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 text-[11px]" x-text="batch.item.sku"></span>
+                                                    <span>•</span>
+                                                    <span class="px-2 py-0.5 rounded-md font-bold text-[11px] border"
+                                                          :class="(batch.item.stock > 0) ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-rose-700 bg-rose-50 border-rose-200'"
+                                                          x-text="(batch.item.stock > 0) ? ('สต็อก: ' + batch.item.stock.toLocaleString() + ' ชิ้น') : 'สต็อกคลังหมด (0 ชิ้น)'"></span>
+                                                    <span>•</span>
+                                                    <span class="text-orange-700 bg-orange-50 px-2 py-0.5 rounded-md font-bold text-[11px] border border-orange-200" x-text="((batch.item.selected_images && batch.item.selected_images.length > 0) ? batch.item.selected_images.length : (batch.item.all_images?.length || 1)) + ' รูป'"></span>
+                                                    <span>•</span>
+                                                    <span class="text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md font-bold text-[11px] border border-amber-200" x-text="(batch.item.template_type === 'standard') ? '🏷️ Standard' : '⭐ Auto-Spec'"></span>
+                                                    <button type="button" @click="showQueueModal = false; openCoverPreview(batch.item, true)" 
+                                                            title="คลิกเพื่อแต่งรูปปก Auto-Spec" 
+                                                            class="text-xs px-2.5 py-0.5 rounded-lg font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-all cursor-pointer inline-flex items-center space-x-1 shadow-2xs ml-1">
+                                                        <span>🖼️ แต่งรูปปก Auto-Spec</span>
                                                     </button>
-                                                </span>
-                                            </template>
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        <div class="flex items-center space-x-2 text-xs text-slate-500 mt-1 flex-wrap gap-y-1">
-                                            <!-- Smart Mixed Badge -->
-                                            <template x-if="exportMode === 'smart_mixed'">
-                                                <span>
-                                                    <template x-if="isCartItemInGroup(item)">
-                                                        <span class="px-2 py-0.5 rounded-md font-bold text-[11px] border bg-indigo-50 text-indigo-700 border-indigo-200 inline-flex items-center space-x-1"
-                                                              :title="'จะรวมกับอีก ' + (getCartItemSiblingCount(item) - 1) + ' รุ่นเป็น 1 สินค้าหลายตัวเลือกบน Shopee'">
-                                                            <span>🔗 รวมกลุ่ม</span>
-                                                            <span x-text="'(' + getCartItemSiblingCount(item) + ' รุ่น)'"></span>
-                                                        </span>
-                                                    </template>
-                                                    <template x-if="!isCartItemInGroup(item)">
-                                                        <span class="px-2 py-0.5 rounded-md font-bold text-[11px] border bg-slate-100 text-slate-700 border-slate-200 inline-flex items-center space-x-1">
-                                                            <span>📄 สินค้าเดี่ยว</span>
-                                                        </span>
-                                                    </template>
-                                                </span>
-                                            </template>
-                                            <span class="font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 text-[11px]" x-text="item.sku"></span>
-                                            <span>•</span>
-                                            <span class="px-2 py-0.5 rounded-md font-bold text-[11px] border"
-                                                  :class="(item.stock > 0) ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-rose-700 bg-rose-50 border-rose-200'"
-                                                  x-text="(item.stock > 0) ? ('สต็อก: ' + item.stock.toLocaleString() + ' ชิ้น') : 'สต็อกคลังหมด (0 ชิ้น)'"></span>
-                                            <span>•</span>
-                                            <span class="text-orange-700 bg-orange-50 px-2 py-0.5 rounded-md font-bold text-[11px] border border-orange-200" x-text="((item.selected_images && item.selected_images.length > 0) ? item.selected_images.length : (item.all_images?.length || 1)) + ' รูป'"></span>
-                                            <span>•</span>
-                                            <span class="text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md font-bold text-[11px] border border-amber-200" x-text="(item.template_type === 'standard') ? '🏷️ Standard' : '⭐ Auto-Spec'"></span>
-                                            <button type="button" @click="showQueueModal = false; openCoverPreview(item, true)" 
-                                                    title="คลิกเพื่อแต่งรูปปก Auto-Spec" 
-                                                    class="text-xs px-2.5 py-0.5 rounded-lg font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-all cursor-pointer inline-flex items-center space-x-1 shadow-2xs ml-1">
-                                                <span>🖼️ แต่งรูปปก Auto-Spec</span>
+                                        <!-- Price & Profit -->
+                                        <div class="flex items-center space-x-2.5 shrink-0 self-end sm:self-center pl-2">
+                                            <div class="flex flex-col items-end space-y-1">
+                                                <div class="flex items-center space-x-1.5 bg-orange-50 border border-orange-200 hover:border-orange-400 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-100 rounded-xl px-3 py-1.5 transition-all shadow-2xs" title="คลิกเพื่อแก้ไขราคาขาย">
+                                                    <span class="text-xs font-bold text-orange-600 font-mono select-none">฿</span>
+                                                    <input type="number" 
+                                                           x-model.number="batch.item.price" 
+                                                           @input="saveCartToStorage()" 
+                                                           step="1"
+                                                           min="0"
+                                                           class="w-22 sm:w-24 text-xs sm:text-sm font-bold text-orange-600 font-mono bg-transparent outline-none text-right"
+                                                           placeholder="ราคาขาย">
+                                                </div>
+                                                <template x-if="(batch.item.cost_price || 0) > 0">
+                                                    <div class="text-[10px] font-bold px-2 py-0.5 rounded-md border tabular-nums"
+                                                         :class="getCartItemNetProfit(batch.item) <= 0 ? 'bg-rose-50 text-rose-700 border-rose-200' : (getCartItemNetProfit(batch.item) < 30 && getCartItemMarginPct(batch.item) < 7 ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200')"
+                                                         :title="'ราคาทุน KTW: ฿' + Number(batch.item.cost_price || 0).toLocaleString() + ' | หักค่าธรรมเนียม Shopee ' + shopeeFeePercent + '% แล้ว'">
+                                                        <span x-text="getCartItemNetProfit(batch.item) <= 0 ? '⚠️ ขาดทุน ' : 'กำไรสุทธิ: +'"></span><span x-text="'฿' + getCartItemNetProfit(batch.item).toLocaleString() + ' (' + getCartItemMarginPct(batch.item) + '%)'"></span>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Single Item Shopee Title Row -->
+                                    <div class="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 text-xs">
+                                        <span class="font-bold text-orange-800 bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-200 shrink-0 inline-flex items-center space-x-1">
+                                            <span>🛍️ ชื่อสินค้าบน Shopee:</span>
+                                        </span>
+                                        <input type="text" x-model="batch.item.shopee_title" @input="saveCartToStorage(); saveItemShopeeTitle(batch.item)" :placeholder="getRecommendedSeoTitle(batch.item)" maxlength="120"
+                                               class="flex-1 px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-800 text-xs font-medium outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 shadow-2xs">
+                                        <div class="flex items-center space-x-1.5 shrink-0">
+                                            <button type="button"
+                                                    @click="batch.item.shopee_title = getRecommendedSeoTitle(batch.item); saveCartToStorage(); saveItemShopeeTitle(batch.item)"
+                                                    title="ดึงชื่อ SEO ที่ระบบแนะนำตั้งต้นมาใช้"
+                                                    class="px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 cursor-pointer">
+                                                ✨ SEO แนะนำ
                                             </button>
+                                            <span class="text-[11px] text-slate-400 font-mono" x-text="((batch.item.shopee_title || batch.item.name || '').length) + ' / 120'"></span>
                                         </div>
                                     </div>
                                 </div>
+                            </template>
 
-                                <!-- ราคา กำไรสุทธิ และปุ่มลบ -->
-                                <div class="flex items-center space-x-2.5 shrink-0 self-end sm:self-center pl-2">
-                                    <div class="flex flex-col items-end space-y-1">
-                                        <div class="flex items-center space-x-1.5 bg-orange-50 border border-orange-200 hover:border-orange-400 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-100 rounded-xl px-3 py-1.5 transition-all shadow-2xs" title="คลิกเพื่อแก้ไขราคาขาย (ตารางเปรียบเทียบและ Shopee จะอัปเดตตามราคานี้)">
-                                            <span class="text-xs font-bold text-orange-600 font-mono select-none">฿</span>
-                                            <input type="number" 
-                                                   x-model.number="item.price" 
-                                                   @input="saveCartToStorage()" 
-                                                   step="1"
-                                                   min="0"
-                                                   class="w-22 sm:w-24 text-xs sm:text-sm font-bold text-orange-600 font-mono bg-transparent outline-none text-right"
-                                                   placeholder="ราคาขาย">
+                            <!-- ================= GROUPED VARIATIONS CONTAINER ================= -->
+                            <template x-if="batch.type === 'group'">
+                                <div class="p-4 sm:p-5 rounded-2xl border-2 border-indigo-400/90 bg-gradient-to-b from-indigo-50/80 via-white to-purple-50/25 shadow-sm space-y-3.5 transition-all">
+                                    <!-- Group Header Bar -->
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-indigo-200/80">
+                                        <div class="flex items-center space-x-2 flex-wrap gap-y-1">
+                                            <span class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-indigo-600 text-white font-extrabold text-xs shadow-xs">
+                                                <span>📦</span>
+                                                <span>สินค้ารวมรุ่นบน Shopee</span>
+                                                <span class="bg-indigo-800/80 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono" x-text="batch.items.length + ' รุ่นย่อย'"></span>
+                                            </span>
+                                            <span class="text-[11px] text-indigo-800 font-bold bg-indigo-100/70 border border-indigo-200 px-2 py-0.5 rounded-lg">
+                                                🔗 รวมเป็น 1 รายการสินค้า (มีหลายตัวเลือกให้กดซื้อ)
+                                            </span>
                                         </div>
-                                        <template x-if="(item.cost_price || 0) > 0">
-                                            <div class="text-[10px] font-bold px-2 py-0.5 rounded-md border tabular-nums"
-                                                 :class="getCartItemNetProfit(item) <= 0 ? 'bg-rose-50 text-rose-700 border-rose-200' : (getCartItemNetProfit(item) < 30 && getCartItemMarginPct(item) < 7 ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200')"
-                                                 :title="'ราคาทุน KTW: ฿' + Number(item.cost_price || 0).toLocaleString() + ' | หักค่าธรรมเนียม Shopee ' + shopeeFeePercent + '% แล้ว'">
-                                                <span x-text="getCartItemNetProfit(item) <= 0 ? '⚠️ ขาดทุน ' : 'กำไรสุทธิ: +'"></span><span x-text="'฿' + getCartItemNetProfit(item).toLocaleString() + ' (' + getCartItemMarginPct(item) + '%)'"></span>
+                                        <div class="flex items-center space-x-2 text-xs">
+                                            <span class="font-bold text-slate-700 shrink-0">ชื่อกลุ่มตัวเลือก (Tier 1):</span>
+                                            <input type="text" :value="batch.tier_name" placeholder="เช่น รุ่นสินค้า" maxlength="14"
+                                                   @input="updateGroupTierName(batch, $event.target.value)"
+                                                   class="px-2.5 py-1 border border-indigo-200 rounded-lg bg-white text-slate-800 text-xs font-semibold outline-none focus:border-indigo-500 w-32 shadow-2xs">
+                                        </div>
+                                    </div>
+
+                                    <!-- Shared Parent Title Box (Editable for entire group) -->
+                                    <div class="p-3 bg-white/95 border border-indigo-200 rounded-xl space-y-1.5 shadow-2xs">
+                                        <div class="flex items-center justify-between">
+                                            <label class="text-xs font-bold text-indigo-950 flex items-center space-x-1.5">
+                                                <span>🛍️</span>
+                                                <span>ชื่อสินค้าหลักบน Shopee (แชร์ใช้ร่วมกันทุกรุ่นในกลุ่มนี้):</span>
+                                            </label>
+                                            <div class="flex items-center space-x-1.5">
+                                                <button type="button" @click="resetGroupParentTitle(batch)"
+                                                        class="px-2 py-0.5 rounded-lg text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 cursor-pointer">
+                                                    ✨ แนะนำชื่อ SEO กลุ่ม
+                                                </button>
+                                                <span class="text-[11px] text-slate-400 font-mono" x-text="((batch.title || '').length) + ' / 120'"></span>
+                                            </div>
+                                        </div>
+                                        <input type="text" :value="batch.title" 
+                                               @input="updateGroupParentTitle(batch, $event.target.value)"
+                                               placeholder="ระบุชื่อสินค้าหลักที่จะแสดงบน Shopee (แชร์ร่วมกันทุกรุ่น)" maxlength="120"
+                                               class="w-full px-3 py-1.5 border border-indigo-200 rounded-lg bg-white text-slate-800 text-xs font-medium outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 shadow-2xs">
+                                    </div>
+
+                                    <!-- List of Variations inside the Group -->
+                                    <div class="space-y-2.5">
+                                        <div class="text-[11px] font-bold text-indigo-950 flex items-center justify-between px-1">
+                                            <span class="flex items-center space-x-1">
+                                                <span>📋</span>
+                                                <span>รุ่นย่อยทั้งหมดในกลุ่มนี้ (<span x-text="batch.items.length"></span> ตัวเลือก):</span>
+                                            </span>
+                                            <span class="text-slate-400 font-normal">รุ่นแรกจะเป็น ⭐ รูปหน้าปกหลักบน Shopee</span>
+                                        </div>
+
+                                        <template x-for="(sub, subIdx) in batch.items" :key="sub.item.sku">
+                                            <div class="p-3 rounded-xl border border-indigo-200/90 bg-white hover:border-indigo-400 shadow-2xs space-y-2 transition-all">
+                                                <!-- Variation Sub Header Row -->
+                                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                                                    <div class="flex items-center space-x-3 min-w-0 flex-1">
+                                                        <!-- Order Selector / Main Badge -->
+                                                        <div class="shrink-0 flex items-center space-x-1.5">
+                                                            <span class="text-[11px] font-extrabold px-2 py-0.5 rounded-lg border shadow-2xs"
+                                                                  :class="subIdx === 0 ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-slate-100 text-slate-700 border-slate-200'"
+                                                                  x-text="subIdx === 0 ? '⭐ ปกหลัก (รุ่น 1)' : ('รุ่น ' + (subIdx + 1))"></span>
+                                                            <button type="button" x-show="subIdx > 0" @click="setGroupMainItem(batch, subIdx)"
+                                                                    class="text-[10px] font-bold text-slate-500 hover:text-amber-800 bg-slate-50 hover:bg-amber-50 border border-slate-200 px-1.5 py-0.5 rounded cursor-pointer transition-all"
+                                                                    title="ตั้งรุ่นนี้เป็นรูปหน้าปกหลัก">
+                                                                ⭐ ตั้งเป็นปก
+                                                            </button>
+                                                        </div>
+
+                                                        <!-- Thumb -->
+                                                        <div class="relative shrink-0">
+                                                            <img :src="sub.item.cdn_url || sub.item.selected_image || sub.item.image" @error="onCartItemImageError(sub.item, $event)" class="w-11 h-11 object-contain rounded-lg border border-slate-200 p-0.5 bg-white shadow-2xs">
+                                                        </div>
+
+                                                        <!-- Name & Specs -->
+                                                        <div class="min-w-0 flex-1">
+                                                            <h5 class="text-xs font-bold text-slate-800 truncate" x-text="sub.item.name" :title="sub.item.name"></h5>
+                                                            <div class="flex items-center space-x-1.5 text-[11px] text-slate-500 mt-0.5 flex-wrap">
+                                                                <span class="font-mono text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200 text-[10px]" x-text="sub.item.sku"></span>
+                                                                <span>•</span>
+                                                                <span class="px-1.5 py-0.2 rounded font-bold text-[10px] border"
+                                                                      :class="(sub.item.stock > 0) ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-rose-700 bg-rose-50 border-rose-200'"
+                                                                      x-text="(sub.item.stock > 0) ? ('สต็อก: ' + sub.item.stock.toLocaleString()) : 'สต็อก 0'"></span>
+                                                                <span>•</span>
+                                                                <button type="button" @click="showQueueModal = false; openCoverPreview(sub.item, true)" 
+                                                                        class="text-[10px] px-2 py-0.2 rounded font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 cursor-pointer">
+                                                                    🖼️ แต่งรูปปก
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Price & Delete -->
+                                                    <div class="flex items-center space-x-2 shrink-0 self-end sm:self-center">
+                                                        <div class="flex items-center space-x-1 bg-orange-50 border border-orange-200 rounded-lg px-2.5 py-1">
+                                                            <span class="text-xs font-bold text-orange-600 font-mono">฿</span>
+                                                            <input type="number" 
+                                                                   x-model.number="sub.item.price" 
+                                                                   @input="saveCartToStorage()" 
+                                                                   step="1"
+                                                                   min="0"
+                                                                   class="w-20 text-xs font-bold text-orange-600 font-mono bg-transparent outline-none text-right"
+                                                                   placeholder="ราคา">
+                                                        </div>
+                                                        <button @click="removeItemFromQueue(sub.item.sku)" class="text-slate-300 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 cursor-pointer" title="ลบรุ่นนี้ออกจากกลุ่ม">
+                                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Option Name Row -->
+                                                <div class="pt-2 border-t border-slate-100 flex items-center space-x-2 text-xs">
+                                                    <span class="font-bold text-indigo-900 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200 shrink-0 inline-flex items-center space-x-1">
+                                                        <span>🏷️ ชื่อตัวเลือก:</span>
+                                                    </span>
+                                                    <input type="text" x-model="sub.item.variation_name" @input="saveCartToStorage()" :placeholder="sub.item.name.substring(0, 20)" maxlength="20"
+                                                           class="flex-1 px-3 py-1 border border-indigo-200 rounded-lg bg-white text-slate-800 text-xs font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 shadow-2xs">
+                                                    <span class="text-[10px] text-slate-400 shrink-0 font-mono" x-text="((sub.item.variation_name || '').length) + ' / 20'"></span>
+                                                </div>
                                             </div>
                                         </template>
                                     </div>
-                                    <button @click="removeItemFromQueue(item.sku)" class="text-slate-300 hover:text-rose-600 p-2 rounded-xl hover:bg-rose-50 transition-all cursor-pointer" title="ลบออกจากตะกร้า">
-                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                    </button>
-                                </div>
-                            </div>
 
-                            <!-- แถวชื่อตัวเลือกสินค้า Shopee (โชว์เมื่อโหมดรวมหลายรุ่น หรือในโหมด smart_mixed ที่เป็นสินค้ากลุ่ม) -->
-                            <div x-show="exportMode === 'variations' || (exportMode === 'smart_mixed' && isCartItemInGroup(item))" class="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2.5 text-xs">
-                                <span class="font-bold text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200 shrink-0 inline-flex items-center space-x-1">
-                                    <span>🏷️ ชื่อตัวเลือกบน Shopee:</span>
-                                </span>
-                                <input type="text" x-model="item.variation_name" @input="saveCartToStorage()" :placeholder="item.name.substring(0, 24)"
-                                       class="flex-1 px-3 py-1.5 border border-indigo-200 rounded-xl bg-white text-slate-800 text-xs font-medium outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 shadow-2xs">
-                                <span class="text-[11px] text-slate-400 shrink-0">ความยาวไม่เกิน 20 ตัวอักษร</span>
-                            </div>
-
-                            <!-- แถวชื่อสินค้าบน Shopee (แก้ไขได้ก่อนลงขาย) -->
-                            <div class="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 text-xs">
-                                <span class="font-bold text-orange-800 bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-200 shrink-0 inline-flex items-center space-x-1">
-                                    <span>🛍️ ชื่อสินค้าบน Shopee:</span>
-                                </span>
-                                <input type="text" x-model="item.shopee_title" @input="saveCartToStorage(); saveItemShopeeTitle(item)" :placeholder="getRecommendedSeoTitle(item)" maxlength="120"
-                                       class="flex-1 px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-slate-800 text-xs font-medium outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 shadow-2xs">
-                                <div class="flex items-center space-x-1.5 shrink-0">
-                                    <button type="button"
-                                            @click="item.shopee_title = getRecommendedSeoTitle(item); saveCartToStorage(); saveItemShopeeTitle(item)"
-                                            title="ดึงชื่อ SEO ที่ระบบแนะนำตั้งต้นมาใช้"
-                                            class="px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 cursor-pointer">
-                                        ✨ SEO แนะนำ
-                                    </button>
-                                    <span class="text-[11px] text-slate-400 font-mono" x-text="((item.shopee_title || item.name || '').length) + ' / 120'"></span>
+                                    <!-- Group Footer Note -->
+                                    <div class="p-2.5 bg-indigo-100/70 rounded-xl text-[11px] text-indigo-950 flex items-center space-x-2 border border-indigo-200 font-medium">
+                                        <span class="text-sm">💡</span>
+                                        <span>เมื่อส่งออก Excel ทั้ง <b x-text="batch.items.length"></b> รุ่นนี้จะถูกสร้างเป็น <b>1 รายการสินค้า</b> บน Shopee โดยลูกค้าสามารถกดสลับเลือกดูสเปกและราคาของแต่ละรุ่นได้ในหน้าร้านครับ</span>
+                                    </div>
                                 </div>
-                            </div>
+                            </template>
                         </div>
                     </template>
                     <template x-if="selectedItems.length === 0">
@@ -4837,6 +4921,154 @@ toggleListedSort(field) {
                     }
                     const totalListings = groupCount + singleCount;
                     return `(รวม ${total} SKU จะสร้างเป็น ${totalListings} สินค้าบน Shopee: รวมกลุ่ม ${groupCount} รายการ + เดี่ยว ${singleCount} รายการ)`;
+                },
+
+                getCartDisplayBatches() {
+                    if (!this.selectedItems || this.selectedItems.length === 0) return [];
+
+                    if (this.exportMode === 'single') {
+                        return this.selectedItems.map((item, idx) => ({
+                            type: 'single',
+                            key: `single_${item.sku}_${idx}`,
+                            item: item,
+                            rawIndex: idx
+                        }));
+                    }
+
+                    if (this.exportMode === 'variations') {
+                        return [{
+                            type: 'group',
+                            key: 'all_cart_group',
+                            brand: this.selectedItems[0]?.brand || '',
+                            title: this.groupParentTitle || this.getDefaultParentTitle(),
+                            tier_name: this.groupVariationTierName || 'รุ่นสินค้า',
+                            items: this.selectedItems.map((item, idx) => ({
+                                item: item,
+                                rawIndex: idx,
+                                optIdx: idx
+                            }))
+                        }];
+                    }
+
+                    // 'smart_mixed' mode:
+                    const urlCounts = {};
+                    for (const it of this.selectedItems) {
+                        const u = (this.getCartItemShopeeUrl(it) || '').trim().toLowerCase();
+                        if (u && u !== 'https://shopee.co.th' && u !== 'https://shopee.co.th/') {
+                            urlCounts[u] = (urlCounts[u] || 0) + 1;
+                        }
+                    }
+
+                    const batchMap = new Map();
+                    for (let idx = 0; idx < this.selectedItems.length; idx++) {
+                        const item = this.selectedItems[idx];
+                        const gid = (this.getCartItemGroupId(item) || '').trim();
+                        const u = (this.getCartItemShopeeUrl(item) || '').trim().toLowerCase();
+
+                        let key = '';
+                        let isGroup = false;
+
+                        if (gid) {
+                            const gidCount = this.selectedItems.filter(i => (this.getCartItemGroupId(i) || '').trim() === gid).length;
+                            if (gidCount > 1) {
+                                key = `gid_${gid}`;
+                                isGroup = true;
+                            } else {
+                                key = `single_${item.sku}_${idx}`;
+                            }
+                        } else if (u && u !== 'https://shopee.co.th' && u !== 'https://shopee.co.th/' && urlCounts[u] > 1) {
+                            key = `url_${u}`;
+                            isGroup = true;
+                        } else {
+                            key = `single_${item.sku}_${idx}`;
+                        }
+
+                        if (!batchMap.has(key)) {
+                            batchMap.set(key, {
+                                is_group: isGroup,
+                                key: key,
+                                brand: item.brand,
+                                parent_title: item.group_parent_title || (isGroup ? this.resolveShopeeSeoTitle(item, item.shopee_title) : ''),
+                                tier_name: 'รุ่นสินค้า',
+                                items: []
+                            });
+                        }
+                        batchMap.get(key).items.push({ item, rawIndex: idx });
+                    }
+
+                    const batches = [];
+                    for (const [key, bData] of batchMap.entries()) {
+                        if (bData.is_group && bData.items.length > 1) {
+                            batches.push({
+                                type: 'group',
+                                key: key,
+                                brand: bData.brand,
+                                title: bData.parent_title || (bData.items[0]?.item?.shopee_title) || '',
+                                tier_name: bData.tier_name,
+                                items: bData.items.map((sub, sIdx) => ({
+                                    ...sub,
+                                    optIdx: sIdx
+                                }))
+                            });
+                        } else {
+                            for (const sub of bData.items) {
+                                batches.push({
+                                    type: 'single',
+                                    key: `single_${sub.item.sku}_${sub.rawIndex}`,
+                                    item: sub.item,
+                                    rawIndex: sub.rawIndex
+                                });
+                            }
+                        }
+                    }
+
+                    return batches;
+                },
+
+                updateGroupParentTitle(batch, newTitle) {
+                    if (!batch) return;
+                    batch.title = newTitle;
+                    if (this.exportMode === 'variations') {
+                        this.groupParentTitle = newTitle;
+                    }
+                    for (const sub of (batch.items || [])) {
+                        if (sub.item) {
+                            sub.item.group_parent_title = newTitle;
+                            sub.item.shopee_title = newTitle;
+                            this.saveItemShopeeTitle(sub.item);
+                        }
+                    }
+                    this.saveCartToStorage();
+                },
+
+                resetGroupParentTitle(batch) {
+                    if (!batch || !batch.items || batch.items.length === 0) return;
+                    const firstItem = batch.items[0].item;
+                    const rec = this.getRecommendedSeoTitle(firstItem);
+                    this.updateGroupParentTitle(batch, rec);
+                },
+
+                updateGroupTierName(batch, newTier) {
+                    if (!batch) return;
+                    batch.tier_name = newTier;
+                    this.groupVariationTierName = newTier;
+                    this.saveCartToStorage();
+                },
+
+                setGroupMainItem(batch, subIdx) {
+                    if (subIdx <= 0 || !batch || !batch.items || subIdx >= batch.items.length) return;
+                    const subTarget = batch.items[subIdx];
+                    const subHead = batch.items[0];
+                    if (!subTarget || !subHead) return;
+                    
+                    const targetRawIdx = this.selectedItems.findIndex(i => i.sku === subTarget.item.sku);
+                    const headRawIdx = this.selectedItems.findIndex(i => i.sku === subHead.item.sku);
+                    if (targetRawIdx >= 0 && headRawIdx >= 0) {
+                        const [moved] = this.selectedItems.splice(targetRawIdx, 1);
+                        this.selectedItems.splice(headRawIdx, 0, moved);
+                    }
+                    this.saveCartToStorage();
+                    this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                 },
 
                 openCloneGroupModal(group) {
