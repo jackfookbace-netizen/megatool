@@ -2416,6 +2416,23 @@ def extract_key_specs(detail):
     if is_pressure_washer:
         specs['ระบบตัดการทำงาน'] = 'ระบบ Auto Stop'
 
+    # Hand tools (คีม, คีมล็อค, ประแจ, ลูกบล็อก)
+    if any(k in full_text for k in ['คีม', 'คีมล็อค', 'ประแจ', 'ลูกบล็อก']):
+        m_inch = re.search(r'(\d+[\d.]*)\s*(?:นิ้ว|")', full_text)
+        if m_inch and 'ขนาดความยาว' not in specs and 'ขนาด' not in specs:
+            try:
+                inch_v = float(m_inch.group(1))
+                mm_v = round(inch_v * 25.4)
+                specs['ขนาดความยาว'] = f"{inch_v:g} นิ้ว ({mm_v} มม.)"
+            except Exception:
+                pass
+        if 'ปากตรง' in full_text and 'ลักษณะปากจับ' not in specs:
+            specs['ลักษณะปากจับ'] = 'ปากตรง ยึดจับแน่น'
+        elif 'ปากโค้ง' in full_text and 'ลักษณะปากจับ' not in specs:
+            specs['ลักษณะปากจับ'] = 'ปากโค้ง ล็อคแน่น'
+        elif 'ปากแหลม' in full_text and 'ลักษณะปากจับ' not in specs:
+            specs['ลักษณะปากจับ'] = 'ปากแหลม เข้าที่แคบง่าย'
+
     # Tape and Consumable specifications
     is_tape_or_consumable = any(k in full_text for k in ['เทป', 'TEMFLEX', 'temflex', 'scotch', 'กาว', 'สายรัด', 'น้ำยา', 'ซิลิโคน'])
     if is_tape_or_consumable:
@@ -2560,6 +2577,66 @@ def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
         if 'น้ำหนัก' in k: return 11
         return 15
 
+    # 3. Extract Weight Pill (Pill 2: น้ำหนักสินค้า)
+    weight_pill = None
+    desc_raw = detail.get('description', '') or ''
+    
+    # 3.1 Check specific packaging in description (e.g. "น้ำหนัก (ม้วน) 40 กรัม")
+    m_roll = re.search(r'น้ำหนัก\s*\(([^\)]+)\)\s*([\d\.]+)\s*(กรัม|กก|กิโลกรัม|g|kg)', desc_raw, flags=re.I)
+    if m_roll:
+        unit_type = m_roll.group(1).strip()
+        val_w = m_roll.group(2).strip()
+        u_str = m_roll.group(3).strip()
+        u_th = 'กรัม' if u_str.lower() in ['g', 'กรัม'] else 'กก.'
+        weight_pill = f"น้ำหนัก {val_w} {u_th}/{unit_type}"
+    
+    # 3.2 Free-text regex in description
+    if not weight_pill:
+        m_desc = re.search(r'(?:น้ำหนัก|weight)[^\d]{0,10}([\d\.]+)\s*(กรัม|กก|กิโลกรัม|g|kg)', desc_raw, flags=re.I)
+        if m_desc:
+            val_f = float(m_desc.group(1))
+            u_str = m_desc.group(2).strip()
+            if u_str.lower() in ['g', 'กรัม'] or (u_str.lower() in ['กก', 'กิโลกรัม', 'kg'] and val_f < 1):
+                g_val = int(val_f * 1000) if u_str.lower() in ['กก', 'กิโลกรัม', 'kg'] else int(val_f)
+                weight_pill = f"น้ำหนัก {g_val} กรัม"
+            else:
+                weight_pill = f"น้ำหนัก {val_f:.1f}".rstrip('0').rstrip('.') + " กก."
+
+    # 3.3 From specs_dict
+    if not weight_pill:
+        for wk in ['น้ำหนัก', 'น้ำหนัก (กก.)', 'น้ำหนักสุทธิ', 'น้ำหนักตัวเครื่อง', 'น้ำหนัก (kg)']:
+            if wk in specs_dict and specs_dict[wk]:
+                v_str = str(specs_dict[wk])
+                m_w = re.search(r'([\d\.]+)\s*(กก|กรัม|g|kg)?', v_str, flags=re.I)
+                if m_w:
+                    val_f = float(m_w.group(1))
+                    if val_f < 1:
+                        weight_pill = f"น้ำหนัก {int(val_f * 1000)} กรัม"
+                    else:
+                        weight_pill = f"น้ำหนัก {val_f:.1f}".rstrip('0').rstrip('.') + " กก."
+                else:
+                    weight_pill = f"น้ำหนัก {v_str}"
+                break
+
+    # 3.4 From conversionUnits (gross or net)
+    if not weight_pill:
+        units = detail.get('conversionUnits') or []
+        for u in units:
+            gw = u.get('conversionGross') or u.get('conversionNet')
+            if gw and float(gw) > 0:
+                f_gw = float(gw)
+                if 'แพ็ค' in prod_name or 'ม้วน' in prod_name:
+                    if f_gw < 1:
+                        weight_pill = f"น้ำหนัก {int(f_gw * 1000)} กรัม/ม้วน"
+                    else:
+                        weight_pill = f"น้ำหนัก {f_gw:.1f}".rstrip('0').rstrip('.') + " กก./แพ็ค"
+                elif f_gw < 1:
+                    weight_pill = f"น้ำหนัก {int(f_gw * 1000)} กรัม"
+                else:
+                    weight_pill = f"น้ำหนัก {f_gw:.1f}".rstrip('0').rstrip('.') + " กก."
+                break
+
+    # 4. Spec cards with deduplication (exclude weight from spec cards if weight_pill is shown)
     sorted_specs = sorted(specs_dict.items(), key=_spec_priority)
     spec_cards = []
     seen_values = set()
@@ -2569,6 +2646,9 @@ def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
         val_clean = str(v).strip()
         val_norm = re.sub(r'\s+', '', val_clean).lower()
         if val_norm in seen_values:
+            continue
+        # Anti-duplication: do not duplicate weight into spec_cards if already displayed in weight_pill
+        if weight_pill and ('น้ำหนัก' in k or 'weight' in k.lower()):
             continue
         m_w = re.search(r'(\d+)\s*(?:วัตต์|w\b)', val_clean, re.I)
         if m_w and any(m_w.group(1) in sv for sv in seen_values):
@@ -2588,30 +2668,78 @@ def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
         if m_w:
             seen_values.add(m_w.group(1))
 
-    # 4. Hero Pills
-    hero_pills = []
-    if 'เครื่องฉีดน้ำ' in prod_name:
-        p_val = specs_dict.get('แรงดันสูงสุด', '90 บาร์').split('(')[0].strip()
-        m_val = specs_dict.get('กำลังมอเตอร์', '1,200W').replace('วัตต์', 'W').strip()
-        hero_pills = [f"แรงดัน {p_val}", f"มอเตอร์ {m_val}"]
-    elif 'เครื่องเชื่อม' in prod_name or 'ตู้เชื่อม' in prod_name or 'WELDING' in prod_name.upper():
-        cur = specs_dict.get('กระแสไฟเชื่อม') or '20 - 200 แอมป์'
-        wire = specs_dict.get('ขนาดลวดเชื่อม') or specs_dict.get('ระบบการทำงาน') or 'ลวด 1.6 - 4.0 มม.'
-        hero_pills = [f"กระแสไฟ {cur}", wire if 'ลวด' in wire else f"ขนาดลวด {wire}"]
-    elif 'เครื่องเจียร์' in prod_name:
-        mot = specs_dict.get('กำลังมอเตอร์', '') or specs_dict.get('กำลังไฟฟ้า', '') or '540 วัตต์'
-        p_val = mot.replace('วัตต์', 'W').replace(' ', '').strip()
-        b_val = specs_dict.get('ขนาดใบตัด/เจียร์', '100 มม. (4 นิ้ว)')
-        hero_pills = [f"กำลังไฟ {p_val}", f"ขนาด {b_val}"]
-    elif 'เทป' in prod_name or 'TEMFLEX' in prod_name.upper():
-        v_str = specs_dict.get('ทนแรงดันไฟฟ้า', '600 โวลต์')
-        d_str = specs_dict.get('ขนาดหน้ากว้าง', '19 มม. x 10 ม.')
-        hero_pills = [f"ทนแรงดัน {v_str}", f"ขนาด {d_str}"]
-    elif len(spec_cards) >= 2:
-        hero_pills = [f"{spec_cards[0]['label']} {spec_cards[0]['val']}", f"{spec_cards[1]['label']} {spec_cards[1]['val']}"]
-    elif len(spec_cards) == 1:
-        hero_pills = [f"{spec_cards[0]['label']} {spec_cards[0]['val']}"]
+    # 5. Extract Feature Pill (Pill 1: คุณสมบัติเด่น / ความปลอดภัย / เกรดวัสดุ / มอเตอร์)
+    spec_card_combined = ' '.join([f"{c['label']} {c['val']}" for c in spec_cards]).lower()
+    desc_lower = desc_raw.lower()
+    name_lower = prod_name.lower()
+    feat_pill = None
+
+    if 'เทป' in name_lower or 'temflex' in name_lower or 'tape' in name_lower:
+        feat_pill = "ไม่ลามไฟ ปลอดภัยสูง"
+    elif ('เครื่องเชื่อม' in name_lower or 'ตู้เชื่อม' in name_lower or 'welding' in name_lower) and 'คีม' not in name_lower:
+        if 'igbt' in desc_lower or 'igbt' in name_lower:
+            feat_pill = "ระบบ IGBT ลากยาวไม่สะดุด"
+        else:
+            feat_pill = "เชื่อมลากยาว ลวดไม่ติด"
+    elif 'เครื่องฉีดน้ำ' in name_lower or 'washer' in name_lower or 'ปั๊มอัดฉีด' in name_lower:
+        feat_pill = "ดูดน้ำจากถังได้อัตโนมัติ"
+    elif 'พัดลม' in name_lower or 'ดูดเป่า' in name_lower or 'blower' in name_lower:
+        if 'อลูมิเนียม' in desc_lower or 'ใบพัด' in desc_lower:
+            feat_pill = "ใบพัดอลูมิเนียม ลมแรงทรงพลัง"
+        else:
+            feat_pill = "ระบายอากาศเยี่ยม ลมแรงต่อเนื่อง"
+    elif 'ตัดหญ้า' in name_lower or 'เครื่องยนต์' in name_lower:
+        feat_pill = "สตาร์ทติดง่าย ลุยงานหนัก"
+    elif 'ดอกสว่าน' in name_lower or 'step drill' in name_lower or 'ดอกเจาะ' in name_lower:
+        if 'hss' in desc_lower or 'hss' in name_lower:
+            feat_pill = "เคลือบไทเทเนียม HSS แท้"
+        else:
+            feat_pill = "เจาะคม เที่ยงตรง ทนทาน"
+    elif 'คีม' in name_lower or 'ประแจ' in name_lower or 'ลูกบล็อก' in name_lower:
+        if 'cr-v' in desc_lower or 'chrome vanadium' in desc_lower:
+            feat_pill = "เหล็ก CR-V ชุบแข็งพิเศษ"
+        else:
+            feat_pill = "เหล็กเกรดพรีเมียม ปากจับแน่น"
+    elif any(k in name_lower for k in ['เครื่องเจียร์', 'สว่าน', 'เลื่อย', 'ขัดกระดาษทราย', 'เป่าลม', 'ทริมเมอร์', 'เร้าเตอร์']):
+        if 'ไร้แปรงถ่าน' in desc_lower or 'brushless' in desc_lower or 'brushless' in name_lower:
+            feat_pill = "มอเตอร์ Brushless ทนทาน"
+        else:
+            feat_pill = "มอเตอร์ทองแดงแท้ 100%"
+    elif 'ปั๊มน้ำ' in name_lower or 'ปั๊มจุ่ม' in name_lower:
+        feat_pill = "ระบบป้องกันมอเตอร์ไหม้"
+    elif 'บันได' in name_lower:
+        feat_pill = "อลูมิเนียมหนา รับน้ำหนักสูง"
+    elif 'แม่แรง' in name_lower:
+        feat_pill = "เหล็กหนาพิเศษ ปลอดภัยสูง"
     else:
+        if 'ไม่ลามไฟ' in desc_lower or 'flame retardant' in desc_lower:
+            feat_pill = "ไม่ลามไฟ ปลอดภัยสูง"
+        elif 'ทองแดงแท้' in desc_lower:
+            feat_pill = "มอเตอร์ทองแดงแท้ 100%"
+        elif 'cr-v' in desc_lower or 'chrome vanadium' in desc_lower:
+            feat_pill = "เหล็ก CR-V ชุบแข็งพิเศษ"
+        elif 'สเตนเลส' in desc_lower or 'stainless' in desc_lower:
+            feat_pill = "สแตนเลสแท้ ทนสนิม"
+        elif 'ฉนวน' in desc_lower:
+            feat_pill = "ฉนวนสองชั้น ปลอดภัยสูง"
+        else:
+            feat_pill = "มาตรฐานสากล ทนทานสูง"
+
+    # Anti-duplication check: if feat_pill is already in spec cards, pick alternative
+    if feat_pill and any(w in spec_card_combined for w in ['ไม่ลามไฟ', 'flame retardant']) and 'ไม่ลามไฟ' in feat_pill:
+        feat_pill = "เนื้อกาวแน่น ไม่เยิ้ม"
+    elif feat_pill and any(w in spec_card_combined for w in ['ทองแดงแท้']) and 'ทองแดง' in feat_pill:
+        feat_pill = "เกรดงานช่าง ทนทานสูง"
+
+    # Assemble hero_pills (Pill 1: Key Feature, Pill 2: Weight or Standout Value)
+    hero_pills = []
+    if feat_pill:
+        hero_pills.append(feat_pill)
+    if weight_pill:
+        hero_pills.append(weight_pill)
+    elif len(spec_cards) >= 1 and len(hero_pills) < 2:
+        hero_pills.append("รับประกันของแท้ 100%")
+    if not hero_pills:
         hero_pills = ["สินค้ารับประกันของแท้ 100%"]
 
     is_bigpower = bool(shop_name and ('bigpower' in shop_name.lower() or 'big power' in shop_name.lower() or 'shop2' in shop_name.lower() or 'shop_2' in shop_name.lower()))
