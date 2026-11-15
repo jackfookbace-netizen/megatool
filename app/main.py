@@ -899,7 +899,6 @@ def api_preview_cover(req: PreviewRequest):
         cdn_cached = None
         try:
             with open("app/static/covers/cdn_cache.json", "r", encoding="utf-8") as f:
-                import json
                 c_data = json.load(f)
                 cdn_cached = c_data.get(output_filename)
         except Exception:
