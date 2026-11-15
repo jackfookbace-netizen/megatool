@@ -2486,6 +2486,26 @@ def extract_key_specs(detail):
             del specs[pk]
         specs['กำลังมอเตอร์'] = best_p_val
 
+    # Pressure deduplication: keep only 'แรงดันสูงสุด' with Bar + PSI
+    if 'แรงดันสูงสุด' in specs and 'แรงดัน' in specs:
+        del specs['แรงดัน']
+
+    # Water flow deduplication: keep only one flow rate
+    if 'อัตราการไหลของน้ำ' in specs and 'ปริมาณน้ำ' in specs:
+        del specs['ปริมาณน้ำ']
+    elif 'ปริมาณน้ำสูงสุด' in specs and 'ปริมาณน้ำ' in specs:
+        del specs['ปริมาณน้ำ']
+
+    # Hose and cord deduplication:
+    if 'ความยาวสายฉีด' in specs:
+        for hk in list(specs.keys()):
+            if hk != 'ความยาวสายฉีด' and ('สายอัดฉีด' in hk or 'สายฉีด' in hk):
+                del specs[hk]
+    if 'ความยาวสายไฟ' in specs:
+        for ck in list(specs.keys()):
+            if ck != 'ความยาวสายไฟ' and 'สายไฟ' in ck:
+                del specs[ck]
+
     # Grinding disc size deduplication
     if 'ขนาดใบตัด/เจียร์' in specs:
         for dk in ['เส้นผ่านศูนย์กลางแผ่นเจีย', 'เส้นผ่าศูนย์กลางแผ่นเจีย', 'เส้นผ่านศูนย์กลางใบ', 'ขนาดแผ่นเจียร', 'ขนาดใบตัด']:
@@ -2636,40 +2656,7 @@ def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
                     weight_pill = f"น้ำหนัก {f_gw:.1f}".rstrip('0').rstrip('.') + " กก."
                 break
 
-    # 4. Spec cards with deduplication (exclude weight from spec cards if weight_pill is shown)
-    sorted_specs = sorted(specs_dict.items(), key=_spec_priority)
-    spec_cards = []
-    seen_values = set()
-    for k, v in sorted_specs:
-        if len(spec_cards) >= 4:
-            break
-        val_clean = str(v).strip()
-        val_norm = re.sub(r'\s+', '', val_clean).lower()
-        if val_norm in seen_values:
-            continue
-        # Anti-duplication: do not duplicate weight into spec_cards if already displayed in weight_pill
-        if weight_pill and ('น้ำหนัก' in k or 'weight' in k.lower()):
-            continue
-        m_w = re.search(r'(\d+)\s*(?:วัตต์|w\b)', val_clean, re.I)
-        if m_w and any(m_w.group(1) in sv for sv in seen_values):
-            continue
-        if ('220' in str(v) or 'โวลต์' in str(v)) and any('วัตต์' in sp['val'] or 'W' in sp['val'] or 'KVA' in sp['val'] or 'แอมป์' in sp['val'] for sp in spec_cards) and len(sorted_specs) > 3:
-            continue
-        matched_icon = '⚡'
-        if 'น้ำหนัก' in k:
-            matched_icon = '⚖️'
-        else:
-            for ik, iv in icon_map.items():
-                if ik in k:
-                    matched_icon = iv
-                    break
-        spec_cards.append({"icon": matched_icon, "label": k, "val": val_clean})
-        seen_values.add(val_norm)
-        if m_w:
-            seen_values.add(m_w.group(1))
-
-    # 5. Extract Feature Pill (Pill 1: คุณสมบัติเด่น / ความปลอดภัย / เกรดวัสดุ / มอเตอร์)
-    spec_card_combined = ' '.join([f"{c['label']} {c['val']}" for c in spec_cards]).lower()
+    # 4. Extract Feature Pill (Pill 1: คุณสมบัติเด่น / ความปลอดภัย / เกรดวัสดุ / มอเตอร์)
     desc_lower = desc_raw.lower()
     name_lower = prod_name.lower()
     feat_pill = None
@@ -2725,22 +2712,96 @@ def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
         else:
             feat_pill = "มาตรฐานสากล ทนทานสูง"
 
-    # Anti-duplication check: if feat_pill is already in spec cards, pick alternative
-    if feat_pill and any(w in spec_card_combined for w in ['ไม่ลามไฟ', 'flame retardant']) and 'ไม่ลามไฟ' in feat_pill:
-        feat_pill = "เนื้อกาวแน่น ไม่เยิ้ม"
-    elif feat_pill and any(w in spec_card_combined for w in ['ทองแดงแท้']) and 'ทองแดง' in feat_pill:
-        feat_pill = "เกรดงานช่าง ทนทานสูง"
-
     # Assemble hero_pills (Pill 1: Key Feature, Pill 2: Weight or Standout Value)
     hero_pills = []
     if feat_pill:
         hero_pills.append(feat_pill)
     if weight_pill:
         hero_pills.append(weight_pill)
-    elif len(spec_cards) >= 1 and len(hero_pills) < 2:
+    elif len(specs_dict) >= 1 and len(hero_pills) < 2:
         hero_pills.append("รับประกันของแท้ 100%")
     if not hero_pills:
         hero_pills = ["สินค้ารับประกันของแท้ 100%"]
+
+    # 5. Spec cards with STRICT BIDIRECTIONAL DEDUPLICATION
+    # (Never duplicate weight from Pill 2, feature concepts from Pill 1, or same metric types across cards)
+    sorted_specs = sorted(specs_dict.items(), key=_spec_priority)
+    spec_cards = []
+    seen_values = set()
+    seen_types = set()
+    feat_lower_check = (feat_pill or '').lower()
+
+    for k, v in sorted_specs:
+        if len(spec_cards) >= 4:
+            break
+        val_clean = str(v).strip()
+        val_norm = re.sub(r'\s+', '', val_clean).lower()
+        k_lower = k.lower()
+
+        if val_norm in seen_values:
+            continue
+
+        # 5.1 Strict Anti-Duplication against Pill 2 (Weight)
+        if weight_pill and ('น้ำหนัก' in k_lower or 'weight' in k_lower):
+            continue
+
+        # 5.2 Strict Anti-Duplication against Pill 1 (Feature)
+        if 'igbt' in feat_lower_check and 'igbt' in (k_lower + ' ' + val_norm):
+            continue
+        if 'ไม่ลามไฟ' in feat_lower_check and ('ไม่ลามไฟ' in (k_lower + ' ' + val_norm) or 'เชื้อไฟ' in (k_lower + ' ' + val_norm)):
+            continue
+        if 'ดูดน้ำ' in feat_lower_check and 'ดูดน้ำ' in (k_lower + ' ' + val_norm):
+            continue
+        if 'ทองแดง' in feat_lower_check and 'ทองแดง' in (k_lower + ' ' + val_norm):
+            continue
+        if 'cr-v' in feat_lower_check and 'cr-v' in (k_lower + ' ' + val_norm):
+            continue
+        if 'ไทเทเนียม' in feat_lower_check and ('ไทเทเนียม' in (k_lower + ' ' + val_norm) or 'hss' in (k_lower + ' ' + val_norm)):
+            continue
+
+        # 5.3 Metric Type Deduplication (Never allow two pressure, power, speed, or flow cards)
+        m_type = None
+        if any(u in val_norm for u in ['บาร์', 'bar', 'psi']):
+            m_type = 'pressure'
+        elif any(u in val_norm for u in ['ลิตร', 'flow', 'l/min']):
+            m_type = 'flow'
+        elif any(u in val_norm for u in ['วัตต์', 'w', 'kva', 'kw']):
+            m_type = 'power'
+        elif any(u in val_norm for u in ['รอบ', 'rpm']):
+            m_type = 'speed'
+        elif any(u in val_norm for u in ['แอมป์', 'amp']):
+            m_type = 'current'
+        elif 'สายฉีด' in k or 'สายไฟ' in k:
+            m_type = 'hose'
+
+        if m_type and m_type in seen_types:
+            continue
+
+        # 5.4 Skip pure accessory package pieces (e.g. "1 ชิ้น") if technical specs are available
+        if '1 ชิ้น' in val_clean and len(sorted_specs) > 4:
+            continue
+
+        # 5.5 Skip 220V power supply card if other major power specs exist
+        if ('220' in str(v) or 'โวลต์' in str(v)) and any(t in seen_types for t in ['power', 'current']) and len(sorted_specs) > 3:
+            continue
+
+        # Determine icon
+        matched_icon = '⚡'
+        if 'น้ำหนัก' in k:
+            matched_icon = '⚖️'
+        else:
+            for ik, iv in icon_map.items():
+                if ik in k:
+                    matched_icon = iv
+                    break
+
+        spec_cards.append({"icon": matched_icon, "label": k, "val": val_clean})
+        seen_values.add(val_norm)
+        if m_type:
+            seen_types.add(m_type)
+        m_w = re.search(r'(\d+)\s*(?:วัตต์|w\b)', val_clean, re.I)
+        if m_w:
+            seen_values.add(m_w.group(1))
 
     is_bigpower = bool(shop_name and ('bigpower' in shop_name.lower() or 'big power' in shop_name.lower() or 'shop2' in shop_name.lower() or 'shop_2' in shop_name.lower()))
     official_shop_name = "BIGPOWER TOOLS" if is_bigpower else "MEGATOOL"
