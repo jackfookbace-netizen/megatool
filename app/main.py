@@ -145,18 +145,20 @@ def serve_cover_image(filename: str):
             sku = matched_entry.get("sku") or filename.split("_")[0]
             raw_url = matched_entry.get("image_url")
             if not raw_url:
-                from app.ktw_service import fetch_ktw_detail, extract_product_images
-                ktw_det = fetch_ktw_detail(sku)
+                from app.ktw_service import get_product_detail, extract_product_images
+                ktw_det = get_product_detail(sku) or {}
                 imgs = extract_product_images(ktw_det)
                 raw_url = imgs[0] if imgs else None
 
             if raw_url:
                 os.makedirs(os.path.dirname(file_path), exist_ok=True)
                 from app.image_service import generate_cover
+                from app.ktw_service import clean_brand_name
+                brand = matched_entry.get("brand") or clean_brand_name(None, sku)
                 generate_cover(
                     raw_url,
                     file_path,
-                    brand=matched_entry.get("brand") or detect_brand_from_sku(sku),
+                    brand=brand,
                     sku=sku,
                     badge_text=matched_entry.get("badge_text", "มีสต็อกพร้อมส่งทันที"),
                     shop_name=matched_entry.get("shop_name", "MEGATOOL"),
@@ -174,9 +176,16 @@ def serve_cover_image(filename: str):
             print(f"Auto-heal cover {filename} failed:", e)
 
         # Fallback to CDN redirect if available so image NEVER fails to open
-        if matched_entry.get("cdn_url"):
+        cdn_u = matched_entry.get("cdn_url")
+        if cdn_u and str(cdn_u).startswith("http") and filename not in str(cdn_u):
             from fastapi.responses import RedirectResponse
-            return RedirectResponse(matched_entry["cdn_url"], status_code=302)
+            return RedirectResponse(cdn_u, status_code=302)
+
+        # Bulletproof fallback: Redirect to original KTW image URL so browser never shows broken icon!
+        raw_fallback = matched_entry.get("image_url") or raw_url
+        if raw_fallback and str(raw_fallback).startswith("http"):
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(raw_fallback, status_code=302)
 
     raise HTTPException(status_code=404, detail="Cover not found")
 

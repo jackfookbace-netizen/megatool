@@ -2150,7 +2150,7 @@
                         <div @click="openImageLightbox(renderedCoverUrl || (activePreviewItem?.all_images?.[selectedImageIndex] || activePreviewItem?.image))"
                              class="w-full max-h-80 sm:max-h-[440px] aspect-square bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center relative shadow-inner cursor-zoom-in group transition-colors hover:border-blue-400 hover:shadow-md"
                              title="คลิกเพื่อดูภาพขนาดใหญ่ (Ultra-HD 2400x2400px)">
-                            <img x-show="renderedCoverUrl" :src="renderedCoverUrl" class="max-h-full max-w-full object-contain" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;">
+                            <img x-show="renderedCoverUrl" :src="renderedCoverUrl" @error="onCoverLoadError($event)" class="max-h-full max-w-full object-contain" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;">
                             <img x-show="!renderedCoverUrl" :src="activePreviewItem?.all_images?.[selectedImageIndex] || activePreviewItem?.image" class="max-h-full max-w-full object-contain" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;">
                             
                             <!-- Hover Action Pills: Download & Zoom -->
@@ -6388,6 +6388,24 @@ toggleListedSort(field) {
                     }
                 },
 
+                onCoverLoadError(event) {
+                    const el = event && event.target;
+                    const failedUrl = this.renderedCoverUrl;
+                    if (!failedUrl) return;
+                    console.warn('Cover failed to load, attempting retry or raw fallback:', failedUrl);
+                    if (el && !el.dataset.hasRetried) {
+                        el.dataset.hasRetried = '1';
+                        setTimeout(() => {
+                            if (this.renderedCoverUrl === failedUrl) {
+                                el.src = failedUrl.split('?')[0] + '?retry=' + Date.now();
+                            }
+                        }, 1200);
+                        return;
+                    }
+                    // Instant fail-safe: clear renderedCoverUrl so the original raw KTW photo is shown!
+                    this.renderedCoverUrl = null;
+                },
+
                 onSavedCoverImageError(cImg, event) {
                     if (!cImg) return;
                     const el = event && event.target;
@@ -6414,8 +6432,13 @@ toggleListedSort(field) {
                                 el.src = targetUrl.split('?')[0] + '?retry=' + Date.now();
                             }, 500);
                         }
+                        return;
                     }
-                    // NEVER delete the user's saved cover!
+
+                    // 4. Bulletproof: Fall back to raw KTW image so thumbnail is never broken!
+                    if (typeof cImg === 'object' && cImg.image_url) {
+                        el.src = cImg.image_url;
+                    }
                 },
 
                 onCartItemImageError(item, event) {
