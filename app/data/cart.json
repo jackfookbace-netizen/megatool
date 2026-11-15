@@ -5,17 +5,17 @@
       "name": "(แพ็ค10ม้วน) TEMFLEX 150 19MMX10M สีดำ",
       "price": 150.0,
       "brand": "3M",
-      "image": "https://iili.io/npwCEfp.jpg",
-      "selected_image": "https://iili.io/npwCEfp.jpg",
+      "image": "https://iili.io/npwCX5X.jpg",
+      "selected_image": "https://iili.io/npwCX5X.jpg",
       "use_template": true,
       "variation_name": "สีดำ (แพ็ค 10 ม้วน)",
       "stock": 5100,
-      "cdn_url": "https://iili.io/npwCEfp.jpg",
+      "cdn_url": "https://iili.io/npwCX5X.jpg",
       "custom_category": "เทปพันสายไฟไวนิล",
-      "custom_model": "TEMFLEX 150 19MMX10M",
+      "custom_model": "รุ่น TEMFLEX 150 19MMX10M",
       "custom_hero_pills": [
-        "Test",
-        "Test"
+        "ไม่ลามไฟ ปลอดภัยสูง",
+        "น้ำหนัก 40 กรัม/ม้วน"
       ],
       "custom_spec_cards": [
         {
@@ -29,12 +29,12 @@
           "val": "600 โวลต์"
         },
         {
-          "icon": "🔘",
+          "icon": "📐",
           "label": "ความหนาเนื้อเทป",
           "val": "0.13 มม."
         },
         {
-          "icon": "⚡",
+          "icon": "🌡️",
           "label": "ทนอุณหภูมิสูงสุด",
           "val": "80 °C"
         }
@@ -361,17 +361,17 @@
       "name": "(แพ็ค10ม้วน) TEMFLEX 150 19MMX10M สีดำ",
       "price": 150.0,
       "brand": "3M",
-      "image": "https://iili.io/npwCEfp.jpg",
-      "selected_image": "https://iili.io/npwCEfp.jpg",
+      "image": "/static/covers/Z053-0073_megatool_auto_spec_image1_official.jpg",
+      "selected_image": "/static/covers/Z053-0073_megatool_auto_spec_image1_official.jpg",
       "use_template": true,
       "variation_name": "สีดำ (แพ็ค 10 ม้วน)",
       "stock": 5100,
-      "cdn_url": "https://iili.io/npwCEfp.jpg",
+      "cdn_url": null,
       "custom_category": "เทปพันสายไฟไวนิล",
-      "custom_model": "TEMFLEX 150 19MMX10M",
+      "custom_model": "รุ่น TEMFLEX 150 19MMX10M",
       "custom_hero_pills": [
-        "Test",
-        "Test"
+        "ไม่ลามไฟ ปลอดภัยสูง",
+        "น้ำหนัก 40 กรัม/ม้วน"
       ],
       "custom_spec_cards": [
         {
@@ -385,12 +385,12 @@
           "val": "600 โวลต์"
         },
         {
-          "icon": "🔘",
+          "icon": "📐",
           "label": "ความหนาเนื้อเทป",
           "val": "0.13 มม."
         },
         {
-          "icon": "⚡",
+          "icon": "🌡️",
           "label": "ทนอุณหภูมิสูงสุด",
           "val": "80 °C"
         }

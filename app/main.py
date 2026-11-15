@@ -1155,12 +1155,27 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
         if not sku or sku not in target_skus:
             return False
 
-        # If item already has an active saved cover on iili.io and not force_regenerate, reuse it
+        detail = get_product_detail(sku) or {}
+        imgs = extract_product_images(detail)
+        # Core Rule: ALWAYS use Image 1 (imgs[0]) as the primary raw source photo for cover creation
+        raw_img = imgs[0] if imgs else (item.get("image") or item.get("selected_image") or "")
+        if "iili.io" in str(raw_img) or "/static/covers/" in str(raw_img):
+            if imgs:
+                raw_img = imgs[0]
+        if not raw_img:
+            return False
+
+        # If item already has an active saved cover on iili.io and not force_regenerate:
+        # STRICT CHECK: Only reuse if it was generated from Image 1 (raw_img)!
         with db_lock:
             existing_covers = saved_db.get(sku, [])
         if not req.force_regenerate and existing_covers:
             top_cov = existing_covers[0]
-            if isinstance(top_cov, dict) and (top_cov.get("cdn_url") or "").startswith("https://iili.io/"):
+            top_img = str(top_cov.get("image_url") or "")
+            is_match_image1 = (top_img == raw_img) or (
+                imgs and any(os.path.basename(imgs[0]) in top_img for _ in [1])
+            )
+            if is_match_image1 and isinstance(top_cov, dict) and (top_cov.get("cdn_url") or "").startswith("https://iili.io/"):
                 cdn_u = top_cov["cdn_url"]
                 item["selected_image"] = cdn_u
                 item["image"] = cdn_u
@@ -1168,16 +1183,6 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
                 item["use_template"] = True
                 item["template_type"] = "auto_spec"
                 return True
-
-        detail = get_product_detail(sku) or {}
-        imgs = extract_product_images(detail)
-        raw_img = imgs[0] if imgs else (item.get("image") or item.get("selected_image") or "")
-        # Ensure we use original KTW photo as source, not an already-framed cover
-        if "iili.io" in str(raw_img) or "/static/covers/" in str(raw_img):
-            if imgs:
-                raw_img = imgs[0]
-        if not raw_img:
-            return False
 
         brand = item.get("brand") or clean_brand_name(detail.get("manufacturer"), sku)
         defaults = get_auto_cover_defaults(sku, detail=detail, shop_name=s_name)
