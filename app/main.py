@@ -375,8 +375,24 @@ def api_get_cart(shop_id: Optional[str] = Query("shop_1")):
                 cdata = json.load(f)
             items = cdata.get(shop_id, [])
             listed_map = get_all_listed(shop_id=shop_id or "shop_1", refresh_stock=False)
+            from app.ktw_service import get_product_detail, extract_product_images, prefetch_product_details
+            cart_skus = [it.get("sku") for it in items if it.get("sku")]
+            prefetch_product_details(cart_skus)
             for it in items:
                 sku = (it.get("sku") or "").strip()
+                # Ensure all_images and selected_images are always populated with all KTW angles!
+                detail = get_product_detail(sku) or {}
+                raw_imgs = extract_product_images(detail)
+                if raw_imgs:
+                    it["all_images"] = raw_imgs
+                    it["images"] = raw_imgs
+                    top_img = it.get("selected_image") or it.get("cdn_url") or raw_imgs[0]
+                    # If selected_images is missing or only contains 1-2 images while KTW has more:
+                    curr_sel = it.get("selected_images") or []
+                    if len(curr_sel) <= 2 and len(raw_imgs) > 1:
+                        it["selected_images"] = [top_img] + raw_imgs[1:]
+                    elif not curr_sel:
+                        it["selected_images"] = [top_img] + (raw_imgs[1:] if len(raw_imgs) > 1 else [])
                 raw_ktw = (it.get("ktw_name") or it.get("name") or sku).strip()
                 it["ktw_name"] = raw_ktw
                 rec_seo = build_shopee_seo_title(
@@ -1165,34 +1181,14 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
         if not raw_img:
             return False
 
-        # If item already has an active saved cover on iili.io and not force_regenerate:
-        # STRICT CHECK: Only reuse if it was generated from Image 1 (raw_img)!
-        with db_lock:
-            existing_covers = saved_db.get(sku, [])
-        if not req.force_regenerate and existing_covers:
-            top_cov = existing_covers[0]
-            top_img = str(top_cov.get("image_url") or "")
-            is_match_image1 = (top_img == raw_img) or (
-                imgs and any(os.path.basename(imgs[0]) in top_img for _ in [1])
-            )
-            if is_match_image1 and isinstance(top_cov, dict) and (top_cov.get("cdn_url") or "").startswith("https://iili.io/"):
-                cdn_u = top_cov["cdn_url"]
-                item["selected_image"] = cdn_u
-                item["image"] = cdn_u
-                item["cdn_url"] = cdn_u
-                item["use_template"] = True
-                item["template_type"] = "auto_spec"
-                return True
-
         brand = item.get("brand") or clean_brand_name(detail.get("manufacturer"), sku)
         defaults = get_auto_cover_defaults(sku, detail=detail, shop_name=s_name)
-        cust = cust_db.get(sku, {})
-        c_model = item.get("custom_model") or cust.get("custom_model") or defaults.get("model_name")
-        c_cat = item.get("custom_category") or cust.get("custom_category") or defaults.get("category_title")
-        c_pills = item.get("custom_hero_pills") or cust.get("custom_hero_pills") or defaults.get("hero_pills")
-        c_cards = item.get("custom_spec_cards") or cust.get("custom_spec_cards") or defaults.get("spec_cards")
-        c_s1 = item.get("custom_trust_s1") or cust.get("custom_trust_s1") or defaults.get("trust_s1")
-        c_s2 = item.get("custom_trust_s2") or cust.get("custom_trust_s2") or defaults.get("trust_s2")
+        c_model = defaults.get("model_name")
+        c_cat = defaults.get("category_title")
+        c_pills = defaults.get("hero_pills")
+        c_cards = defaults.get("spec_cards")
+        c_s1 = defaults.get("trust_s1")
+        c_s2 = defaults.get("trust_s2")
         badge = item.get("badge") or "มีสต็อกพร้อมส่งทันที"
 
         shop_str = re.sub(r'[^a-zA-Z0-9]', '', s_name).lower()[:12] or "megatool"
@@ -1252,6 +1248,13 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
         item["cdn_url"] = cdn_u
         item["use_template"] = True
         item["template_type"] = "auto_spec"
+        item["all_images"] = imgs
+        item["images"] = imgs
+        item["selected_images"] = [final_u] + (imgs[1:] if len(imgs) > 1 else [])
+        item["custom_model"] = c_model
+        item["custom_category"] = c_cat
+        item["custom_hero_pills"] = c_pills
+        item["custom_spec_cards"] = c_cards
         return True
 
     processed_count = 0

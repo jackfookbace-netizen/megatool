@@ -400,7 +400,30 @@ def extract_product_images(detail):
                 'score': score,
                 'url': f"https://shop.ktw.co.th{u}",
                 'is_primary': candidates.get(fn, {}).get('is_primary', False),
-                'fn': fn
+                'fn': fn,
+                'size': 0
+            }
+
+    # 3. From detail['media'] (SAP-L01, SAP-ZL1 - full gallery angles and brochure/Nprice sheets)
+    for m in detail.get('media', []):
+        u = m.get('url', '').replace('/ktwcommercewebservices/v2', '')
+        mime = m.get('mime') or ''
+        code = m.get('code') or ''
+        if not (mime.startswith('image/') or u.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))):
+            continue
+        if 'vdo' in u.lower() or 'vdo' in code.lower():
+            continue
+        size = int(m.get('size') or 0)
+        fn = u.split('/')[-1].lower()
+        # Higher file size = higher resolution angle photo
+        score = min(95, 30 + int(size / 5000))
+        if fn not in candidates or size > candidates[fn].get('size', 0) or score > candidates[fn]['score']:
+            candidates[fn] = {
+                'score': score,
+                'url': f"https://shop.ktw.co.th{u}",
+                'is_primary': candidates.get(fn, {}).get('is_primary', False),
+                'fn': fn,
+                'size': size
             }
 
     # Fallback if no images collected

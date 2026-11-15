@@ -3448,7 +3448,7 @@
                         if (item._imgs_filled) continue;
                         const hasCustom = (item.excluded_indices && item.excluded_indices.length > 0)
                             || (item.unframed_images && item.unframed_images.length > 0);
-                        if (hasCustom || (item.selected_images && item.selected_images.length > 1)) {
+                        if (hasCustom || (item.selected_images && item.selected_images.length > 2 && item.all_images && item.all_images.length > 2)) {
                             item._imgs_filled = true;
                             continue;
                         }
@@ -5799,13 +5799,29 @@ toggleListedSort(field) {
                             if (!this.customCoverModel) {
                                 this.customCoverModel = serverSaved?.custom_model || dData.model_name?.replace(/^รุ่น\s*/, '') || '';
                             }
-                            // Fill hero pills ONLY IF empty
-                            if (!this.customHeroPill1 && !this.customHeroPill2) {
-                                const defaultPills = (serverSaved && serverSaved.custom_hero_pills && serverSaved.custom_hero_pills.length > 0)
-                                    ? serverSaved.custom_hero_pills
-                                    : (dData.hero_pills || []);
-                                this.customHeroPill1 = defaultPills[0] || '';
-                                this.customHeroPill2 = defaultPills[1] || '';
+                            // Fill hero pills: check if empty OR if duplicating spec cards
+                            const isPillDuplicating = (pill) => {
+                                if (!pill) return false;
+                                const pClean = pill.toLowerCase().replace(/[^a-z0-9ก-๙]/g, '');
+                                if (!pClean) return false;
+                                return (this.customSpecCards || []).some(c => {
+                                    const vClean = (c?.val || '').toLowerCase().replace(/[^a-z0-9ก-๙]/g, '');
+                                    const lClean = (c?.label || '').toLowerCase().replace(/[^a-z0-9ก-๙]/g, '');
+                                    return (vClean && (vClean.includes(pClean) || pClean.includes(vClean))) ||
+                                           (lClean && (lClean.includes(pClean) || pClean.includes(lClean)));
+                                });
+                            };
+                            const hasDupPills = isPillDuplicating(this.customHeroPill1) || isPillDuplicating(this.customHeroPill2);
+                            if ((!this.customHeroPill1 && !this.customHeroPill2) || hasDupPills) {
+                                const defaultPills = (dData.hero_pills && dData.hero_pills.length > 0)
+                                    ? dData.hero_pills
+                                    : ((serverSaved && serverSaved.custom_hero_pills && serverSaved.custom_hero_pills.length > 0)
+                                        ? serverSaved.custom_hero_pills
+                                        : []);
+                                if (defaultPills && defaultPills.length > 0) {
+                                    this.customHeroPill1 = defaultPills[0] || '';
+                                    this.customHeroPill2 = defaultPills[1] || '';
+                                }
                             }
                             // Fill spec cards ONLY IF user has not filled any card
                             const hasUserCards = this.customSpecCards && this.customSpecCards.some(c => c && (c.label || c.val));
@@ -5917,6 +5933,13 @@ toggleListedSort(field) {
                             }
                             if (imgs.length > 0) {
                                 this.activePreviewItem.all_images = imgs.filter(u => !this.isCollageDeleted(u));
+                                if (cartItem) {
+                                    cartItem.all_images = this.activePreviewItem.all_images;
+                                    if (!cartItem.selected_images || cartItem.selected_images.length <= 2) {
+                                        const top = cartItem.selected_image || cartItem.cdn_url || this.activePreviewItem.all_images[0];
+                                        cartItem.selected_images = [top, ...this.activePreviewItem.all_images.slice(1)];
+                                    }
+                                }
                             }
                         }
                     } catch (e) {

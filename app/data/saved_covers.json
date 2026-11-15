@@ -2,50 +2,7 @@
   "TEST-SKU-999": [],
   "Z053-0073": [
     {
-      "url": "/static/covers/Z053-0073_megatool_auto_spec_pack10_preview.jpg",
-      "cdn_url": "https://iili.io/npwCX5X.jpg",
-      "sku": "Z053-0073",
-      "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hbb/h9d/9857575321630/-3M-Z053-0073-1.jpg",
-      "brand": "3M",
-      "badge_text": "มีสต็อกพร้อมส่งทันที",
-      "shop_name": "MEGATOOL",
-      "template_type": "auto_spec",
-      "specs": {
-        "custom_category": "เทปพันสายไฟไวนิล",
-        "custom_model": "TEMFLEX 150 19MMX10M",
-        "custom_hero_pills": [
-          "Test",
-          "Test"
-        ],
-        "custom_spec_cards": [
-          {
-            "icon": "📏",
-            "label": "ขนาดหน้ากว้าง",
-            "val": "19 มม. x 10 ม."
-          },
-          {
-            "icon": "⚡",
-            "label": "ทนแรงดันไฟฟ้า",
-            "val": "600 โวลต์"
-          },
-          {
-            "icon": "🔘",
-            "label": "ความหนาเนื้อเทป",
-            "val": "0.13 มม."
-          },
-          {
-            "icon": "⚡",
-            "label": "ทนอุณหภูมิสูงสุด",
-            "val": "80 °C"
-          }
-        ],
-        "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
-        "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
-      },
-      "created_at": "2026-11-12T01:50:00"
-    },
-    {
-      "url": "/static/covers/Z053-0073_megatool_auto_spec_image1_official.jpg",
+      "url": "/static/covers/Z053-0073_megatool_auto_spec_13402641_preview.jpg",
       "cdn_url": null,
       "sku": "Z053-0073",
       "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h51/h28/9857575256094/-3M-Z053-0073-1.jpg",
@@ -84,32 +41,14 @@
         ],
         "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
         "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
-      }
-    },
-    {
-      "url": "/static/covers/Z053-0073_megatool_standard_754d0059_preview.jpg",
-      "cdn_url": null,
-      "sku": "Z053-0073",
-      "image_url": "/ktwcommercewebservices/v2/medias/sys_master/SAP-L01/SAP-L01/hbb/h9d/9857575321630/-3M-Z053-0073-1.jpg",
-      "brand": "3M",
-      "badge_text": null,
-      "shop_name": "MEGATOOL",
-      "template_type": "standard",
-      "specs": {
-        "custom_category": null,
-        "custom_model": null,
-        "custom_hero_pills": null,
-        "custom_spec_cards": null,
-        "custom_trust_s1": null,
-        "custom_trust_s2": null
       },
-      "created_at": "2026-11-15T19:59:46.747691"
+      "created_at": "2026-11-15T20:53:12.786132"
     }
   ],
   "M011-M9513B": [
     {
-      "url": "/static/covers/M011-M9513B_megatool_auto_spec_a63a4367_preview.jpg",
-      "cdn_url": "https://iili.io/npNDKCu.jpg",
+      "url": "/static/covers/M011-M9513B_megatool_auto_spec_1c3bd48d_preview.jpg",
+      "cdn_url": null,
       "sku": "M011-M9513B",
       "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h44/h83/10124526387230/-MAKITA-M011-M9513B-1.jpg",
       "brand": "MAKITA",
@@ -120,8 +59,8 @@
         "custom_category": "เครื่องเจียร์ไฟฟ้า 4 นิ้ว",
         "custom_model": "รุ่น M9513B",
         "custom_hero_pills": [
-          "กำลังไฟ 850W",
-          "ขนาด 100 มม. (4 นิ้ว)"
+          "มอเตอร์ทองแดงแท้ 100%",
+          "น้ำหนัก 1.8 กก."
         ],
         "custom_spec_cards": [
           {
@@ -148,13 +87,13 @@
         "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
         "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
       },
-      "created_at": "2026-11-12T11:39:31.395717"
+      "created_at": "2026-11-15T20:53:21.149589"
     }
   ],
   "M316-0020": [
     {
-      "url": "/static/covers/M316-0020_megatool_auto_spec_c98f6ec7_preview.jpg",
-      "cdn_url": "https://iili.io/npNDq4j.jpg",
+      "url": "/static/covers/M316-0020_megatool_auto_spec_edd1df47_preview.jpg",
+      "cdn_url": null,
       "sku": "M316-0020",
       "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h40/h9c/9686970433566/-MARATHON-M316-0020-1.jpg",
       "brand": "MARATHON",
@@ -165,8 +104,8 @@
         "custom_category": "ดอกสว่านเจดีย์",
         "custom_model": "รุ่น STEP DRILL HSSทอง",
         "custom_hero_pills": [
-          "ขนาดการเจาะ 4 - 32 มม.",
-          "วัสดุที่เจาะได้ เหล็ก, อลูมิเนียม, พลาสติก, ไม้"
+          "เคลือบไทเทเนียม HSS แท้",
+          "น้ำหนัก 170 กรัม"
         ],
         "custom_spec_cards": [
           {
@@ -193,13 +132,13 @@
         "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
         "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
       },
-      "created_at": "2026-11-12T11:39:31.913478"
+      "created_at": "2026-11-15T20:53:43.332108"
     }
   ],
   "P231-0070AE": [
     {
-      "url": "/static/covers/P231-0070AE_megatool_auto_spec_192f8e4c_preview.jpg",
-      "cdn_url": "https://iili.io/npNDC3x.jpg",
+      "url": "/static/covers/P231-0070AE_megatool_auto_spec_7bc9df78_preview.jpg",
+      "cdn_url": null,
       "sku": "P231-0070AE",
       "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h77/h26/10070290759710/-POLO-VENTILATOR-P231-0070AE-1.jpg",
       "brand": "POLO",
@@ -210,8 +149,8 @@
         "custom_category": "SHT-30 พัดลมอุตฯดูดเป่า12\"(รุ่นลิมิเต็ด)",
         "custom_model": "รุ่น SHT-30",
         "custom_hero_pills": [
-          "กระแสไฟฟ้า 4.4 แอมป์",
-          "กำลังมอเตอร์ 520 วัตต์"
+          "ใบพัดอลูมิเนียม ลมแรงทรงพลัง",
+          "น้ำหนัก 9.8 กก."
         ],
         "custom_spec_cards": [
           {
@@ -238,13 +177,13 @@
         "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
         "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
       },
-      "created_at": "2026-11-12T11:39:32.068278"
+      "created_at": "2026-11-15T20:53:53.103288"
     }
   ],
   "P271-PL411C": [
     {
-      "url": "/static/covers/P271-PL411C_megatool_auto_spec_1c371e94_preview.jpg",
-      "cdn_url": "https://iili.io/npNDTj1.jpg",
+      "url": "/static/covers/P271-PL411C_megatool_auto_spec_05ea190f_preview.jpg",
+      "cdn_url": null,
       "sku": "P271-PL411C",
       "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h19/hbc/10168716787742/-POLO-GARDEN-P271-PL411C-1.jpg",
       "brand": "POLO",
@@ -255,8 +194,8 @@
         "custom_category": "PL-411C ตัดหญ้าสะพายข้าง 2",
         "custom_model": "รุ่น PL-411C",
         "custom_hero_pills": [
-          "ประสิทธิภาพเครื่องยนต์ 1.4 กิโลวัตต์ หรือ 1.9 แรงม้า",
-          "ความยาวเพลา 1,500 มม."
+          "สตาร์ทติดง่าย ลุยงานหนัก",
+          "น้ำหนัก 8.2 กก."
         ],
         "custom_spec_cards": [
           {
@@ -283,13 +222,13 @@
         "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
         "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
       },
-      "created_at": "2026-11-12T11:39:38.696772"
+      "created_at": "2026-11-15T20:53:33.526289"
     }
   ],
   "I081-T0102EL4": [
     {
-      "url": "/static/covers/I081-T0102EL4_megatool_auto_spec_921f463c_preview.jpg",
-      "cdn_url": "https://iili.io/npND8w7.jpg",
+      "url": "/static/covers/I081-T0102EL4_megatool_auto_spec_f06ec57e_preview.jpg",
+      "cdn_url": null,
       "sku": "I081-T0102EL4",
       "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h7c/h6b/9782471983134/-IRWIN-I081-T0102EL4-FIX1.jpg",
       "brand": "IRWIN",
@@ -300,25 +239,31 @@
         "custom_category": "10R คีมล็อคปากตรง ขนาด",
         "custom_model": "รุ่น 10R",
         "custom_hero_pills": [
-          "น้ำหนักตัวเครื่อง 0.55 กก."
+          "เหล็กเกรดพรีเมียม ปากจับแน่น",
+          "น้ำหนัก 550 กรัม"
         ],
         "custom_spec_cards": [
           {
-            "icon": "⚖️",
-            "label": "น้ำหนักตัวเครื่อง",
-            "val": "0.55 กก."
+            "icon": "📏",
+            "label": "ขนาดความยาว",
+            "val": "10 นิ้ว (254 มม.)"
+          },
+          {
+            "icon": "⚡",
+            "label": "ลักษณะปากจับ",
+            "val": "ปากตรง ยึดจับแน่น"
           }
         ],
         "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
         "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
       },
-      "created_at": "2026-11-12T11:39:59.797266"
+      "created_at": "2026-11-15T20:54:14.404037"
     }
   ],
   "M316-0030": [
     {
-      "url": "/static/covers/M316-0030_megatool_auto_spec_0e6d6e1b_preview.jpg",
-      "cdn_url": "https://iili.io/npNDgne.jpg",
+      "url": "/static/covers/M316-0030_megatool_auto_spec_71227453_preview.jpg",
+      "cdn_url": null,
       "sku": "M316-0030",
       "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hb7/hb3/9686805282846/-MARATHON-M316-0030-1.jpg",
       "brand": "MARATHON",
@@ -329,8 +274,8 @@
         "custom_category": "ชุดดอกสว่านเจดีย์",
         "custom_model": "รุ่น STEP DRILL HSS",
         "custom_hero_pills": [
-          "ขนาดการเจาะ 4 - 32 มม., 4 - 12 มม., 4 - 20 มม.",
-          "วัสดุที่เจาะได้ ไม้, เหล็ก, พลาสติก, อลูมิเนียม"
+          "เคลือบไทเทเนียม HSS แท้",
+          "น้ำหนัก 260 กรัม"
         ],
         "custom_spec_cards": [
           {
@@ -357,13 +302,13 @@
         "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
         "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
       },
-      "created_at": "2026-11-12T11:40:01.075525"
+      "created_at": "2026-11-15T20:54:33.361282"
     }
   ],
   "KT-J019-ARC200D+": [
     {
-      "url": "/static/covers/KT-J019-ARC200D+_megatool_auto_spec_12f1a284_preview.jpg",
-      "cdn_url": "https://iili.io/npND46b.jpg",
+      "url": "/static/covers/KT-J019-ARC200D+_megatool_auto_spec_7b49d236_preview.jpg",
+      "cdn_url": null,
       "sku": "KT-J019-ARC200D+",
       "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hed/hdc/9776087040030/-KT-JASIC-KT-J019-ARC200D-.jpg",
       "brand": "JASIC",
@@ -374,8 +319,8 @@
         "custom_category": "เครื่องเชื่อมไฟฟ้า",
         "custom_model": "รุ่น ARC200D+",
         "custom_hero_pills": [
-          "กระแสไฟ 20 - 200 แอมป์",
-          "ขนาดลวด 1.6 - 4.0 มม."
+          "ระบบ IGBT ลากยาวไม่สะดุด",
+          "น้ำหนัก 6.1 กก."
         ],
         "custom_spec_cards": [
           {
@@ -392,23 +337,18 @@
             "icon": "⚡",
             "label": "ขนาดลวดเชื่อม",
             "val": "1.6 - 4.0 มม."
-          },
-          {
-            "icon": "⚖️",
-            "label": "น้ำหนักตัวเครื่อง",
-            "val": "6.1 กก."
           }
         ],
         "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
         "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
       },
-      "created_at": "2026-11-12T11:40:02.272103"
+      "created_at": "2026-11-15T20:54:25.247687"
     }
   ],
   "M011-M5801B": [
     {
-      "url": "/static/covers/M011-M5801B_megatool_auto_spec_13a02a98_preview.jpg",
-      "cdn_url": "https://iili.io/npNDDt1.jpg",
+      "url": "/static/covers/M011-M5801B_megatool_auto_spec_fefe6bd6_preview.jpg",
+      "cdn_url": null,
       "sku": "M011-M5801B",
       "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h11/h7f/9678057996318/-MAKITA-M011-M5801B.jpg",
       "brand": "MAKITA",
@@ -419,8 +359,8 @@
         "custom_category": "M5801B เครื่องเลื่อยวงเดือน 7\"",
         "custom_model": "รุ่น M5801B",
         "custom_hero_pills": [
-          "กำลังมอเตอร์ 1,050 วัตต์",
-          "เส้นผ่านศูนย์กลางใบตัด 185 มม. (7-1/4 นิ้ว)"
+          "มอเตอร์ทองแดงแท้ 100%",
+          "น้ำหนัก 3.5 กก."
         ],
         "custom_spec_cards": [
           {
@@ -434,26 +374,26 @@
             "val": "185 มม. (7-1/4 นิ้ว)"
           },
           {
+            "icon": "📏",
+            "label": "ขนาดความยาว",
+            "val": "7 นิ้ว (178 มม.)"
+          },
+          {
             "icon": "⏱",
             "label": "ความเร็วรอบ",
             "val": "4,900 รอบ/นาที"
-          },
-          {
-            "icon": "📏",
-            "label": "ความยาวสายไฟ",
-            "val": "2.0 เมตร"
           }
         ],
         "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
         "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
       },
-      "created_at": "2026-11-12T11:40:05.979136"
+      "created_at": "2026-11-15T20:54:03.154172"
     }
   ],
   "M011-M0910B": [
     {
-      "url": "/static/covers/M011-M0910B_megatool_auto_spec_0d02052f_preview.jpg",
-      "cdn_url": "https://iili.io/npNbciu.jpg",
+      "url": "/static/covers/M011-M0910B_megatool_auto_spec_cd7cb18b_preview.jpg",
+      "cdn_url": null,
       "sku": "M011-M0910B",
       "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h5c/ha5/9984402685982/-MAKITA-M011-M0910B.jpg",
       "brand": "MAKITA",
@@ -464,8 +404,8 @@
         "custom_category": "เครื่องเจียร์ไฟฟ้า 4 นิ้ว",
         "custom_model": "รุ่น M0910B",
         "custom_hero_pills": [
-          "กำลังไฟ 540W",
-          "ขนาด 100 มม. (4 นิ้ว)"
+          "มอเตอร์ทองแดงแท้ 100%",
+          "น้ำหนัก 1.6 กก."
         ],
         "custom_spec_cards": [
           {
@@ -492,13 +432,13 @@
         "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
         "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
       },
-      "created_at": "2026-11-12T11:40:22.973243"
+      "created_at": "2026-11-15T20:55:13.475211"
     }
   ],
   "P041-2300": [
     {
-      "url": "/static/covers/P041-2300_megatool_auto_spec_5418353c_preview.jpg",
-      "cdn_url": "https://iili.io/npNbWOB.jpg",
+      "url": "/static/covers/P041-2300_megatool_auto_spec_b3c1ab4b_preview.jpg",
+      "cdn_url": null,
       "sku": "P041-2300",
       "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hc5/h80/10154490363934/-POLO-P041-2300-1.jpg",
       "brand": "POLO",
@@ -509,8 +449,8 @@
         "custom_category": "ปั๊มน้ำมาตรฐาน",
         "custom_model": "รุ่น K-101",
         "custom_hero_pills": [
-          "กำลังมอเตอร์ 100 วัตต์",
-          "ขนาดท่อส่ง 5/8 นิ้ว"
+          "ระบบป้องกันมอเตอร์ไหม้",
+          "น้ำหนัก 2.8 กก."
         ],
         "custom_spec_cards": [
           {
@@ -537,13 +477,13 @@
         "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
         "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
       },
-      "created_at": "2026-11-12T11:40:24.256042"
+      "created_at": "2026-11-15T20:55:03.176238"
     }
   ],
   "M011-M8701B": [
     {
-      "url": "/static/covers/M011-M8701B_megatool_auto_spec_28448b82_preview.jpg",
-      "cdn_url": "https://iili.io/npNbXDP.jpg",
+      "url": "/static/covers/M011-M8701B_megatool_auto_spec_782a4601_preview.jpg",
+      "cdn_url": null,
       "sku": "M011-M8701B",
       "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h8c/h3e/9680270196766/-MAKITA-M011-M8701B.jpg",
       "brand": "MAKITA",
@@ -554,8 +494,8 @@
         "custom_category": "สว่านโรตารี่",
         "custom_model": "รุ่น M8701B26",
         "custom_hero_pills": [
-          "ขนาดการเจาะ กระบอกเจาะเพชร : 80 มม., Core Bit :68 มม. (2-11/6 นิ้ว), 26 มม. (1 นิ้ว)",
-          "ความสามารถในการเจาะคอนกรีต 26 มม. (1 นิ้ว)"
+          "มอเตอร์ทองแดงแท้ 100%",
+          "น้ำหนัก 2.7 กก."
         ],
         "custom_spec_cards": [
           {
@@ -582,13 +522,13 @@
         "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
         "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
       },
-      "created_at": "2026-11-12T11:40:25.441790"
+      "created_at": "2026-11-15T20:54:53.460058"
     }
   ],
   "N241-NOVO200": [
     {
-      "url": "/static/covers/N241-NOVO200_megatool_auto_spec_102e5320_preview.jpg",
-      "cdn_url": "https://iili.io/npNbwWF.jpg",
+      "url": "/static/covers/N241-NOVO200_megatool_auto_spec_7a970a34_preview.jpg",
+      "cdn_url": null,
       "sku": "N241-NOVO200",
       "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hde/h1f/10012756181022/-NOVO-N241-NOVO200-1.jpg",
       "brand": "NOVO",
@@ -599,8 +539,8 @@
         "custom_category": "เครื่องเชื่อมไฟฟ้า",
         "custom_model": "รุ่น NOVO-200",
         "custom_hero_pills": [
-          "กระแสไฟ 20 - 200 แอมป์",
-          "ลวด 1.6 - 4.0 มม."
+          "ระบบ IGBT ลากยาวไม่สะดุด",
+          "น้ำหนัก 3.5 กก."
         ],
         "custom_spec_cards": [
           {
@@ -612,23 +552,18 @@
             "icon": "⚡",
             "label": "กำลังไฟฟ้า",
             "val": "4.3 KVA"
-          },
-          {
-            "icon": "⚖️",
-            "label": "น้ำหนักตัวเครื่อง",
-            "val": "3.5 กก."
           }
         ],
         "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
         "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
       },
-      "created_at": "2026-11-12T11:40:26.688143"
+      "created_at": "2026-11-15T20:54:43.796239"
     }
   ],
   "P171-WARRIOR101N": [
     {
-      "url": "/static/covers/P171-WARRIOR101N_megatool_auto_spec_bc3e5654_preview.jpg",
-      "cdn_url": "https://iili.io/npNmYep.jpg",
+      "url": "/static/covers/P171-WARRIOR101N_megatool_auto_spec_3d155833_preview.jpg",
+      "cdn_url": null,
       "sku": "P171-WARRIOR101N",
       "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h9e/hcc/9867765219358/-POLO-WASHERS-P171-WARRIOR101N-1.jpg",
       "brand": "POLO",
@@ -639,8 +574,8 @@
         "custom_category": "เครื่องฉีดน้ำแรงดันสูง",
         "custom_model": "รุ่น WARRIOR-101N",
         "custom_hero_pills": [
-          "แรงดัน 100 บาร์",
-          "มอเตอร์ 1,400 W"
+          "ดูดน้ำจากถังได้อัตโนมัติ",
+          "น้ำหนัก 6.1 กก."
         ],
         "custom_spec_cards": [
           {
@@ -659,21 +594,21 @@
             "val": "100 บาร์ (1,450 PSI)"
           },
           {
-            "icon": "🌊",
-            "label": "แรงดัน",
-            "val": "100 บาร์"
+            "icon": "📏",
+            "label": "ความยาวสายฉีด",
+            "val": "5 เมตร"
           }
         ],
         "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
         "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
       },
-      "created_at": "2026-11-12T11:40:59.176035"
+      "created_at": "2026-11-15T20:55:41.618714"
     }
   ],
   "P171-RANGER120": [
     {
-      "url": "/static/covers/P171-RANGER120_megatool_auto_spec_302d3a57_preview.jpg",
-      "cdn_url": "https://iili.io/npNmlII.jpg",
+      "url": "/static/covers/P171-RANGER120_megatool_auto_spec_f1b06116_preview.jpg",
+      "cdn_url": null,
       "sku": "P171-RANGER120",
       "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h48/h85/9867751784478/-POLO-WASHERS-P171-RANGER120-1.jpg",
       "brand": "POLO",
@@ -684,8 +619,8 @@
         "custom_category": "เครื่องฉีดน้ำแรงดันสูง",
         "custom_model": "รุ่น RANGER120",
         "custom_hero_pills": [
-          "แรงดัน 120 บาร์",
-          "มอเตอร์ 1,500 W"
+          "ดูดน้ำจากถังได้อัตโนมัติ",
+          "น้ำหนัก 7.4 กก."
         ],
         "custom_spec_cards": [
           {
@@ -704,21 +639,21 @@
             "val": "120 บาร์ (1,740 PSI)"
           },
           {
-            "icon": "🌊",
-            "label": "แรงดัน",
-            "val": "120 บาร์"
+            "icon": "📏",
+            "label": "ความยาวสายฉีด",
+            "val": "10 เมตร"
           }
         ],
         "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
         "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
       },
-      "created_at": "2026-11-12T11:41:00.398907"
+      "created_at": "2026-11-15T20:55:51.593526"
     }
   ],
   "P171-WARRIOR90": [
     {
-      "url": "/static/covers/P171-WARRIOR90_megatool_auto_spec_b48aef96_preview.jpg",
-      "cdn_url": "https://iili.io/npNm0Xt.jpg",
+      "url": "/static/covers/P171-WARRIOR90_megatool_auto_spec_c490aa11_preview.jpg",
+      "cdn_url": null,
       "sku": "P171-WARRIOR90",
       "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/hf9/h08/9867763843102/-POLO-WASHERS-P171-WARRIOR90-1.jpg",
       "brand": "POLO",
@@ -729,8 +664,8 @@
         "custom_category": "เครื่องฉีดน้ำแรงดันสูง",
         "custom_model": "รุ่น WARRIOR90",
         "custom_hero_pills": [
-          "แรงดัน 90 บาร์",
-          "มอเตอร์ 1,200 W"
+          "ดูดน้ำจากถังได้อัตโนมัติ",
+          "น้ำหนัก 4.3 กก."
         ],
         "custom_spec_cards": [
           {
@@ -745,25 +680,25 @@
           },
           {
             "icon": "🌊",
-            "label": "แรงดัน",
-            "val": "90 บาร์"
-          },
-          {
-            "icon": "🌊",
             "label": "แรงดันสูงสุด",
             "val": "90 บาร์ (1,305 PSI)"
+          },
+          {
+            "icon": "📏",
+            "label": "ความยาวสายฉีด",
+            "val": "3 เมตร"
           }
         ],
         "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
         "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
       },
-      "created_at": "2026-11-12T11:41:01.617313"
+      "created_at": "2026-11-15T20:55:31.503882"
     }
   ],
   "M011-M0900B": [
     {
-      "url": "/static/covers/M011-M0900B_megatool_auto_spec_5a0e9215_preview.jpg",
-      "cdn_url": "https://iili.io/npNmM1s.jpg",
+      "url": "/static/covers/M011-M0900B_megatool_auto_spec_23df358e_preview.jpg",
+      "cdn_url": null,
       "sku": "M011-M0900B",
       "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/haa/hf6/9678354120734/-MAKITA-M011-M0900B-1.jpg",
       "brand": "MAKITA",
@@ -774,8 +709,8 @@
         "custom_category": "เครื่องเจียร์ไฟฟ้า 4 นิ้ว",
         "custom_model": "รุ่น M0900B",
         "custom_hero_pills": [
-          "กำลังไฟ 540W",
-          "ขนาด 100 มม. (4 นิ้ว)"
+          "มอเตอร์ทองแดงแท้ 100%",
+          "น้ำหนัก 1.6 กก."
         ],
         "custom_spec_cards": [
           {
@@ -802,13 +737,13 @@
         "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
         "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
       },
-      "created_at": "2026-11-12T11:41:02.729226"
+      "created_at": "2026-11-15T20:55:23.185149"
     }
   ],
   "P171-COMMANDO135N": [
     {
-      "url": "/static/covers/P171-COMMANDO135N_megatool_auto_spec_f0fca72e_preview.jpg",
-      "cdn_url": "https://iili.io/npNmOIS.jpg",
+      "url": "/static/covers/P171-COMMANDO135N_megatool_auto_spec_6dc0dc35_preview.jpg",
+      "cdn_url": null,
       "sku": "P171-COMMANDO135N",
       "image_url": "https://shop.ktw.co.th/medias/sys_master/SAP-L01/SAP-L01/h7a/h32/9868211978270/-POLO-WASHERS-P171-COMMANDO135N-1.jpg",
       "brand": "POLO",
@@ -819,8 +754,8 @@
         "custom_category": "เครื่องฉีดน้ำแรงดันสูง",
         "custom_model": "รุ่น COMMANDO135N",
         "custom_hero_pills": [
-          "แรงดัน 135 บาร์",
-          "มอเตอร์ 1,500 W"
+          "ดูดน้ำจากถังได้อัตโนมัติ",
+          "น้ำหนัก 12.3 กก."
         ],
         "custom_spec_cards": [
           {
@@ -839,15 +774,15 @@
             "val": "135 บาร์ (1,958 PSI)"
           },
           {
-            "icon": "🌊",
-            "label": "แรงดัน",
-            "val": "135 บาร์"
+            "icon": "📏",
+            "label": "ความยาวสายฉีด",
+            "val": "10 เมตร"
           }
         ],
         "custom_trust_s1": "จัดส่งด่วนจากไทย 100%",
         "custom_trust_s2": "สต็อกไทย ได้รับของรวดเร็ว"
       },
-      "created_at": "2026-11-12T11:41:08.050921"
+      "created_at": "2026-11-15T20:56:01.435209"
     }
   ]
 }
