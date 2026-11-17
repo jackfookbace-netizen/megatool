@@ -190,6 +190,8 @@ def serve_cover_image(filename: str):
     raise HTTPException(status_code=404, detail="Cover not found")
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+if os.path.exists("assets"):
+    app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 
 def get_current_user(request: Request, authorization: Optional[str] = Header(None)) -> Optional[dict]:
     token = None

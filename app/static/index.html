@@ -2168,17 +2168,57 @@
                             <img x-show="renderedCoverUrl" :src="renderedCoverUrl" @error="onCoverLoadError($event)" class="max-h-full max-w-full object-contain" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;">
                             <img x-show="!renderedCoverUrl" :src="activePreviewItem?.all_images?.[selectedImageIndex] || activePreviewItem?.image" class="max-h-full max-w-full object-contain" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;">
                             
+                            <!-- MEGATOOL Official Frame Overlay (Always ON by Default for ALL images when customUseTemplate is True) -->
+                            <div x-show="isRawAngleWithTemplate()" class="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between">
+                                <!-- Outer Red Border (#EF1C25) -->
+                                <div class="absolute inset-0 border-[7px] sm:border-[10px] border-[#EF1C25] pointer-events-none rounded-2xl"></div>
+
+                                <!-- Top Header inside Frame: Brand Logo (Left) + Shop Logo (Right) -->
+                                <div class="relative z-20 flex items-center justify-between px-3.5 sm:px-5 pt-3 sm:pt-4">
+                                    <!-- Brand Logo / Brand Name -->
+                                    <div class="flex items-center">
+                                        <template x-if="getBrandLogoUrl(activePreviewItem?.brand || activePreviewItem?.manufacturer)">
+                                            <img :src="getBrandLogoUrl(activePreviewItem?.brand || activePreviewItem?.manufacturer)" 
+                                                 class="h-6 sm:h-8 max-w-[120px] sm:max-w-[140px] object-contain drop-shadow-xs">
+                                        </template>
+                                        <template x-if="!getBrandLogoUrl(activePreviewItem?.brand || activePreviewItem?.manufacturer)">
+                                            <span class="text-base sm:text-xl font-black uppercase tracking-tight text-slate-900" 
+                                                  x-text="activePreviewItem?.brand || activePreviewItem?.manufacturer || ''"></span>
+                                        </template>
+                                    </div>
+
+                                    <!-- Shop Brand Logo (MEGATOOL Red) -->
+                                    <div class="flex items-center">
+                                        <span class="text-lg sm:text-2xl font-black tracking-tight text-[#EF1C25] font-sans"
+                                              x-text="shopName || (activeShopId === 'shop_2' ? 'BigPower Tools' : 'MEGATOOL')"></span>
+                                    </div>
+                                </div>
+
+                                <!-- Bottom Bar inside Frame: "ของแท้ 100%" & "มีสต็อกพร้อมส่งทันที" on Right -->
+                                <div class="relative z-20 flex justify-end items-end p-2.5 sm:p-3 pb-3 sm:pb-4 pr-3 sm:pr-4">
+                                    <div class="flex flex-col items-end">
+                                        <span class="text-xs sm:text-sm font-black text-[#EF1C25] tracking-tight leading-none">ของแท้ 100%</span>
+                                        <span class="bg-[#EF1C25] text-white text-[9px] sm:text-[11px] font-extrabold px-2 sm:px-2.5 py-0.5 rounded shadow-xs mt-0.5 tracking-tight">
+                                            มีสต็อกพร้อมส่งทันที
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Hover Action Pills: Download & Zoom -->
                             <!-- Active Cover Mode / Viewing Status Badge -->
-                            <div class="absolute top-3 left-3 z-10 flex flex-col space-y-1 pointer-events-none">
+                            <div class="absolute top-3 left-3 z-30 flex flex-col space-y-1 pointer-events-none">
                                 <span x-show="coverMode === 'custom' && renderedCoverUrl" class="bg-gradient-to-r from-orange-600 to-amber-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center space-x-1 border border-orange-300">
-                                    <span>👑 #1 ปก Shopee: กรอบแบรนด์ MEGATOOL (Auto-Spec)</span>
+                                    <span>👑 #1 ปก Shopee: รูปแต่ง Auto-Spec</span>
                                 </span>
                                 <span x-show="coverMode === 'original'" class="bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center space-x-1 border border-emerald-400">
                                     <span x-text="'👑 #1 ปก Shopee: รูปที่ #' + (selectedImageIndex + 1) + ' (Original ไม่แต่ง)'"></span>
                                 </span>
-                                <span x-show="coverMode === 'custom' && !renderedCoverUrl" class="bg-slate-900/80 text-white text-[10px] font-semibold px-2.5 py-1 rounded-full shadow-md flex items-center space-x-1 border border-slate-700">
-                                    <span x-text="'👁️ มุมมองภาพ: รูปที่ #' + (selectedImageIndex + 1)"></span>
+                                <span x-show="isRawAngleWithTemplate()" class="bg-[#EF1C25] text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center space-x-1 border border-red-300">
+                                    <span x-text="'🖼️ กรอบแบรนด์ MEGATOOL (Default): รูปที่ #' + (selectedImageIndex + 1)"></span>
+                                </span>
+                                <span x-show="!renderedCoverUrl && !isRawAngleWithTemplate() && coverMode !== 'original'" class="bg-slate-900/80 text-white text-[10px] font-semibold px-2.5 py-1 rounded-full shadow-md flex items-center space-x-1 border border-slate-700">
+                                    <span x-text="'👁️ มุมมองภาพ (ไม่ใส่กรอบ): รูปที่ #' + (selectedImageIndex + 1)"></span>
                                 </span>
                             </div>
 
@@ -2336,6 +2376,9 @@
                                     </span>
                                     <span x-show="coverMode === 'custom' && activeCustomCoverUrl" class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-200 flex items-center space-x-1">
                                         <span>🎨 รูปปก Shopee ใช้รูปแต่ง Auto-Spec (แถวล่าง)</span>
+                                    </span>
+                                    <span x-show="isRawAngleWithTemplate()" class="bg-rose-50 text-rose-700 text-[10px] font-bold px-2 py-0.5 rounded border border-rose-200 flex items-center space-x-1">
+                                        <span>🖼️ กรอบ MEGATOOL เปิดใช้งานอยู่ (Default)</span>
                                     </span>
                                 </div>
                                 <div class="flex items-center space-x-2 flex-wrap gap-1">
@@ -2793,7 +2836,7 @@
                                 <h3 class="text-base font-extrabold text-slate-800 tracking-tight">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                                 <span class="bg-orange-100 text-orange-700 text-xs px-2.5 py-0.5 rounded-full font-extrabold shadow-2xs" x-text="selectedItems.length + ' รายการ'"></span>
                             </div>
-                            <span class="text-[10px] text-slate-400 font-mono">build 2026.11.17-g (Zero Auto-Spec on Click & 100% Single Cursor Manual Generation)</span>
+                            <span class="text-[10px] text-slate-400 font-mono">build 2026.11.17-h (Instant MEGATOOL Template Frame by Default on All Angles & 0 Quota Consumption)</span>
                         </div>
                     </div>
                     
@@ -7266,11 +7309,38 @@ toggleListedSort(field) {
                     });
                 },
 
-                downloadCurrentImage(targetUrl = null) {
-                    const url = targetUrl || this.renderedCoverUrl || (this.activePreviewItem?.all_images?.[this.selectedImageIndex] || this.activePreviewItem?.image);
+                async downloadCurrentImage(targetUrl = null) {
+                    let url = targetUrl || this.renderedCoverUrl;
+                    const curAngleImg = (this.activePreviewItem?.all_images?.[this.selectedImageIndex]) || this.activePreviewItem?.image;
+                    
+                    if (!url && this.isRawAngleWithTemplate()) {
+                        try {
+                            const sku = this.activePreviewItem?.sku || this.activePreviewItem?.code;
+                            const res = await fetch('/api/preview-cover', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    sku: sku,
+                                    image_url: curAngleImg,
+                                    brand: this.activePreviewItem.brand || this.activePreviewItem.manufacturer,
+                                    badge_text: this.customBadgeText || 'มีสต็อกพร้อมส่งทันที',
+                                    shop_name: this.shopName || 'MEGATOOL',
+                                    template_type: 'standard'
+                                })
+                            });
+                            if (res.ok) {
+                                const data = await res.json();
+                                url = data.cdn_url || data.preview_url;
+                            }
+                        } catch (e) {
+                            console.error('Download framed cover error:', e);
+                        }
+                    }
+
+                    url = url || curAngleImg;
                     if (!url) return;
                     const sku = (this.activePreviewItem?.sku || this.activePreviewItem?.code || 'shopee_cover').replace(/[^a-zA-Z0-9_-]/g, '_');
-                    const filename = `${sku}_cover_2400x2400.jpg`;
+                    const filename = `${sku}_img_${this.selectedImageIndex + 1}_2400x2400.jpg`;
                     try {
                         const a = document.createElement('a');
                         a.href = url;
@@ -7374,6 +7444,25 @@ toggleListedSort(field) {
                 isImageUnframed(img) {
                     if (!img) return false;
                     return Array.isArray(this.unframedUrls) && this.unframedUrls.includes(img);
+                },
+
+                getBrandLogoUrl(brand) {
+                    if (!brand) return null;
+                    const b = String(brand).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+                    const known = ['MAKITA', 'POLO', '3M', 'JASIC', 'KARCHER', 'INGCO', 'FORCE', 'STANLEY', 'BAHCO', 'BANDEX', 'HERO', 'HORSE', 'IRWIN', 'MARATHON', 'NACHI', 'NOVO', 'SANKO', 'TRANE', 'VTECH', 'WD40'];
+                    if (known.includes(b)) {
+                        if (b === 'VTECH') return '/assets/logos/official/V-TECH.png';
+                        if (b === 'WD40') return '/assets/logos/official/WD-40.png';
+                        return `/assets/logos/official/${b}.png`;
+                    }
+                    return null;
+                },
+
+                isRawAngleWithTemplate() {
+                    if (this.renderedCoverUrl) return false;
+                    if (!this.customUseTemplate || this.coverMode === 'original') return false;
+                    const curImg = (this.activePreviewItem?.all_images && this.activePreviewItem.all_images[this.selectedImageIndex]) || this.activePreviewItem?.image;
+                    return Boolean(curImg && !this.isImageUnframed(curImg));
                 },
 
                 isCollageImage(img) {
