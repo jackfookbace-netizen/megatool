@@ -2169,16 +2169,13 @@
                             <img x-show="!renderedCoverUrl" :src="activePreviewItem?.all_images?.[selectedImageIndex] || activePreviewItem?.image" class="max-h-full max-w-full object-contain" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;">
                             
                             <!-- Hover Action Pills: Download & Zoom -->
-                            <!-- Active Cover Mode Status Badge -->
+                            <!-- Active Cover Mode Status Badge (Always clear single status) -->
                             <div class="absolute top-3 left-3 z-10">
-                                <span x-show="renderedCoverUrl && coverMode === 'custom'" class="bg-orange-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center space-x-1">
-                                    <span>👑 #1 ปก Shopee: รูปแต่ง Auto-Spec</span>
+                                <span x-show="customUseTemplate" class="bg-orange-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center space-x-1">
+                                    <span>👑 #1 ปก Shopee: กรอบแบรนด์ MEGATOOL (Auto-Spec)</span>
                                 </span>
-                                <span x-show="renderedCoverUrl && coverMode === 'original'" class="bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center space-x-1">
-                                    <span>📷 #1 ปก Shopee: รูปต้นฉบับ Original (ไม่แต่ง)</span>
-                                </span>
-                                <span x-show="!renderedCoverUrl" class="bg-slate-900/80 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center space-x-1">
-                                    <span x-text="'มุมมองภาพ: รูปที่ #' + (selectedImageIndex + 1)"></span>
+                                <span x-show="!customUseTemplate" class="bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center space-x-1">
+                                    <span>📷 #1 ปก Shopee: รูปต้นฉบับ Original (ไม่ใส่กรอบ)</span>
                                 </span>
                             </div>
 
@@ -2252,14 +2249,15 @@
                                                 class="w-14 h-14 rounded-xl border-2 p-1 flex items-center justify-center transition-all cursor-pointer relative overflow-hidden">
                                             <img :src="img" @error="onImageLoadError(idx, img)" class="max-h-full max-w-full object-contain pointer-events-none">
                                             
-                                            <!-- In Original Mode: badge current active angle as #1 Cover -->
-                                            <span x-show="coverMode === 'original' && selectedImageIndex === idx && !isImageExcluded(idx)" 
-                                                  class="absolute bottom-0 inset-x-0 bg-emerald-600 text-white text-[8px] py-0.5 text-center font-bold tracking-tight shadow">
-                                                👑 #1 ปก Original
+                                            <!-- Single Cursor Badge: Whichever thumbnail is selected IS #1 Cover -->
+                                            <span x-show="selectedImageIndex === idx && !isImageExcluded(idx)" 
+                                                  :class="customUseTemplate ? 'bg-orange-600 text-white' : 'bg-emerald-600 text-white'"
+                                                  class="absolute bottom-0 inset-x-0 text-[8px] py-0.5 text-center font-bold tracking-tight shadow"
+                                                  x-text="customUseTemplate ? '👑 #1 ปก Auto-Spec' : '👑 #1 ปก Original'">
                                             </span>
 
-                                            <!-- Standard index badge for other images or in Custom mode -->
-                                            <span x-show="!(coverMode === 'original' && selectedImageIndex === idx) && !isImageExcluded(idx)" 
+                                            <!-- Standard index badge for unselected images -->
+                                            <span x-show="selectedImageIndex !== idx && !isImageExcluded(idx)" 
                                                   class="absolute bottom-0 inset-x-0 bg-slate-800/80 text-white text-[8px] py-0.5 text-center font-bold font-mono tracking-tight"
                                                   x-text="'รูปที่ #' + (idx + 1)">
                                             </span>
@@ -2792,7 +2790,7 @@
                                 <h3 class="text-base font-extrabold text-slate-800 tracking-tight">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                                 <span class="bg-orange-100 text-orange-700 text-xs px-2.5 py-0.5 rounded-full font-extrabold shadow-2xs" x-text="selectedItems.length + ' รายการ'"></span>
                             </div>
-                            <span class="text-[10px] text-slate-400 font-mono">build 2026.11.17-e (Manual On-Demand Cover Generation & Instant Angle Browsing)</span>
+                            <span class="text-[10px] text-slate-400 font-mono">build 2026.11.17-f (Single Unified Cursor & MEGATOOL Template Default Display)</span>
                         </div>
                     </div>
                     
@@ -6590,9 +6588,10 @@ toggleListedSort(field) {
                         }
                         this.generatingPreview = false;
                         this.$nextTick(() => lucide.createIcons());
+                    } else if (this.customUseTemplate) {
+                        // User requirement: MEGATOOL template is DEFAULT on cover! Render template so canvas shows the frame right away
+                        this.generatePreviewCover();
                     } else {
-                        // Do not auto-generate on open; show raw image cleanly so user can view without wait.
-                        // User can click "⚡ กดอัปเดตรูปแต่งใหม่" or "✨ แต่งมุมนี้เป็นปก Auto-Spec" when they wish to generate.
                         this.renderedCoverUrl = null;
                         this.generatingPreview = false;
                         this.$nextTick(() => lucide.createIcons());
@@ -6632,33 +6631,32 @@ toggleListedSort(field) {
                     if (this.isImageExcluded(idx)) {
                         this.excludedImageIndices = this.excludedImageIndices.filter(i => i !== idx);
                     }
+                    // Move the ONE single cursor to this angle
                     this.selectedImageIndex = idx;
                     const imgUrl = (this.activePreviewItem?.all_images && this.activePreviewItem.all_images[idx]) || this.activePreviewItem?.image;
                     
-                    if (this.coverMode === 'original') {
+                    // Check if this angle is unframed (user took frame off)
+                    const isUnframed = this.isImageUnframed(imgUrl) || this.coverMode === 'original';
+                    this.customUseTemplate = !isUnframed;
+
+                    if (isUnframed) {
                         this.renderedCoverUrl = imgUrl;
                         this.activeCustomCoverUrl = null;
-                        this.customUseTemplate = false;
                         return;
                     }
-                    
-                    // In Custom mode: check if this angle ALREADY has a saved custom cover
+
+                    // By default: MEGATOOL template is ON for all images!
                     const tmpl = this.coverTemplateType || 'auto_spec';
                     const existingForAngle = (this.savedCoverImages || []).find(c =>
                         typeof c === 'object' && c && c.image_url === imgUrl && (c.template_type || 'auto_spec') === tmpl
                     );
                     if (existingForAngle && (existingForAngle.cdn_url || existingForAngle.url)) {
                         this.selectCustomCoverAsActive(existingForAngle);
-                        this.generatingPreview = false;
                         return;
                     }
 
-                    // DO NOT automatically generate a cover when clicking an angle thumbnail!
-                    // Simply preview the angle photo cleanly without any lag or spinner.
-                    // If the user wants to generate an Auto-Spec cover for this angle, they click "✨ แต่งมุมนี้เป็นปก Auto-Spec"
-                    this.renderedCoverUrl = null;
-                    this.generatingPreview = false;
-                    this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    // Render MEGATOOL template for this selected angle so it displays the frame immediately
+                    this.generatePreviewCover();
                 },
 
                 onTemplateToggleChange() {
@@ -6666,17 +6664,41 @@ toggleListedSort(field) {
                     const currentIdx = this.selectedImageIndex;
                     const currentUrl = (this.activePreviewItem?.all_images && this.activePreviewItem.all_images[currentIdx]) || this.activePreviewItem?.image;
                     if (!this.customUseTemplate) {
+                        // User unchecks template -> remove frame, show raw photo immediately
+                        this.coverMode = 'original';
                         if (currentUrl && !this.unframedUrls.includes(currentUrl)) {
                             this.unframedUrls.push(currentUrl);
                         }
-                        this.renderedCoverUrl = currentUrl;
+                        this.renderedCoverUrl = null;
+                        this.activeCustomCoverUrl = null;
                         this.generatingPreview = false;
                     } else {
+                        // User checks template -> apply MEGATOOL frame immediately
+                        this.coverMode = 'custom';
                         if (currentUrl) {
                             this.unframedUrls = this.unframedUrls.filter(u => u !== currentUrl);
                         }
-                        this.generatePreviewCover();
+                        const tmpl = this.coverTemplateType || 'auto_spec';
+                        const existing = (this.savedCoverImages || []).find(c =>
+                            typeof c === 'object' && c && c.image_url === currentUrl && (c.template_type || 'auto_spec') === tmpl
+                        );
+                        if (existing) {
+                            this.selectCustomCoverAsActive(existing);
+                        } else {
+                            this.generatePreviewCover();
+                        }
                     }
+                    const sku = this.activePreviewItem?.sku || this.activePreviewItem?.code;
+                    if (sku) {
+                        const cartItem = (this.selectedItems || []).find(i => i.sku === sku);
+                        if (cartItem) {
+                            cartItem.use_template = true;
+                            cartItem.unframed_images = [...this.unframedUrls];
+                            this.saveCartToStorage();
+                        }
+                        this.saveCurrentCoverCustomizations(sku);
+                    }
+                    this.$nextTick(() => lucide.createIcons());
                 },
 
                 async generatePreviewCover() {
@@ -6867,6 +6889,14 @@ toggleListedSort(field) {
                     this.userManuallyTurnedOffTemplate = false;
                     this.renderedCoverUrl = chosenUrl;
                     this.activeCustomCoverUrl = chosenUrl;
+
+                    // Sync the ONE cursor in thumbnail row to match this cover's source image
+                    if (typeof cImg === 'object' && cImg.image_url && this.activePreviewItem?.all_images) {
+                        const matchIdx = this.activePreviewItem.all_images.findIndex(u => u === cImg.image_url);
+                        if (matchIdx >= 0) {
+                            this.selectedImageIndex = matchIdx;
+                        }
+                    }
                     
                     // If this saved cover has specs attached, restore them into input fields
                     if (typeof cImg === 'object' && cImg.specs) {
@@ -6906,12 +6936,20 @@ toggleListedSort(field) {
                 },
 
                 isActiveCustomCover(cImg) {
-                    if (!cImg) return false;
+                    if (!cImg || !this.customUseTemplate) return false;
                     const curClean = (this.renderedCoverUrl || this.activeCustomCoverUrl || '').split('?')[0];
                     if (!curClean) return false;
                     const url = (typeof cImg === 'object' ? cImg.url : cImg) || '';
                     const cdnUrl = (typeof cImg === 'object' ? cImg.cdn_url : '') || '';
-                    return (url && url.split('?')[0] === curClean) || (cdnUrl && cdnUrl.split('?')[0] === curClean);
+                    const urlMatch = (url && url.split('?')[0] === curClean) || (cdnUrl && cdnUrl.split('?')[0] === curClean);
+                    if (!urlMatch) return false;
+
+                    // Single Cursor Guard: only mark active if it belongs to the currently selected angle
+                    const curAngleImg = (this.activePreviewItem?.all_images?.[this.selectedImageIndex]) || this.activePreviewItem?.image;
+                    if (typeof cImg === 'object' && cImg.image_url && curAngleImg) {
+                        return cImg.image_url === curAngleImg;
+                    }
+                    return true;
                 },
 
                 revertToOriginalCover() {
