@@ -2147,6 +2147,21 @@
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-5 mt-4 overflow-y-auto flex-1 pr-1.5 min-h-0">
                     <!-- Image Area -->
                     <div class="md:col-span-7 flex flex-col items-center">
+                        <!-- Dedicated Cover Mode Switcher (Custom vs Original) -->
+                        <div class="w-full flex items-center p-1 bg-slate-100 rounded-2xl border border-slate-200/80 mb-2.5 shadow-2xs">
+                            <button type="button" @click="setCoverMode('custom')"
+                                    :class="coverMode === 'custom' ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900 font-medium'"
+                                    class="flex-1 py-1.5 px-3 rounded-xl text-xs flex items-center justify-center space-x-1.5 transition-all cursor-pointer">
+                                <i data-lucide="sparkles" class="w-3.5 h-3.5" :class="coverMode === 'custom' ? 'text-amber-200' : 'text-orange-500'"></i>
+                                <span>🎨 ใช้รูปแต่งเป็นปก (Auto-Spec)</span>
+                            </button>
+                            <button type="button" @click="setCoverMode('original')"
+                                    :class="coverMode === 'original' ? 'bg-slate-800 text-white font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900 font-medium'"
+                                    class="flex-1 py-1.5 px-3 rounded-xl text-xs flex items-center justify-center space-x-1.5 transition-all cursor-pointer">
+                                <i data-lucide="camera" class="w-3.5 h-3.5" :class="coverMode === 'original' ? 'text-emerald-300' : 'text-slate-500'"></i>
+                                <span>📷 ใช้รูปต้นฉบับ Original (ไม่แต่ง)</span>
+                            </button>
+                        </div>
                         <div @click="openImageLightbox(renderedCoverUrl || (activePreviewItem?.all_images?.[selectedImageIndex] || activePreviewItem?.image))"
                              class="w-full max-h-80 sm:max-h-[440px] aspect-square bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center relative shadow-inner cursor-zoom-in group transition-colors hover:border-blue-400 hover:shadow-md"
                              title="คลิกเพื่อดูภาพขนาดใหญ่ (Ultra-HD 2400x2400px)">
@@ -2154,6 +2169,16 @@
                             <img x-show="!renderedCoverUrl" :src="activePreviewItem?.all_images?.[selectedImageIndex] || activePreviewItem?.image" class="max-h-full max-w-full object-contain" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;">
                             
                             <!-- Hover Action Pills: Download & Zoom -->
+                            <!-- Active Cover Mode Status Badge -->
+                            <div class="absolute top-3 left-3 z-10">
+                                <span x-show="coverMode === 'custom'" class="bg-orange-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center space-x-1">
+                                    <span>👑 #1 ปก Shopee: รูปแต่ง Auto-Spec</span>
+                                </span>
+                                <span x-show="coverMode === 'original'" class="bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center space-x-1">
+                                    <span>📷 #1 ปก Shopee: รูปต้นฉบับ Original (ไม่แต่ง)</span>
+                                </span>
+                            </div>
+
                             <div class="absolute bottom-3 right-3 flex items-center space-x-1.5 z-10">
                                 <button type="button"
                                         @click.stop="downloadCurrentImage()"
@@ -2224,16 +2249,16 @@
                                                 class="w-14 h-14 rounded-xl border-2 p-1 flex items-center justify-center transition-all cursor-pointer relative overflow-hidden">
                                             <img :src="img" @error="onImageLoadError(idx, img)" class="max-h-full max-w-full object-contain pointer-events-none">
                                             
-                                            <!-- Cover Badge for Slot 0 (Shows only when NO custom cover is active) -->
-                                            <span x-show="idx === 0 && !isImageExcluded(idx) && !activeCustomCoverUrl" 
-                                                  class="absolute bottom-0 inset-x-0 bg-orange-600 text-white text-[8px] py-0.5 text-center font-bold tracking-tight">
-                                                #1 รูปปก
+                                            <!-- In Original Mode: badge current active angle as #1 Cover -->
+                                            <span x-show="coverMode === 'original' && selectedImageIndex === idx && !isImageExcluded(idx)" 
+                                                  class="absolute bottom-0 inset-x-0 bg-emerald-600 text-white text-[8px] py-0.5 text-center font-bold tracking-tight shadow">
+                                                👑 #1 ปก Original
                                             </span>
 
-                                            <!-- Order Badge when Custom Cover IS active, or for subsequent slots -->
-                                            <span x-show="!isImageExcluded(idx) && (idx > 0 || activeCustomCoverUrl)" 
+                                            <!-- Standard index badge for other images or in Custom mode -->
+                                            <span x-show="!(coverMode === 'original' && selectedImageIndex === idx) && !isImageExcluded(idx)" 
                                                   class="absolute bottom-0 inset-x-0 bg-slate-800/80 text-white text-[8px] py-0.5 text-center font-bold font-mono tracking-tight"
-                                                  x-text="activeCustomCoverUrl ? ('รูปที่ #' + (idx + 1)) : ('#' + (idx + 1))">
+                                                  x-text="'รูปที่ #' + (idx + 1)">
                                             </span>
 
                                             <!-- Unframed Badge -->
@@ -2295,6 +2320,35 @@
                                         </div>
                                     </div>
                                 </template>
+                            </div>
+
+                            <!-- Quick Action Bar for Currently Viewed Angle -->
+                            <div class="mt-2.5 p-2.5 bg-slate-50/90 rounded-2xl border border-slate-200/90 flex flex-wrap items-center justify-between gap-2 text-xs shadow-2xs">
+                                <div class="flex items-center space-x-1.5 flex-wrap">
+                                    <span class="text-slate-500 text-[11px] font-medium">มุมที่เลือกดูอยู่:</span>
+                                    <span class="font-extrabold text-orange-600 font-mono text-[11px] bg-orange-50 px-2 py-0.5 rounded border border-orange-200" x-text="'รูปที่ #' + (selectedImageIndex + 1)"></span>
+                                    <span x-show="coverMode === 'original'" class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-200 flex items-center space-x-1">
+                                        <span>👑 เป็นรูปปก Shopee ปัจจุบัน (Original)</span>
+                                    </span>
+                                    <span x-show="coverMode === 'custom'" class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-200 flex items-center space-x-1">
+                                        <span>🎨 รูปปก Shopee ใช้รูปแต่ง Auto-Spec</span>
+                                    </span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <button type="button" @click="makeAngleCover(selectedImageIndex, false)"
+                                            :class="coverMode === 'original' ? 'bg-emerald-700 text-white shadow-xs font-bold' : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-semibold'"
+                                            class="px-2.5 py-1.5 rounded-xl text-[11px] transition-all flex items-center space-x-1 cursor-pointer"
+                                            title="ใช้รูปมุมนี้เป็นรูปปก Shopee โดยตรง (รูปต้นฉบับ Original ไม่แต่ง/ไม่ใส่กรอบ)">
+                                        <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+                                        <span>⭐ ตั้งมุมนี้เป็นรูปปก Original</span>
+                                    </button>
+                                    <button type="button" @click="makeAngleCover(selectedImageIndex, true)"
+                                            class="px-3 py-1.5 rounded-xl font-bold text-[11px] bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white shadow-xs transition-all flex items-center space-x-1 cursor-pointer"
+                                            title="นำรูปมุมนี้ไปใส่กรอบและแต่งสเปกเป็นรูปปก Auto-Spec">
+                                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-200"></i>
+                                        <span>✨ แต่งมุมนี้เป็นปก Auto-Spec</span>
+                                    </button>
+                                </div>
                             </div>
 
                             <!-- NEW ROW: SAVED CUSTOM COVERS GALLERY (แถวรูปปกที่แต่งเสร็จแล้ว) -->
@@ -2726,7 +2780,7 @@
                                 <h3 class="text-base font-extrabold text-slate-800 tracking-tight">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                                 <span class="bg-orange-100 text-orange-700 text-xs px-2.5 py-0.5 rounded-full font-extrabold shadow-2xs" x-text="selectedItems.length + ' รายการ'"></span>
                             </div>
-                            <span class="text-[10px] text-slate-400 font-mono">build 2026.11.17-b (Pinned Action Bar & Zero-Scroll Excel Button)</span>
+                            <span class="text-[10px] text-slate-400 font-mono">build 2026.11.17-c (Persistent Image Order, Flexible Custom/Original Cover & Zero Contamination)</span>
                         </div>
                     </div>
                     
@@ -3479,6 +3533,7 @@
                 batchAutoSpecDoneMsg: '',
                 customUseTemplate: true,
                 coverTemplateType: 'auto_spec',
+                coverMode: 'custom',
                 userManuallyTurnedOffTemplate: false,
                 unframedUrls: [],
                 openedFromCart: false,
@@ -5927,6 +5982,147 @@ toggleListedSort(field) {
                     return result;
                 },
 
+                saveCustomImageOrder(sku, imgs) {
+                    if (!sku || !Array.isArray(imgs)) return;
+                    try {
+                        let orders = JSON.parse(localStorage.getItem('megatool_image_orders') || '{}');
+                        orders[sku] = [...imgs];
+                        localStorage.setItem('megatool_image_orders', JSON.stringify(orders));
+                        localStorage.setItem('megatool_image_order_' + sku, JSON.stringify([...imgs]));
+                    } catch (e) {}
+                    const cartItem = (this.selectedItems || []).find(i => i.sku === sku);
+                    if (cartItem) {
+                        cartItem.custom_image_order = [...imgs];
+                        cartItem.all_images = [...imgs];
+                        const included = imgs.filter((_, idx) => !this.isImageExcluded(idx));
+                        const currentCover = this.renderedCoverUrl || this.activeCustomCoverUrl;
+                        if (currentCover && this.coverMode === 'custom') {
+                            cartItem.selected_images = [currentCover, ...included.filter(u => u !== currentCover)];
+                        } else {
+                            cartItem.selected_images = [...included];
+                        }
+                        this.saveCartToStorage();
+                    }
+                },
+
+                getCustomImageOrder(sku) {
+                    if (!sku) return null;
+                    try {
+                        const cartItem = (this.selectedItems || []).find(i => i.sku === sku);
+                        if (cartItem && Array.isArray(cartItem.custom_image_order) && cartItem.custom_image_order.length > 0) {
+                            return cartItem.custom_image_order;
+                        }
+                        if (cartItem && Array.isArray(cartItem.all_images) && cartItem.all_images.length > 0) {
+                            return cartItem.all_images;
+                        }
+                        const localSingle = localStorage.getItem('megatool_image_order_' + sku);
+                        if (localSingle) {
+                            const parsed = JSON.parse(localSingle);
+                            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                        }
+                        const allOrders = JSON.parse(localStorage.getItem('megatool_image_orders') || '{}');
+                        if (Array.isArray(allOrders[sku]) && allOrders[sku].length > 0) {
+                            return allOrders[sku];
+                        }
+                    } catch (e) {}
+                    return null;
+                },
+
+                setCoverMode(mode) {
+                    this.coverMode = mode;
+                    const sku = this.activePreviewItem?.sku || this.activePreviewItem?.code;
+                    const imgs = this.activePreviewItem?.all_images || [];
+                    const curAngleImg = imgs[this.selectedImageIndex] || this.activePreviewItem?.image;
+                    
+                    if (mode === 'original') {
+                        this.customUseTemplate = false;
+                        this.userManuallyTurnedOffTemplate = true;
+                        this.activeCustomCoverUrl = null;
+                        this.renderedCoverUrl = curAngleImg;
+                        if (sku) {
+                            const cartItem = (this.selectedItems || []).find(i => i.sku === sku);
+                            if (cartItem) {
+                                cartItem.use_template = false;
+                                cartItem.cdn_url = null;
+                                cartItem.selected_image = curAngleImg;
+                                cartItem.image = curAngleImg;
+                                const included = imgs.filter((_, idx) => !this.isImageExcluded(idx));
+                                const finalImgs = included.length > 0 ? included : (imgs.length > 0 ? imgs : [curAngleImg]);
+                                cartItem.selected_images = [curAngleImg, ...finalImgs.filter(u => u !== curAngleImg)];
+                                this.saveCartToStorage();
+                            }
+                        }
+                    } else {
+                        this.customUseTemplate = true;
+                        this.userManuallyTurnedOffTemplate = false;
+                        if (this.savedCoverImages && this.savedCoverImages.length > 0) {
+                            const tmpl = this.coverTemplateType || 'auto_spec';
+                            const matched = this.savedCoverImages.find(c => 
+                                typeof c === 'object' && c && c.image_url === curAngleImg && (c.template_type || 'auto_spec') === tmpl
+                            );
+                            if (matched) {
+                                this.selectCustomCoverAsActive(matched);
+                            } else {
+                                this.selectCustomCoverAsActive(this.savedCoverImages[0]);
+                            }
+                        } else {
+                            this.renderedCoverUrl = null;
+                            this.generatePreviewCover();
+                        }
+                    }
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                makeAngleCover(idx, asEdited = false) {
+                    if (!this.activePreviewItem) return;
+                    const imgs = this.activePreviewItem.all_images || [];
+                    if (idx < 0 || idx >= imgs.length) return;
+                    this.selectedImageIndex = idx;
+                    const targetImg = imgs[idx];
+                    
+                    if (this.isImageExcluded(idx)) {
+                        this.excludedImageIndices = this.excludedImageIndices.filter(i => i !== idx);
+                    }
+                    
+                    if (asEdited) {
+                        this.coverMode = 'custom';
+                        this.customUseTemplate = true;
+                        this.userManuallyTurnedOffTemplate = false;
+                        const tmpl = this.coverTemplateType || 'auto_spec';
+                        const existing = (this.savedCoverImages || []).find(c => 
+                            typeof c === 'object' && c && c.image_url === targetImg && (c.template_type || 'auto_spec') === tmpl
+                        );
+                        if (existing) {
+                            this.selectCustomCoverAsActive(existing);
+                        } else {
+                            this.renderedCoverUrl = null;
+                            this.generatePreviewCover();
+                        }
+                    } else {
+                        this.coverMode = 'original';
+                        this.customUseTemplate = false;
+                        this.userManuallyTurnedOffTemplate = true;
+                        this.renderedCoverUrl = targetImg;
+                        this.activeCustomCoverUrl = null;
+                        
+                        const sku = this.activePreviewItem.sku || this.activePreviewItem.code;
+                        if (sku) {
+                            const cartItem = (this.selectedItems || []).find(i => i.sku === sku);
+                            if (cartItem) {
+                                cartItem.use_template = false;
+                                cartItem.cdn_url = null;
+                                cartItem.selected_image = targetImg;
+                                cartItem.image = targetImg;
+                                const included = imgs.filter((_, i) => !this.isImageExcluded(i));
+                                const finalImgs = included.length > 0 ? included : [targetImg];
+                                cartItem.selected_images = [targetImg, ...finalImgs.filter(u => u !== targetImg)];
+                                this.saveCartToStorage();
+                            }
+                        }
+                    }
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
                 async openCoverPreview(p, fromCart = false) {
                     this.activePreviewItem = p;
                     this.openedFromCart = Boolean(fromCart);
@@ -5958,30 +6154,41 @@ toggleListedSort(field) {
                         this.savedCoverImages = this.deduplicateSavedCovers(Array.isArray(localCovers) ? localCovers : []);
                     } catch (e) {}
 
-                    // Determine initial cover image: check cartItem or saved covers
-                    const cartCover = cartItem && (cartItem.cdn_url || cartItem.selected_image);
-                    const isCustomCartCover = cartCover && (cartCover.includes('iili.io') || cartCover.includes('/static/covers/') || cartCover.includes('_preview'));
-                    if (isCustomCartCover) {
-                        this.renderedCoverUrl = cartCover;
-                        this.activeCustomCoverUrl = cartCover;
-                        if (this.savedCoverImages.length === 0) {
-                            this.savedCoverImages = [{
-                                url: cartCover,
-                                cdn_url: cartCover.startsWith('http') ? cartCover : (cartItem.cdn_url || null),
-                                image_url: (cartItem.all_images && cartItem.all_images[0]) || p.image || '',
-                                template_type: cartItem.template_type || 'auto_spec',
-                                shop_name: this.shopName
-                            }];
-                        }
-                    } else if (this.savedCoverImages.length > 0) {
-                        const firstCover = typeof this.savedCoverImages[0] === 'object'
-                            ? (this.savedCoverImages[0].cdn_url || this.savedCoverImages[0].url)
-                            : this.savedCoverImages[0];
-                        this.renderedCoverUrl = firstCover;
-                        this.activeCustomCoverUrl = firstCover;
-                    } else {
-                        this.renderedCoverUrl = null;
+                    // Determine initial cover mode (Custom vs Original)
+                    if (cartItem && cartItem.use_template === false) {
+                        this.coverMode = 'original';
+                        this.customUseTemplate = false;
+                        this.userManuallyTurnedOffTemplate = true;
+                        this.renderedCoverUrl = cartItem.selected_image || (p.all_images && p.all_images[0]) || p.image;
                         this.activeCustomCoverUrl = null;
+                    } else {
+                        this.coverMode = 'custom';
+                        this.customUseTemplate = true;
+                        this.userManuallyTurnedOffTemplate = false;
+                        const cartCover = cartItem && (cartItem.cdn_url || cartItem.selected_image);
+                        const isCustomCartCover = cartCover && (cartCover.includes('iili.io') || cartCover.includes('/static/covers/') || cartCover.includes('_preview'));
+                        if (isCustomCartCover) {
+                            this.renderedCoverUrl = cartCover;
+                            this.activeCustomCoverUrl = cartCover;
+                            if (this.savedCoverImages.length === 0) {
+                                this.savedCoverImages = [{
+                                    url: cartCover,
+                                    cdn_url: cartCover.startsWith('http') ? cartCover : (cartItem.cdn_url || null),
+                                    image_url: (cartItem.all_images && cartItem.all_images[0]) || p.image || '',
+                                    template_type: cartItem.template_type || 'auto_spec',
+                                    shop_name: this.shopName
+                                }];
+                            }
+                        } else if (this.savedCoverImages.length > 0) {
+                            const firstCover = typeof this.savedCoverImages[0] === 'object'
+                                ? (this.savedCoverImages[0].cdn_url || this.savedCoverImages[0].url)
+                                : this.savedCoverImages[0];
+                            this.renderedCoverUrl = firstCover;
+                            this.activeCustomCoverUrl = firstCover;
+                        } else {
+                            this.renderedCoverUrl = null;
+                            this.activeCustomCoverUrl = null;
+                        }
                     }
 
                     // Background sync of saved covers and customizations from server
@@ -6232,9 +6439,22 @@ toggleListedSort(field) {
                                 }
                             }
                             if (imgs.length > 0) {
+                                // Apply user's saved custom image order if present
+                                const customOrder = this.getCustomImageOrder(sku);
+                                if (customOrder && Array.isArray(customOrder) && customOrder.length > 0) {
+                                    imgs.sort((a, b) => {
+                                        const idxA = customOrder.indexOf(a);
+                                        const idxB = customOrder.indexOf(b);
+                                        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                                        if (idxA !== -1) return -1;
+                                        if (idxB !== -1) return 1;
+                                        return 0;
+                                    });
+                                }
                                 this.activePreviewItem.all_images = imgs.filter(u => !this.isCollageDeleted(u));
                                 if (cartItem) {
                                     cartItem.all_images = this.activePreviewItem.all_images;
+                                    cartItem.custom_image_order = this.activePreviewItem.all_images;
                                     if (!cartItem.selected_images || cartItem.selected_images.length <= 2) {
                                         const top = cartItem.selected_image || cartItem.cdn_url || this.activePreviewItem.all_images[0];
                                         cartItem.selected_images = [top, ...this.activePreviewItem.all_images.slice(1)];
@@ -6303,11 +6523,23 @@ toggleListedSort(field) {
                     imgs.splice(toIdx, 0, moved);
                     this.activePreviewItem.all_images = imgs;
                     
-                    // Track preview to the moved image or slot 0
+                    const sku = this.activePreviewItem.sku || this.activePreviewItem.code;
+                    this.saveCustomImageOrder(sku, imgs);
+                    
+                    // Track preview to the moved image
                     this.selectedImageIndex = toIdx;
                     const curImg = imgs[toIdx];
-                    this.customUseTemplate = !this.isImageUnframed(curImg);
-                    this.generatePreviewCover();
+                    
+                    if (this.coverMode === 'original') {
+                        this.renderedCoverUrl = curImg;
+                        this.activeCustomCoverUrl = null;
+                        const cartItem = (this.selectedItems || []).find(i => i.sku === sku);
+                        if (cartItem) {
+                            cartItem.selected_image = curImg;
+                            cartItem.image = curImg;
+                            this.saveCartToStorage();
+                        }
+                    }
                     this.$nextTick(() => lucide.createIcons());
                 },
 
@@ -6317,6 +6549,14 @@ toggleListedSort(field) {
                     }
                     this.selectedImageIndex = idx;
                     const imgUrl = (this.activePreviewItem?.all_images && this.activePreviewItem.all_images[idx]) || this.activePreviewItem?.image;
+                    
+                    if (this.coverMode === 'original') {
+                        this.renderedCoverUrl = imgUrl;
+                        this.activeCustomCoverUrl = null;
+                        this.customUseTemplate = false;
+                        return;
+                    }
+                    
                     if (imgUrl && (imgUrl.includes('collage_') || imgUrl.includes('comparison_') || this.isImageUnframed(imgUrl))) {
                         this.customUseTemplate = false;
                         this.renderedCoverUrl = imgUrl;
@@ -6357,6 +6597,8 @@ toggleListedSort(field) {
                 async generatePreviewCover() {
                     if (!this.activePreviewItem) return;
                     const currentIdx = this.selectedImageIndex;
+                    const sku = this.activePreviewItem.sku || this.activePreviewItem.code;
+                    const requestSku = sku;
                     const imgUrl = (this.activePreviewItem.all_images && this.activePreviewItem.all_images[currentIdx]) || this.activePreviewItem.image;
 
                     if (!this.customUseTemplate || (imgUrl && (imgUrl.includes('collage_') || imgUrl.includes('comparison_')))) {
@@ -6366,7 +6608,6 @@ toggleListedSort(field) {
                     }
 
                     this.generatingPreview = true;
-                    const sku = this.activePreviewItem.sku || this.activePreviewItem.code;
                     const brand = this.activePreviewItem.brand || this.activePreviewItem.manufacturer;
                     const tmplType = this.coverTemplateType || 'auto_spec';
 
@@ -6375,7 +6616,7 @@ toggleListedSort(field) {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                sku: sku,
+                                sku: requestSku,
                                 image_url: imgUrl,
                                 brand: brand,
                                 badge_text: this.customBadgeText,
@@ -6391,16 +6632,20 @@ toggleListedSort(field) {
                         });
                         if (res.ok) {
                             const data = await res.json();
-                            if (this.selectedImageIndex === currentIdx) {
-                                this.renderedCoverUrl = data.cdn_url || data.preview_url;
-                                this.activeCustomCoverUrl = data.cdn_url || data.preview_url;
-                                this.saveRenderedCoverToList(sku, data.preview_url, data.cdn_url, imgUrl, tmplType);
+                            // Race condition guard: verify modal is still open and activePreviewItem matches requestSku
+                            if (this.showPreviewModal && this.activePreviewItem && (this.activePreviewItem.sku || this.activePreviewItem.code) === requestSku) {
+                                if (this.selectedImageIndex === currentIdx) {
+                                    this.coverMode = 'custom';
+                                    this.renderedCoverUrl = data.cdn_url || data.preview_url;
+                                    this.activeCustomCoverUrl = data.cdn_url || data.preview_url;
+                                    this.saveRenderedCoverToList(requestSku, data.preview_url, data.cdn_url, imgUrl, tmplType);
+                                }
                             }
                         }
                     } catch (e) {
                         console.error('Preview error:', e);
                     }
-                    if (this.selectedImageIndex === currentIdx) {
+                    if (this.activePreviewItem && (this.activePreviewItem.sku || this.activePreviewItem.code) === requestSku && this.selectedImageIndex === currentIdx) {
                         this.generatingPreview = false;
                     }
                     this.$nextTick(() => lucide.createIcons());
@@ -6526,6 +6771,9 @@ toggleListedSort(field) {
                 selectCustomCoverAsActive(cImg) {
                     const chosenUrl = (typeof cImg === 'object' && cImg.cdn_url) ? cImg.cdn_url : ((typeof cImg === 'object' && cImg.url) ? cImg.url : cImg);
                     if (!chosenUrl) return;
+                    this.coverMode = 'custom';
+                    this.customUseTemplate = true;
+                    this.userManuallyTurnedOffTemplate = false;
                     this.renderedCoverUrl = chosenUrl;
                     this.activeCustomCoverUrl = chosenUrl;
                     
@@ -6576,28 +6824,7 @@ toggleListedSort(field) {
                 },
 
                 revertToOriginalCover() {
-                    this.renderedCoverUrl = null;
-                    this.activeCustomCoverUrl = null;
-                    this.selectedImageIndex = 0;
-                    const sku = this.activePreviewItem?.sku || this.activePreviewItem?.code;
-                    const rawImg = this.activePreviewItem?.all_images?.[0] || this.activePreviewItem?.image;
-                    if (sku && rawImg) {
-                        const cartItem = (this.selectedItems || []).find(i => i.sku === sku);
-                        if (cartItem) {
-                            cartItem.cdn_url = null;
-                            cartItem.selected_image = rawImg;
-                            cartItem.image = rawImg;
-                            if (cartItem.selected_images && cartItem.selected_images.length > 0) {
-                                cartItem.selected_images = cartItem.selected_images.filter(u => !u.includes('_preview') && !u.includes('/static/covers/'));
-                                if (!cartItem.selected_images.includes(rawImg)) cartItem.selected_images.unshift(rawImg);
-                            }
-                            this.saveCartToStorage();
-                        }
-                        if (this.activePreviewItem) {
-                            this.activePreviewItem.selected_image = rawImg;
-                            this.activePreviewItem.image = rawImg;
-                        }
-                    }
+                    this.setCoverMode('original');
                 },
 
                 saveRenderedCoverToList(sku, coverUrl, cdnUrl, sourceImageUrl = null, templateType = 'auto_spec') {
@@ -7181,23 +7408,41 @@ toggleListedSort(field) {
                         ? this.activePreviewItem.all_images
                         : [this.activePreviewItem.image];
                     
+                    // Permanently persist customized image order
+                    this.saveCustomImageOrder(sku, allImgs);
+                    
                     const includedImgs = allImgs.filter((_, idx) => !this.isImageExcluded(idx));
                     const finalImgs = includedImgs.length > 0 ? includedImgs : [allImgs[0]];
                     
-                    const activeCustomCover = this.renderedCoverUrl || this.activeCustomCoverUrl;
-                    const coverImg = activeCustomCover || finalImgs[0];
-                    const orderedImgs = activeCustomCover 
-                        ? [activeCustomCover, ...finalImgs.filter(u => u !== activeCustomCover)]
-                        : [...finalImgs];
-                    
-                    const allUnframed = allImgs.length > 0 && allImgs.every(u => this.isImageUnframed(u));
-                    const itemUseTemplate = !allUnframed;
+                    let coverImg = null;
+                    let orderedImgs = [];
+                    let itemUseTemplate = true;
+                    let cdnUrl = null;
+
+                    if (this.coverMode === 'original') {
+                        const rawCover = finalImgs[this.selectedImageIndex] || finalImgs[0];
+                        coverImg = rawCover;
+                        orderedImgs = [rawCover, ...finalImgs.filter(u => u !== rawCover)];
+                        itemUseTemplate = false;
+                        cdnUrl = null;
+                    } else {
+                        const activeCustomCover = this.renderedCoverUrl || this.activeCustomCoverUrl;
+                        coverImg = activeCustomCover || finalImgs[0];
+                        orderedImgs = activeCustomCover 
+                            ? [activeCustomCover, ...finalImgs.filter(u => u !== activeCustomCover)]
+                            : [...finalImgs];
+                        itemUseTemplate = true;
+                        cdnUrl = (activeCustomCover && activeCustomCover.startsWith('http')) ? activeCustomCover : null;
+                    }
 
                     const existingIndex = this.selectedItems.findIndex(i => i.sku === sku);
                     if (existingIndex >= 0) {
                         this.selectedItems[existingIndex].image = coverImg;
                         this.selectedItems[existingIndex].selected_image = coverImg;
                         this.selectedItems[existingIndex].selected_images = orderedImgs;
+                        this.selectedItems[existingIndex].all_images = [...allImgs];
+                        this.selectedItems[existingIndex].custom_image_order = [...allImgs];
+                        this.selectedItems[existingIndex].cdn_url = cdnUrl;
                         this.selectedItems[existingIndex].excluded_indices = [...this.excludedImageIndices];
                         this.selectedItems[existingIndex].badge = this.customBadgeText;
                         this.selectedItems[existingIndex].use_template = itemUseTemplate;
@@ -7226,6 +7471,9 @@ toggleListedSort(field) {
                             image: coverImg,
                             selected_image: coverImg,
                             selected_images: orderedImgs,
+                            all_images: [...allImgs],
+                            custom_image_order: [...allImgs],
+                            cdn_url: cdnUrl,
                             excluded_indices: [...this.excludedImageIndices],
                             badge: this.customBadgeText,
                             use_template: itemUseTemplate,

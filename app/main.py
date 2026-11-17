@@ -1180,8 +1180,18 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
         if not sku or sku not in target_skus:
             return False
 
+        # If user explicitly set item to use original raw cover, do not overwrite unless forced
+        if item.get("use_template") is False and not req.force_regenerate:
+            return False
+
         detail = get_product_detail(sku) or {}
-        imgs = extract_product_images(detail)
+        user_ordered_imgs = item.get("custom_image_order") or item.get("all_images")
+        if user_ordered_imgs and isinstance(user_ordered_imgs, list) and len(user_ordered_imgs) > 0:
+            raw_user_imgs = [u for u in user_ordered_imgs if u and "/static/covers/" not in str(u) and "iili.io" not in str(u)]
+            imgs = raw_user_imgs if raw_user_imgs else extract_product_images(detail)
+        else:
+            imgs = extract_product_images(detail)
+
         # Core Rule: ALWAYS use Image 1 (imgs[0]) as the primary raw source photo for cover creation
         raw_img = imgs[0] if imgs else (item.get("image") or item.get("selected_image") or "")
         if "iili.io" in str(raw_img) or "/static/covers/" in str(raw_img):
