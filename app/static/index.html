@@ -2171,11 +2171,14 @@
                             <!-- Hover Action Pills: Download & Zoom -->
                             <!-- Active Cover Mode Status Badge -->
                             <div class="absolute top-3 left-3 z-10">
-                                <span x-show="coverMode === 'custom'" class="bg-orange-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center space-x-1">
+                                <span x-show="renderedCoverUrl && coverMode === 'custom'" class="bg-orange-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center space-x-1">
                                     <span>👑 #1 ปก Shopee: รูปแต่ง Auto-Spec</span>
                                 </span>
-                                <span x-show="coverMode === 'original'" class="bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center space-x-1">
+                                <span x-show="renderedCoverUrl && coverMode === 'original'" class="bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center space-x-1">
                                     <span>📷 #1 ปก Shopee: รูปต้นฉบับ Original (ไม่แต่ง)</span>
+                                </span>
+                                <span x-show="!renderedCoverUrl" class="bg-slate-900/80 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center space-x-1">
+                                    <span x-text="'มุมมองภาพ: รูปที่ #' + (selectedImageIndex + 1)"></span>
                                 </span>
                             </div>
 
@@ -2789,7 +2792,7 @@
                                 <h3 class="text-base font-extrabold text-slate-800 tracking-tight">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                                 <span class="bg-orange-100 text-orange-700 text-xs px-2.5 py-0.5 rounded-full font-extrabold shadow-2xs" x-text="selectedItems.length + ' รายการ'"></span>
                             </div>
-                            <span class="text-[10px] text-slate-400 font-mono">build 2026.11.17-d (MEGATOOL Frame by Default & 100% Online Sync Across Machines)</span>
+                            <span class="text-[10px] text-slate-400 font-mono">build 2026.11.17-e (Manual On-Demand Cover Generation & Instant Angle Browsing)</span>
                         </div>
                     </div>
                     
@@ -6588,7 +6591,11 @@ toggleListedSort(field) {
                         this.generatingPreview = false;
                         this.$nextTick(() => lucide.createIcons());
                     } else {
-                        this.generatePreviewCover();
+                        // Do not auto-generate on open; show raw image cleanly so user can view without wait.
+                        // User can click "⚡ กดอัปเดตรูปแต่งใหม่" or "✨ แต่งมุมนี้เป็นปก Auto-Spec" when they wish to generate.
+                        this.renderedCoverUrl = null;
+                        this.generatingPreview = false;
+                        this.$nextTick(() => lucide.createIcons());
                     }
                 },
 
@@ -6635,12 +6642,7 @@ toggleListedSort(field) {
                         return;
                     }
                     
-                    if (imgUrl && (imgUrl.includes('collage_') || imgUrl.includes('comparison_') || this.isImageUnframed(imgUrl))) {
-                        this.customUseTemplate = false;
-                        this.renderedCoverUrl = imgUrl;
-                        return;
-                    }
-                    this.customUseTemplate = true;
+                    // In Custom mode: check if this angle ALREADY has a saved custom cover
                     const tmpl = this.coverTemplateType || 'auto_spec';
                     const existingForAngle = (this.savedCoverImages || []).find(c =>
                         typeof c === 'object' && c && c.image_url === imgUrl && (c.template_type || 'auto_spec') === tmpl
@@ -6650,8 +6652,13 @@ toggleListedSort(field) {
                         this.generatingPreview = false;
                         return;
                     }
+
+                    // DO NOT automatically generate a cover when clicking an angle thumbnail!
+                    // Simply preview the angle photo cleanly without any lag or spinner.
+                    // If the user wants to generate an Auto-Spec cover for this angle, they click "✨ แต่งมุมนี้เป็นปก Auto-Spec"
                     this.renderedCoverUrl = null;
-                    this.generatePreviewCover();
+                    this.generatingPreview = false;
+                    this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                 },
 
                 onTemplateToggleChange() {
