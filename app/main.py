@@ -921,6 +921,11 @@ def api_preview_cover(req: PreviewRequest):
     url_hash = hashlib.md5(f"{req.image_url}_{shop_str}_{tmpl_type}_{req.badge_text}_{req.custom_model}_{custom_str}".encode('utf-8')).hexdigest()[:8]
     output_filename = f"{req.sku}_{shop_str}_{tmpl_type}_{url_hash}_preview.jpg"
     output_path = f"app/static/covers/{output_filename}"
+    
+    # Fast Disk Cache for Standard Angle Templates: 0ms return if already generated
+    if tmpl_type == "standard" and os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
+        return {"preview_url": f"/static/covers/{output_filename}", "cdn_url": None}
+
     try:
         generate_cover(
             req.image_url,
@@ -942,112 +947,113 @@ def api_preview_cover(req: PreviewRequest):
         t_stamp = int(time.time())
         preview_url = f"/static/covers/{output_filename}?t={t_stamp}"
 
-        # Auto-register newly generated cover into saved_covers.json and launch CDN backup
-        try:
-            from datetime import datetime
-            import threading
-            db = _load_saved_covers_db()
-            if req.sku not in db:
-                db[req.sku] = []
-            clean_url = f"/static/covers/{output_filename}"
-            existing_entry = next(
-                (
-                    c for c in db[req.sku]
-                    if isinstance(c, dict) and (
-                        c.get("url", "").split("?")[0] == clean_url or
-                        (
-                            c.get("image_url") == req.image_url and
-                            (c.get("template_type") or "auto_spec") == tmpl_type and
-                            (c.get("shop_name") or "MEGATOOL") == (req.shop_name or "MEGATOOL")
+        # Auto-register newly generated cover into saved_covers.json ONLY if auto_spec cover
+        if tmpl_type == "auto_spec":
+            try:
+                from datetime import datetime
+                import threading
+                db = _load_saved_covers_db()
+                if req.sku not in db:
+                    db[req.sku] = []
+                clean_url = f"/static/covers/{output_filename}"
+                existing_entry = next(
+                    (
+                        c for c in db[req.sku]
+                        if isinstance(c, dict) and (
+                            c.get("url", "").split("?")[0] == clean_url or
+                            (
+                                c.get("image_url") == req.image_url and
+                                (c.get("template_type") or "auto_spec") == tmpl_type and
+                                (c.get("shop_name") or "MEGATOOL") == (req.shop_name or "MEGATOOL")
+                            )
                         )
-                    )
-                ),
-                None
-            )
-            if existing_entry:
-                if existing_entry.get("url", "").split("?")[0] != clean_url:
-                    existing_entry["url"] = clean_url
-                    existing_entry["cdn_url"] = None
-                existing_entry["image_url"] = req.image_url
-                existing_entry["brand"] = brand
-                existing_entry["badge_text"] = req.badge_text
-                existing_entry["shop_name"] = req.shop_name or "MEGATOOL"
-                existing_entry["template_type"] = tmpl_type
-                existing_entry["specs"] = {
-                    "custom_category": req.custom_category,
-                    "custom_model": req.custom_model,
-                    "custom_hero_pills": req.custom_hero_pills,
-                    "custom_spec_cards": req.custom_spec_cards,
-                    "custom_trust_s1": req.custom_trust_s1,
-                    "custom_trust_s2": req.custom_trust_s2
-                }
-                existing_entry["created_at"] = datetime.now().isoformat()
-            else:
-                new_cover_entry = {
-                    "url": clean_url,
-                    "cdn_url": None,
-                    "sku": req.sku,
-                    "image_url": req.image_url,
-                    "brand": brand,
-                    "badge_text": req.badge_text,
-                    "shop_name": req.shop_name or "MEGATOOL",
-                    "template_type": tmpl_type,
-                    "specs": {
+                    ),
+                    None
+                )
+                if existing_entry:
+                    if existing_entry.get("url", "").split("?")[0] != clean_url:
+                        existing_entry["url"] = clean_url
+                        existing_entry["cdn_url"] = None
+                    existing_entry["image_url"] = req.image_url
+                    existing_entry["brand"] = brand
+                    existing_entry["badge_text"] = req.badge_text
+                    existing_entry["shop_name"] = req.shop_name or "MEGATOOL"
+                    existing_entry["template_type"] = tmpl_type
+                    existing_entry["specs"] = {
                         "custom_category": req.custom_category,
                         "custom_model": req.custom_model,
                         "custom_hero_pills": req.custom_hero_pills,
                         "custom_spec_cards": req.custom_spec_cards,
                         "custom_trust_s1": req.custom_trust_s1,
                         "custom_trust_s2": req.custom_trust_s2
-                    },
-                    "created_at": datetime.now().isoformat()
-                }
-                db[req.sku].insert(0, new_cover_entry)
-                db[req.sku] = db[req.sku][:15]
-            _save_saved_covers_db(db)
+                    }
+                    existing_entry["created_at"] = datetime.now().isoformat()
+                else:
+                    new_cover_entry = {
+                        "url": clean_url,
+                        "cdn_url": None,
+                        "sku": req.sku,
+                        "image_url": req.image_url,
+                        "brand": brand,
+                        "badge_text": req.badge_text,
+                        "shop_name": req.shop_name or "MEGATOOL",
+                        "template_type": tmpl_type,
+                        "specs": {
+                            "custom_category": req.custom_category,
+                            "custom_model": req.custom_model,
+                            "custom_hero_pills": req.custom_hero_pills,
+                            "custom_spec_cards": req.custom_spec_cards,
+                            "custom_trust_s1": req.custom_trust_s1,
+                            "custom_trust_s2": req.custom_trust_s2
+                        },
+                        "created_at": datetime.now().isoformat()
+                    }
+                    db[req.sku].insert(0, new_cover_entry)
+                    db[req.sku] = db[req.sku][:15]
+                _save_saved_covers_db(db)
 
-            # Auto-save customizations to app/data/cover_customizations.json
-            try:
-                cust_file = "app/data/cover_customizations.json"
-                cust_data = {}
-                if os.path.exists(cust_file):
-                    with open(cust_file, "r", encoding="utf-8") as f:
-                        cust_data = json.load(f)
-                prev_t = (cust_data.get(req.sku) or {}).get("shopee_title") if isinstance(cust_data.get(req.sku), dict) else None
-                cust_data[req.sku] = {
-                    "custom_model": req.custom_model,
-                    "custom_category": req.custom_category,
-                    "custom_hero_pills": req.custom_hero_pills,
-                    "custom_spec_cards": req.custom_spec_cards,
-                    "custom_trust_s1": req.custom_trust_s1,
-                    "custom_trust_s2": req.custom_trust_s2,
-                    "shopee_title": prev_t or get_custom_shopee_title(req.sku),
-                    "updated_at": int(time.time())
-                }
-                with open(cust_file, "w", encoding="utf-8") as f:
-                    json.dump(cust_data, f, ensure_ascii=False, indent=2)
-            except Exception as ce:
-                print("Auto-save cover_customizations error:", ce)
-
-            # Background CDN upload so the cover has a permanent global URL
-            def bg_upload_cover(target_file, target_sku, target_clean_url):
+                # Auto-save customizations to app/data/cover_customizations.json
                 try:
-                    from app.image_service import upload_to_cdn
-                    cdn_res = upload_to_cdn(target_file, force=True)
-                    if cdn_res and cdn_res.startswith("http"):
-                        cur_db = _load_saved_covers_db()
-                        if target_sku in cur_db:
-                            for it in cur_db[target_sku]:
-                                if isinstance(it, dict) and it.get("url", "").split("?")[0] == target_clean_url:
-                                    it["cdn_url"] = cdn_res
-                                    break
-                            _save_saved_covers_db(cur_db)
-                except Exception as ex:
-                    print("Background CDN upload error:", ex)
+                    cust_file = "app/data/cover_customizations.json"
+                    cust_data = {}
+                    if os.path.exists(cust_file):
+                        with open(cust_file, "r", encoding="utf-8") as f:
+                            cust_data = json.load(f)
+                    prev_t = (cust_data.get(req.sku) or {}).get("shopee_title") if isinstance(cust_data.get(req.sku), dict) else None
+                    cust_data[req.sku] = {
+                        "custom_model": req.custom_model,
+                        "custom_category": req.custom_category,
+                        "custom_hero_pills": req.custom_hero_pills,
+                        "custom_spec_cards": req.custom_spec_cards,
+                        "custom_trust_s1": req.custom_trust_s1,
+                        "custom_trust_s2": req.custom_trust_s2,
+                        "shopee_title": prev_t or get_custom_shopee_title(req.sku),
+                        "updated_at": int(time.time())
+                    }
+                    with open(cust_file, "w", encoding="utf-8") as f:
+                        json.dump(cust_data, f, ensure_ascii=False, indent=2)
+                except Exception as ce:
+                    print("Auto-save cover_customizations error:", ce)
 
-            threading.Thread(target=bg_upload_cover, args=(output_path, req.sku, clean_url), daemon=True).start()
-        except Exception as e:
-            print("Auto-save cover failed:", e)
+                # Background CDN upload so the cover has a permanent global URL
+                def bg_upload_cover(target_file, target_sku, target_clean_url):
+                    try:
+                        from app.image_service import upload_to_cdn
+                        cdn_res = upload_to_cdn(target_file, force=True)
+                        if cdn_res and cdn_res.startswith("http"):
+                            cur_db = _load_saved_covers_db()
+                            if target_sku in cur_db:
+                                for it in cur_db[target_sku]:
+                                    if isinstance(it, dict) and it.get("url", "").split("?")[0] == target_clean_url:
+                                        it["cdn_url"] = cdn_res
+                                        break
+                                _save_saved_covers_db(cur_db)
+                    except Exception as ex:
+                        print("Background CDN upload error:", ex)
+
+                threading.Thread(target=bg_upload_cover, args=(output_path, req.sku, clean_url), daemon=True).start()
+            except Exception as e:
+                print("Auto-save cover failed:", e)
 
         cdn_cached = None
         try:
