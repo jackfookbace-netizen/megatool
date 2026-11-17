@@ -2163,11 +2163,17 @@
                             </button>
                         </div>
                         <div @click="openImageLightbox(getCanvasImageUrl())"
-                             class="w-full max-h-80 sm:max-h-[440px] aspect-square bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center relative shadow-inner cursor-zoom-in group transition-colors hover:border-blue-400 hover:shadow-md"
+                             class="w-full max-w-[440px] aspect-square mx-auto bg-white border border-slate-200 rounded-xl overflow-hidden flex items-center justify-center relative shadow-inner cursor-zoom-in group transition-colors hover:border-blue-400 hover:shadow-md"
                              title="คลิกเพื่อดูภาพขนาดใหญ่ (Ultra-HD 2400x2400px)">
-                            <img :src="getCanvasImageUrl()" @error="onCoverLoadError($event)" class="max-h-full max-w-full object-contain" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;">
+                            <img :src="getCanvasImageUrl()" @error="onCoverLoadError($event)" class="w-full h-full object-contain" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;">
+                            
+                            <!-- Instant 2400x2400 Official Pillow-Rendered MEGATOOL Frame PNG (0ms, 100% Exact Scale on all angles) -->
+                            <img x-show="shouldShowInstantFrameOverlay()"
+                                 :src="getShopFrameOverlayUrl()"
+                                 class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none z-10"
+                                 style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;">
 
-                            <div class="absolute bottom-3 right-3 flex items-center space-x-1.5 z-10">
+                            <div class="absolute bottom-3 left-3 flex items-center space-x-1.5 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button type="button"
                                         @click.stop="downloadCurrentImage()"
                                         class="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-lg backdrop-blur-sm transition-all flex items-center space-x-1 cursor-pointer"
@@ -2175,13 +2181,13 @@
                                     <i data-lucide="download" class="w-3.5 h-3.5"></i>
                                     <span>ดาวน์โหลด</span>
                                 </button>
-                                <div class="bg-slate-900/80 hover:bg-slate-900 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-lg backdrop-blur-sm opacity-90 group-hover:opacity-100 transition-opacity flex items-center space-x-1.5 pointer-events-none">
+                                <div class="bg-slate-900/80 hover:bg-slate-900 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-lg backdrop-blur-sm flex items-center space-x-1.5 pointer-events-none">
                                     <i data-lucide="maximize-2" class="w-3.5 h-3.5"></i>
                                     <span>คลิกดูรูปใหญ่ (Ultra-HD)</span>
                                 </div>
                             </div>
 
-                            <div x-show="generatingPreview" class="absolute inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center pointer-events-auto">
+                            <div x-show="generatingPreview" class="absolute inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center pointer-events-auto z-30">
                                 <div class="text-center">
                                     <div class="animate-spin text-2xl mb-1">⏳</div>
                                     <span class="text-xs font-bold text-slate-700">กำลังแต่งรูปปก...</span>
@@ -2234,8 +2240,11 @@
                                                     selectedImageIndex === idx ? 'border-blue-600 ring-2 ring-blue-400 opacity-100 scale-105 shadow-md bg-blue-50/20' : 'border-slate-200 opacity-80 hover:opacity-100 bg-white',
                                                     isImageExcluded(idx) ? 'opacity-30 grayscale border-rose-300 bg-rose-50/50' : ''
                                                 ]"
-                                                class="w-14 h-14 rounded-xl border-2 p-1 flex items-center justify-center transition-all cursor-pointer relative overflow-hidden">
-                                            <img :src="img" @error="onImageLoadError(idx, img)" class="max-h-full max-w-full object-contain pointer-events-none">
+                                                class="w-14 h-14 rounded-xl border-2 p-0.5 flex items-center justify-center transition-all cursor-pointer relative overflow-hidden">
+                                            <img :src="img" @error="onImageLoadError(idx, img)" class="w-full h-full object-contain pointer-events-none">
+                                            <img x-show="coverMode !== 'original' && !isImageUnframed(img) && !isCollageImage(img)"
+                                                 :src="getShopFrameOverlayUrl()"
+                                                 class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none">
                                             
                                             <!-- In Original Mode: badge current active angle as #1 Cover -->
                                             <span x-show="coverMode === 'original' && selectedImageIndex === idx && !isImageExcluded(idx)" 
@@ -2781,7 +2790,7 @@
                                 <h3 class="text-base font-extrabold text-slate-800 tracking-tight">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                                 <span class="bg-orange-100 text-orange-700 text-xs px-2.5 py-0.5 rounded-full font-extrabold shadow-2xs" x-text="selectedItems.length + ' รายการ'"></span>
                             </div>
-                            <span class="text-[10px] text-slate-400 font-mono">build 2026.11.17-i (100% Pixel-Perfect Real Python MEGATOOL Template on All Angles & Zero Distortion)</span>
+                            <span class="text-[10px] text-slate-400 font-mono">build 2026.11.17-j (100% True 1:1 Square Scale & Instant 2400x2400 Pillow MEGATOOL Frame on All Angles)</span>
                         </div>
                     </div>
                     
@@ -3423,10 +3432,17 @@
                      :class="lightboxZoomed ? 'overflow-auto items-start justify-start cursor-zoom-out' : 'overflow-hidden cursor-zoom-in'"
                      @click="lightboxZoomed = !lightboxZoomed"
                      title="คลิกที่รูปเพื่อสลับซูมดูรายละเอียดตัวอักษรขนาดจริง (2400x2400px)">
-                    <img :src="lightboxImageUrl" 
-                         :class="lightboxZoomed ? 'w-[1400px] max-w-none h-auto select-none' : 'max-h-[81vh] max-w-[88vw] object-contain rounded-xl select-none'"
-                         style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;"
-                         alt="รูปขยายขนาดใหญ่">
+                    <div class="relative flex items-center justify-center aspect-square bg-white"
+                         :class="lightboxZoomed ? 'w-[1400px] h-[1400px] shrink-0' : 'h-[80vh] w-[80vh] max-w-[88vw] max-h-[88vw]'">
+                        <img :src="lightboxImageUrl" 
+                             class="w-full h-full object-contain select-none"
+                             style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;"
+                             alt="รูปขยายขนาดใหญ่">
+                        <img x-show="shouldShowLightboxFrameOverlay(lightboxImageUrl)"
+                             :src="getShopFrameOverlayUrl()"
+                             class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none"
+                             style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;">
+                    </div>
                 </div>
                 <div class="mt-3 flex flex-wrap items-center justify-center gap-3">
                     <button type="button"
@@ -6056,20 +6072,24 @@ toggleListedSort(field) {
                     const img = this.activePreviewItem.all_images[idx];
                     if (!img) return;
                     if (this.isImageUnframed(img)) {
-                        // Re-enable MEGATOOL frame for this image
+                        // Re-enable MEGATOOL frame for this image (0ms instant frame overlay)
                         this.unframedUrls = this.unframedUrls.filter(u => u !== img);
                         if (this.selectedImageIndex === idx) {
                             this.customUseTemplate = true;
-                            this.generatePreviewCover();
+                            const tmpl = this.coverTemplateType || 'auto_spec';
+                            const existing = (this.savedCoverImages || []).find(c =>
+                                typeof c === 'object' && c && c.image_url === img && (c.template_type || 'auto_spec') === tmpl
+                            );
+                            this.renderedCoverUrl = existing ? (existing.cdn_url || existing.url) : null;
                         }
                     } else {
-                        // Remove frame from this image
+                        // Remove frame from this image (0ms raw image)
                         if (!this.unframedUrls.includes(img)) {
                             this.unframedUrls.push(img);
                         }
                         if (this.selectedImageIndex === idx) {
                             this.customUseTemplate = false;
-                            this.renderedCoverUrl = img;
+                            this.renderedCoverUrl = null;
                         }
                     }
                     const sku = this.activePreviewItem.sku || this.activePreviewItem.code;
@@ -6095,7 +6115,7 @@ toggleListedSort(field) {
                         this.customUseTemplate = false;
                         this.userManuallyTurnedOffTemplate = true;
                         this.activeCustomCoverUrl = null;
-                        this.renderedCoverUrl = curAngleImg;
+                        this.renderedCoverUrl = null;
                         // Mark only the cover photo as unframed, so subsequent images keep their MEGATOOL frame by default
                         if (curAngleImg && !this.unframedUrls.includes(curAngleImg)) {
                             this.unframedUrls.push(curAngleImg);
@@ -6118,6 +6138,9 @@ toggleListedSort(field) {
                     } else {
                         this.customUseTemplate = true;
                         this.userManuallyTurnedOffTemplate = false;
+                        if (curAngleImg) {
+                            this.unframedUrls = (this.unframedUrls || []).filter(u => u !== curAngleImg);
+                        }
                         if (this.savedCoverImages && this.savedCoverImages.length > 0) {
                             const tmpl = this.coverTemplateType || 'auto_spec';
                             const matched = this.savedCoverImages.find(c => 
@@ -6563,7 +6586,6 @@ toggleListedSort(field) {
                     }
 
                     const curImg = (this.activePreviewItem?.all_images && this.activePreviewItem.all_images[this.selectedImageIndex]) || this.activePreviewItem?.image;
-                    this.customUseTemplate = !this.isImageUnframed(curImg);
 
                     // DO NOT re-render if a saved cover already exists! Show it immediately in 0ms.
                     const hasExistingCover = Boolean(
@@ -6579,22 +6601,18 @@ toggleListedSort(field) {
                             this.renderedCoverUrl = first;
                             this.activeCustomCoverUrl = first;
                         }
+                        if (this.coverMode === 'custom' && curImg) {
+                            this.unframedUrls = (this.unframedUrls || []).filter(u => u !== curImg);
+                        }
+                        this.customUseTemplate = !this.isImageUnframed(curImg) && this.coverMode !== 'original';
                         this.generatingPreview = false;
                         this.$nextTick(() => lucide.createIcons());
                     } else {
-                        // ZERO delay on open! Just show clean original photo without auto-generating
+                        // ZERO delay on open! Instant 2400x2400 MEGATOOL frame overlay is shown in 0ms
+                        this.customUseTemplate = !this.isImageUnframed(curImg) && this.coverMode !== 'original';
                         this.renderedCoverUrl = null;
                         this.generatingPreview = false;
                         this.$nextTick(() => lucide.createIcons());
-                    }
-
-                    // Background prefetch real Python-rendered MEGATOOL templates for all angles
-                    if (this.activePreviewItem?.all_images) {
-                        this.activePreviewItem.all_images.forEach(u => {
-                            if (u && !this.isImageUnframed(u)) {
-                                this.fetchStandardAngleCover(u);
-                            }
-                        });
                     }
                 },
 
@@ -6615,7 +6633,7 @@ toggleListedSort(field) {
                     const curImg = imgs[toIdx];
                     
                     if (this.coverMode === 'original') {
-                        this.renderedCoverUrl = curImg;
+                        this.renderedCoverUrl = null;
                         this.activeCustomCoverUrl = null;
                         const cartItem = (this.selectedItems || []).find(i => i.sku === sku);
                         if (cartItem) {
@@ -6641,22 +6659,27 @@ toggleListedSort(field) {
 
                     if (isUnframed) {
                         this.renderedCoverUrl = null;
-                        this.activeCustomCoverUrl = null;
                         this.generatingPreview = false;
                         return;
                     }
 
                     // Check if this angle already has a saved cover: show it immediately in 0ms!
                     const tmpl = this.coverTemplateType || 'auto_spec';
-                    const existingForAngle = (this.savedCoverImages || []).find(c =>
-                        typeof c === 'object' && c && c.image_url === imgUrl && (c.template_type || 'auto_spec') === tmpl
-                    );
-                    if (existingForAngle && (existingForAngle.cdn_url || existingForAngle.url)) {
+                    const existingForAngle = (this.savedCoverImages || []).find((c, cIdx) => {
+                        if (typeof c === 'object' && c) {
+                            if (c.image_url) {
+                                return c.image_url === imgUrl && (c.template_type || 'auto_spec') === tmpl;
+                            }
+                            return idx === 0 && cIdx === 0;
+                        }
+                        return idx === 0 && cIdx === 0;
+                    });
+                    if (existingForAngle && (existingForAngle.cdn_url || existingForAngle.url || typeof existingForAngle === 'string')) {
                         this.selectCustomCoverAsActive(existingForAngle);
                         return;
                     }
 
-                    // Otherwise, just display clean original photo angle with ZERO delay - NEVER auto-generate!
+                    // Otherwise, display angle with instant 2400x2400 MEGATOOL frame PNG in 0ms - NEVER auto-generate spec!
                     this.renderedCoverUrl = null;
                     this.generatingPreview = false;
                     this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
@@ -7413,47 +7436,46 @@ toggleListedSort(field) {
                     return null;
                 },
 
-                isRawAngleWithTemplate() {
-                    if (this.renderedCoverUrl) return false;
-                    if (!this.customUseTemplate || this.coverMode === 'original') return false;
-                    const curImg = (this.activePreviewItem?.all_images && this.activePreviewItem.all_images[this.selectedImageIndex]) || this.activePreviewItem?.image;
-                    return Boolean(curImg && !this.isImageUnframed(curImg));
+                getShopFrameOverlayUrl() {
+                    const s = (this.shopName || (this.currentShop && this.currentShop.brand_display) || '').toLowerCase();
+                    if (s.includes('bigpower') || s.includes('big power') || this.activeShopId === 'shop_2') {
+                        return '/static/frames/bigpower_standard_frame.png';
+                    }
+                    return '/static/frames/megatool_standard_frame.png';
                 },
 
-                async fetchStandardAngleCover(imgUrl) {
-                    if (!imgUrl || typeof imgUrl !== 'string') return null;
-                    if (this.standardAngleCovers && this.standardAngleCovers[imgUrl]) {
-                        return this.standardAngleCovers[imgUrl];
+                isAlreadyRenderedCoverUrl(url) {
+                    if (!url || typeof url !== 'string') return false;
+                    if (url.includes('/static/covers/') || url.includes('_preview') || url.includes('collage_') || url.includes('comparison_')) {
+                        return true;
                     }
-                    const sku = this.activePreviewItem?.sku || this.activePreviewItem?.code;
-                    const brand = this.activePreviewItem?.brand || this.activePreviewItem?.manufacturer;
-                    try {
-                        const res = await fetch('/api/preview-cover', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                sku: sku,
-                                image_url: imgUrl,
-                                brand: brand,
-                                badge_text: this.customBadgeText || 'มีสต็อกพร้อมส่งทันที',
-                                shop_name: this.shopName || 'MEGATOOL',
-                                template_type: 'standard'
-                            })
-                        });
-                        if (res.ok) {
-                            const data = await res.json();
-                            const finalUrl = data.cdn_url || data.preview_url;
-                            if (finalUrl) {
-                                if (!this.standardAngleCovers) this.standardAngleCovers = {};
-                                this.standardAngleCovers[imgUrl] = finalUrl;
-                                this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
-                                return finalUrl;
-                            }
+                    const clean = url.split('?')[0];
+                    if (this.renderedCoverUrl && this.renderedCoverUrl.split('?')[0] === clean) {
+                        const rawImgs = this.activePreviewItem?.all_images || [];
+                        if (!rawImgs.some(r => r && r.split('?')[0] === clean)) {
+                            return true;
                         }
-                    } catch (e) {
-                        console.error('Fetch standard angle cover error:', e);
                     }
-                    return null;
+                    return false;
+                },
+
+                shouldShowInstantFrameOverlay() {
+                    if (!this.customUseTemplate || this.coverMode === 'original') return false;
+                    const curImg = (this.activePreviewItem?.all_images && this.activePreviewItem.all_images[this.selectedImageIndex]) || this.activePreviewItem?.image;
+                    if (!curImg || this.isImageUnframed(curImg) || this.isCollageImage(curImg)) return false;
+                    const canvasUrl = this.getCanvasImageUrl();
+                    if (this.isAlreadyRenderedCoverUrl(canvasUrl)) return false;
+                    return true;
+                },
+
+                shouldShowLightboxFrameOverlay(url) {
+                    if (!url || !this.customUseTemplate || this.coverMode === 'original') return false;
+                    if (this.isAlreadyRenderedCoverUrl(url) || this.isImageUnframed(url) || this.isCollageImage(url)) return false;
+                    return true;
+                },
+
+                isRawAngleWithTemplate() {
+                    return this.shouldShowInstantFrameOverlay();
                 },
 
                 getCanvasImageUrl() {
@@ -7465,18 +7487,12 @@ toggleListedSort(field) {
                         return curImg;
                     }
 
-                    // 2. If this angle is the active Auto-Spec Cover:
-                    if (this.coverMode === 'custom' && (this.renderedCoverUrl || this.activeCustomCoverUrl) && this.isCoverSource(curImg)) {
-                        return this.renderedCoverUrl || this.activeCustomCoverUrl;
+                    // 2. If renderedCoverUrl is active for the currently viewed angle, display it:
+                    if (this.renderedCoverUrl) {
+                        return this.renderedCoverUrl;
                     }
 
-                    // 3. If standard Python-rendered MEGATOOL template is already cached:
-                    if (this.standardAngleCovers && this.standardAngleCovers[curImg]) {
-                        return this.standardAngleCovers[curImg];
-                    }
-
-                    // 4. Background fetch standard template silently (0 spinner, 0 quota waste)
-                    this.fetchStandardAngleCover(curImg);
+                    // 3. Otherwise, return raw angle photo (and shouldShowInstantFrameOverlay() overlays the 2400x2400 Pillow-rendered MEGATOOL frame PNG in 0ms!)
                     return curImg;
                 },
 
@@ -7484,8 +7500,11 @@ toggleListedSort(field) {
                     if (!this.activeCustomCoverUrl && !this.renderedCoverUrl) return false;
                     const curCover = (this.activeCustomCoverUrl || this.renderedCoverUrl || '').split('?')[0];
                     const saved = (this.savedCoverImages || []).find(c => {
-                        const u = (typeof c === 'object' ? (c.cdn_url || c.url) : c) || '';
-                        return u.split('?')[0] === curCover;
+                        if (!c) return false;
+                        if (typeof c === 'string') return c.split('?')[0] === curCover;
+                        const u1 = (c.url || '').split('?')[0];
+                        const u2 = (c.cdn_url || '').split('?')[0];
+                        return (u1 && u1 === curCover) || (u2 && u2 === curCover);
                     });
                     if (saved && typeof saved === 'object' && saved.image_url) {
                         return saved.image_url === imgUrl;

@@ -138,6 +138,21 @@ def serve_cover_image(filename: str):
         possible_sku = filename.split("_")[0]
         if possible_sku in db and db[possible_sku]:
             matched_entry = db[possible_sku][0]
+        elif "_" in filename:
+            cust_specs = {}
+            try:
+                if os.path.exists("app/data/cover_customizations.json"):
+                    with open("app/data/cover_customizations.json", "r", encoding="utf-8") as cf:
+                        cust_all = json.load(cf)
+                        cust_specs = cust_all.get(possible_sku) or {}
+            except Exception:
+                pass
+            matched_entry = {
+                "sku": possible_sku,
+                "template_type": "standard" if "_standard_" in filename else "auto_spec",
+                "shop_name": "BIGPOWER TOOLS" if "bigpower" in filename.lower() else "MEGATOOL",
+                "specs": cust_specs
+            }
 
     if matched_entry and isinstance(matched_entry, dict):
         try:
