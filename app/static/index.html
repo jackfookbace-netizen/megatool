@@ -2726,7 +2726,7 @@
                                 <h3 class="text-base font-extrabold text-slate-800 tracking-tight">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                                 <span class="bg-orange-100 text-orange-700 text-xs px-2.5 py-0.5 rounded-full font-extrabold shadow-2xs" x-text="selectedItems.length + ' รายการ'"></span>
                             </div>
-                            <span class="text-[10px] text-slate-400 font-mono">build 2026.11.17 (2-Column Ultra-Wide & Smart Collapsible Groups)</span>
+                            <span class="text-[10px] text-slate-400 font-mono">build 2026.11.17-b (Pinned Action Bar & Zero-Scroll Excel Button)</span>
                         </div>
                     </div>
                     
@@ -2743,6 +2743,21 @@
                             <span x-show="batchGeneratingAutoSpec" class="flex items-center space-x-1">
                                 <span class="animate-spin">⏳</span>
                                 <span x-text="batchAutoSpecProgress || 'กำลังสร้างปก Ultra-HD ทั้งตะกร้า...'"></span>
+                            </span>
+                        </button>
+
+                        <!-- Header Quick Action: สร้างไฟล์ Excel ยิง Shopee (Visible at top without scrolling) -->
+                        <button type="button" x-show="selectedItems.length > 0"
+                                @click="exportToShopee()" :disabled="selectedItems.length === 0 || exporting"
+                                class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white text-xs font-extrabold shadow-sm flex items-center space-x-1.5 transition-all cursor-pointer disabled:opacity-50"
+                                title="สร้างไฟล์ Excel Shopee ทันที">
+                            <span x-show="!exporting" class="flex items-center space-x-1">
+                                <span>🚀</span>
+                                <span>สร้างไฟล์ Excel ยิง Shopee</span>
+                            </span>
+                            <span x-show="exporting" class="flex items-center space-x-1">
+                                <span class="animate-spin">⏳</span>
+                                <span x-text="'กำลังยิง (' + exportProgress.percent + '%)'"></span>
                             </span>
                         </button>
 
@@ -2765,159 +2780,159 @@
                 <div class="flex-1 min-h-0 flex flex-col lg:flex-row gap-4 pt-3 overflow-hidden">
                     
                     <!-- ================= LEFT SIDEBAR: CONTROL & FINANCIAL SUMMARY ================= -->
-                    <div class="w-full lg:w-84 xl:w-96 shrink-0 flex flex-col gap-3 h-full overflow-y-auto pr-1 select-none">
+                    <div class="w-full lg:w-84 xl:w-96 shrink-0 flex flex-col h-full overflow-hidden select-none">
                         
-                        <!-- CARD 1: FINANCIAL & CART OVERVIEW (Dark Theme) -->
-                        <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white rounded-2xl p-4 shadow-md border border-slate-700/60 space-y-3">
-                            <div class="flex items-center justify-between pb-2 border-b border-slate-700/70">
-                                <div class="flex items-center space-x-2">
-                                    <span class="text-base">📊</span>
-                                    <span class="font-bold text-xs sm:text-sm tracking-wide text-white">ภาพรวม & สรุปกำไรตะกร้า</span>
-                                </div>
-                                <span class="text-[10px] bg-slate-700/70 text-slate-300 font-mono px-2 py-0.5 rounded-full border border-slate-600/50"
-                                      :title="'ค่าธรรมเนียม Shopee ' + shopeeFeePercent + '%'">
-                                    Shopee Fee <span x-text="shopeeFeePercent + '%'"></span>
-                                </span>
-                            </div>
-
-                            <!-- 2x2 Financial Stats Grid -->
-                            <div class="grid grid-cols-2 gap-2.5">
-                                <div class="bg-slate-800/80 rounded-xl p-2.5 border border-slate-700/50 flex flex-col">
-                                    <span class="text-[10px] text-slate-400 font-medium">🛒 สินค้าในตะกร้า</span>
-                                    <span class="text-sm sm:text-base font-extrabold text-white mt-0.5 font-mono" x-text="selectedItems.length + ' SKU'"></span>
-                                </div>
-                                <div class="bg-slate-800/80 rounded-xl p-2.5 border border-slate-700/50 flex flex-col">
-                                    <span class="text-[10px] text-slate-400 font-medium">📦 สต็อกรวมทั้งหมด</span>
-                                    <span class="text-sm sm:text-base font-extrabold text-amber-300 mt-0.5 font-mono" x-text="getCartTotalStock().toLocaleString() + ' ชิ้น'"></span>
-                                </div>
-                                <div class="bg-slate-800/80 rounded-xl p-2.5 border border-slate-700/50 flex flex-col">
-                                    <span class="text-[10px] text-slate-400 font-medium">💰 ยอดขายรวม</span>
-                                    <span class="text-sm sm:text-base font-extrabold text-orange-400 mt-0.5 font-mono" x-text="'฿' + getCartTotalPrice().toLocaleString()"></span>
-                                </div>
-                                <div class="bg-emerald-950/60 rounded-xl p-2.5 border border-emerald-600/40 flex flex-col">
-                                    <span class="text-[10px] text-emerald-300 font-medium">📈 กำไรสุทธิรวม</span>
-                                    <div class="flex items-baseline space-x-1 mt-0.5">
-                                        <span class="text-xs sm:text-sm font-extrabold text-emerald-400 font-mono" x-text="'+฿' + getCartTotalNetProfit().toLocaleString()"></span>
-                                        <span class="text-[10px] text-emerald-300 font-mono" x-text="'(' + getCartTotalMarginPct() + '%)'"></span>
+                        <!-- Top Scrollable Section (Cards 1, 2, 3) -->
+                        <div class="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2.5">
+                            <!-- CARD 1: FINANCIAL & CART OVERVIEW (Dark Theme) -->
+                            <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white rounded-2xl p-3 shadow-md border border-slate-700/60 space-y-2.5">
+                                <div class="flex items-center justify-between pb-1.5 border-b border-slate-700/70">
+                                    <div class="flex items-center space-x-1.5">
+                                        <span class="text-sm">📊</span>
+                                        <span class="font-bold text-xs tracking-wide text-white">ภาพรวม & สรุปกำไรตะกร้า</span>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- CARD 2: EXPORT MODE SELECTOR -->
-                        <div class="bg-slate-50 border border-slate-200/90 rounded-2xl p-3.5 space-y-3 shadow-2xs">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
-                                    <i data-lucide="layers" class="w-4 h-4 text-orange-600"></i>
-                                    <span>รูปแบบการส่งออก Shopee:</span>
-                                </span>
-                            </div>
-
-                            <div class="grid grid-cols-1 gap-1.5 text-xs font-bold">
-                                <button type="button" @click="exportMode = 'smart_mixed'"
-                                        :class="exportMode === 'smart_mixed' ? 'bg-orange-600 text-white shadow-xs border-orange-600' : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'"
-                                        class="px-3 py-2 rounded-xl border transition-all flex items-center justify-between cursor-pointer">
-                                    <span class="flex items-center space-x-1.5">
-                                        <span>⚡</span>
-                                        <span>รวมรุ่น + แยกเดี่ยว (อัตโนมัติ)</span>
+                                    <span class="text-[9px] bg-slate-700/70 text-slate-300 font-mono px-2 py-0.5 rounded-full border border-slate-600/50"
+                                          :title="'ค่าธรรมเนียม Shopee ' + shopeeFeePercent + '%'">
+                                        Shopee Fee <span x-text="shopeeFeePercent + '%'"></span>
                                     </span>
-                                    <span class="bg-amber-400 text-amber-950 text-[10px] px-1.5 py-0.2 rounded-full font-bold">แนะนำ</span>
-                                </button>
-                                <button type="button" @click="exportMode = 'single'"
-                                        :class="exportMode === 'single' ? 'bg-orange-600 text-white shadow-xs border-orange-600' : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'"
-                                        class="px-3 py-2 rounded-xl border transition-all flex items-center space-x-1.5 cursor-pointer">
-                                    <span>📄</span>
-                                    <span>แยกสินค้าเดี่ยวทุกตัว</span>
-                                </button>
-                                <button type="button" @click="exportMode = 'variations'; syncParentTitleIfNeeded()"
-                                        :class="exportMode === 'variations' ? 'bg-orange-600 text-white shadow-xs border-orange-600' : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'"
-                                        class="px-3 py-2 rounded-xl border transition-all flex items-center space-x-1.5 cursor-pointer">
-                                    <span>📦</span>
-                                    <span>รวมทุกตัวเป็น 1 สินค้าเดียว</span>
-                                </button>
-                            </div>
-
-                            <!-- Mode Summary Text -->
-                            <div x-show="exportMode === 'smart_mixed'" class="p-2.5 bg-emerald-50/80 border border-emerald-200 rounded-xl text-[11px] text-emerald-900 space-y-1">
-                                <div class="font-bold flex items-center space-x-1">
-                                    <span>✨</span>
-                                    <span>โหมดส่งออกอัจฉริยะ (Smart Mixed)</span>
                                 </div>
-                                <p class="text-slate-600 leading-relaxed">
-                                    รวมรุ่นที่มีลิงก์เดียวกันเป็นตัวเลือกสินค้าให้อัตโนมัติ และสินค้าเดี่ยวแยกเป็นรายการเฉพาะครบในไฟล์เดียว
-                                </p>
-                                <div class="font-bold text-emerald-800" x-text="getSmartMixedSummaryText()"></div>
-                            </div>
 
-                            <!-- Global Variations Settings (When in Variations or Group mode) -->
-                            <div x-show="exportMode === 'variations' || (exportMode === 'smart_mixed' && hasAnyCartVariationGroup())" class="space-y-2.5 pt-2 border-t border-slate-200 text-xs">
-                                <div x-show="exportMode === 'variations'">
-                                    <div class="flex items-center justify-between mb-1">
-                                        <label class="block font-bold text-slate-700 text-[11px]">
-                                            ชื่อสินค้าหลักบน Shopee:
-                                        </label>
-                                        <button type="button" @click="groupParentTitle = getDefaultParentTitle()"
-                                                class="text-[10px] text-orange-600 hover:text-orange-700 font-semibold flex items-center space-x-0.5 hover:underline">
-                                            <i data-lucide="refresh-cw" class="w-3 h-3"></i>
-                                            <span>รีเซ็ตชื่อ</span>
-                                        </button>
+                                <!-- 2x2 Financial Stats Grid -->
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div class="bg-slate-800/80 rounded-xl p-2 border border-slate-700/50 flex flex-col">
+                                        <span class="text-[10px] text-slate-400 font-medium">🛒 สินค้าในตะกร้า</span>
+                                        <span class="text-xs sm:text-sm font-extrabold text-white mt-0.5 font-mono" x-text="selectedItems.length + ' SKU'"></span>
                                     </div>
-                                    <input type="text" x-model="groupParentTitle" 
-                                           :placeholder="getDefaultParentTitle()"
-                                           class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs outline-none focus:border-orange-500">
+                                    <div class="bg-slate-800/80 rounded-xl p-2 border border-slate-700/50 flex flex-col">
+                                        <span class="text-[10px] text-slate-400 font-medium">📦 สต็อกรวม</span>
+                                        <span class="text-xs sm:text-sm font-extrabold text-amber-300 mt-0.5 font-mono" x-text="getCartTotalStock().toLocaleString() + ' ชิ้น'"></span>
+                                    </div>
+                                    <div class="bg-slate-800/80 rounded-xl p-2 border border-slate-700/50 flex flex-col">
+                                        <span class="text-[10px] text-slate-400 font-medium">💰 ยอดขายรวม</span>
+                                        <span class="text-xs sm:text-sm font-extrabold text-orange-400 mt-0.5 font-mono" x-text="'฿' + getCartTotalPrice().toLocaleString()"></span>
+                                    </div>
+                                    <div class="bg-emerald-950/60 rounded-xl p-2 border border-emerald-600/40 flex flex-col">
+                                        <span class="text-[10px] text-emerald-300 font-medium">📈 กำไรสุทธิรวม</span>
+                                        <div class="flex items-baseline space-x-1 mt-0.5">
+                                            <span class="text-xs sm:text-sm font-extrabold text-emerald-400 font-mono" x-text="'+฿' + getCartTotalNetProfit().toLocaleString()"></span>
+                                            <span class="text-[9px] text-emerald-300 font-mono" x-text="'(' + getCartTotalMarginPct() + '%)'"></span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label class="block font-bold text-slate-700 text-[11px] mb-1">ชื่อกลุ่มตัวเลือก (Tier 1):</label>
-                                    <input type="text" x-model="groupVariationTierName" placeholder="เช่น รุ่นสินค้า หรือ สี" maxlength="14"
-                                           class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs outline-none focus:border-orange-500">
+                            </div>
+
+                            <!-- CARD 2: EXPORT MODE SELECTOR -->
+                            <div class="bg-slate-50 border border-slate-200/90 rounded-2xl p-3 space-y-2 shadow-2xs">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
+                                        <i data-lucide="layers" class="w-3.5 h-3.5 text-orange-600"></i>
+                                        <span>รูปแบบการส่งออก Shopee:</span>
+                                    </span>
+                                </div>
+
+                                <div class="grid grid-cols-1 gap-1 text-xs font-bold">
+                                    <button type="button" @click="exportMode = 'smart_mixed'"
+                                            :class="exportMode === 'smart_mixed' ? 'bg-orange-600 text-white shadow-xs border-orange-600' : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'"
+                                            class="px-2.5 py-1.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer">
+                                        <span class="flex items-center space-x-1.5">
+                                            <span>⚡</span>
+                                            <span>รวมรุ่น + แยกเดี่ยว (อัตโนมัติ)</span>
+                                        </span>
+                                        <span class="bg-amber-400 text-amber-950 text-[10px] px-1.5 py-0.2 rounded-full font-bold">แนะนำ</span>
+                                    </button>
+                                    <button type="button" @click="exportMode = 'single'"
+                                            :class="exportMode === 'single' ? 'bg-orange-600 text-white shadow-xs border-orange-600' : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'"
+                                            class="px-2.5 py-1.5 rounded-xl border transition-all flex items-center space-x-1.5 cursor-pointer">
+                                        <span>📄</span>
+                                        <span>แยกสินค้าเดี่ยวทุกตัว</span>
+                                    </button>
+                                    <button type="button" @click="exportMode = 'variations'; syncParentTitleIfNeeded()"
+                                            :class="exportMode === 'variations' ? 'bg-orange-600 text-white shadow-xs border-orange-600' : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'"
+                                            class="px-2.5 py-1.5 rounded-xl border transition-all flex items-center space-x-1.5 cursor-pointer">
+                                        <span>📦</span>
+                                        <span>รวมทุกตัวเป็น 1 สินค้าเดียว</span>
+                                    </button>
+                                </div>
+
+                                <!-- Mode Summary Text -->
+                                <div x-show="exportMode === 'smart_mixed'" class="p-2 bg-emerald-50/80 border border-emerald-200 rounded-xl text-[11px] text-emerald-900 space-y-0.5">
+                                    <div class="font-bold flex items-center space-x-1 text-[11px]">
+                                        <span>✨</span>
+                                        <span>โหมดส่งออกอัจฉริยะ (Smart Mixed)</span>
+                                    </div>
+                                    <div class="font-bold text-emerald-800 text-[10.5px]" x-text="getSmartMixedSummaryText()"></div>
+                                </div>
+
+                                <!-- Global Variations Settings (When in Variations or Group mode) -->
+                                <div x-show="exportMode === 'variations' || (exportMode === 'smart_mixed' && hasAnyCartVariationGroup())" class="space-y-2 pt-2 border-t border-slate-200 text-xs">
+                                    <div x-show="exportMode === 'variations'">
+                                        <div class="flex items-center justify-between mb-1">
+                                            <label class="block font-bold text-slate-700 text-[10.5px]">
+                                                ชื่อสินค้าหลักบน Shopee:
+                                            </label>
+                                            <button type="button" @click="groupParentTitle = getDefaultParentTitle()"
+                                                    class="text-[10px] text-orange-600 hover:text-orange-700 font-semibold flex items-center space-x-0.5 hover:underline">
+                                                <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                                                <span>รีเซ็ตชื่อ</span>
+                                            </button>
+                                        </div>
+                                        <input type="text" x-model="groupParentTitle" 
+                                               :placeholder="getDefaultParentTitle()"
+                                               class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs outline-none focus:border-orange-500">
+                                    </div>
+                                    <div>
+                                        <label class="block font-bold text-slate-700 text-[10.5px] mb-1">ชื่อกลุ่มตัวเลือก (Tier 1):</label>
+                                        <input type="text" x-model="groupVariationTierName" placeholder="เช่น รุ่นสินค้า หรือ สี" maxlength="14"
+                                               class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs outline-none focus:border-orange-500">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- CARD 3: COMPARISON MATRIX CARD TOOL -->
+                            <div class="bg-white border border-slate-200 rounded-2xl p-3 space-y-2 shadow-2xs">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-2">
+                                        <input type="checkbox" id="toggleComparisonCheck" x-model="includeComparisonCard"
+                                               class="rounded text-orange-600 focus:ring-orange-500 w-4 h-4 cursor-pointer">
+                                        <label for="toggleComparisonCheck" class="cursor-pointer font-bold text-slate-800 text-xs select-none">
+                                            ตารางเปรียบเทียบสเปก (รูปที่ 2)
+                                        </label>
+                                    </div>
+                                    <span x-show="includeComparisonCard" class="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">
+                                        ✓ เปิด
+                                    </span>
+                                    <span x-show="!includeComparisonCard" class="text-[9px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded">
+                                        ✕ ปิด
+                                    </span>
+                                </div>
+                                <p class="text-[10.5px] text-slate-500 leading-tight">
+                                    แทรกรูปตารางเปรียบเทียบสเปกของทุกรุ่นในกลุ่มให้อัตโนมัติในรูปที่ 2 บน Shopee
+                                </p>
+                                <div class="flex items-center space-x-2 pt-0.5" x-show="includeComparisonCard">
+                                    <button type="button" @click="generateComparisonAction()" :disabled="generatingComparison"
+                                            class="flex-1 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all flex items-center justify-center space-x-1 cursor-pointer">
+                                        <span x-show="!generatingComparison" x-text="comparisonCardUrl ? '🔄 อัปเดตตาราง' : '⚡ สร้างตารางเปรียบเทียบ'"></span>
+                                        <span x-show="generatingComparison" class="animate-spin">⏳</span>
+                                    </button>
+                                    <template x-if="comparisonCardUrl">
+                                        <a :href="comparisonCardUrl" target="_blank" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all flex items-center space-x-1">
+                                            <span>👁️ ดู</span>
+                                        </a>
+                                    </template>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- CARD 3: COMPARISON MATRIX CARD TOOL -->
-                        <div class="bg-white border border-slate-200 rounded-2xl p-3.5 space-y-2.5 shadow-2xs">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center space-x-2">
-                                    <input type="checkbox" id="toggleComparisonCheck" x-model="includeComparisonCard"
-                                           class="rounded text-orange-600 focus:ring-orange-500 w-4 h-4 cursor-pointer">
-                                    <label for="toggleComparisonCheck" class="cursor-pointer font-bold text-slate-800 text-xs select-none">
-                                        ตารางเปรียบเทียบสเปก
-                                    </label>
-                                </div>
-                                <span x-show="includeComparisonCard" class="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">
-                                    ✓ เปิดใช้งาน
-                                </span>
-                                <span x-show="!includeComparisonCard" class="text-[9px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded">
-                                    ✕ ปิด
-                                </span>
-                            </div>
-                            <p class="text-[11px] text-slate-500 leading-tight">
-                                แทรกรูปตารางเปรียบเทียบสเปกเป็นรูปที่ 2 บน Shopee ดึงข้อมูลทุกรุ่นในกลุ่มช่วยให้ลูกค้าตัดสินใจซื้อง่ายขึ้น
-                            </p>
-                            <div class="flex items-center space-x-2 pt-1" x-show="includeComparisonCard">
-                                <button type="button" @click="generateComparisonAction()" :disabled="generatingComparison"
-                                        class="flex-1 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all flex items-center justify-center space-x-1 cursor-pointer">
-                                    <span x-show="!generatingComparison" x-text="comparisonCardUrl ? '🔄 อัปเดตตาราง' : '⚡ สร้างตารางเปรียบเทียบ'"></span>
-                                    <span x-show="generatingComparison" class="animate-spin">⏳</span>
-                                </button>
-                                <template x-if="comparisonCardUrl">
-                                    <a :href="comparisonCardUrl" target="_blank" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all flex items-center space-x-1">
-                                        <span>👁️ ดู</span>
-                                    </a>
-                                </template>
-                            </div>
-                        </div>
-
-                        <!-- CARD 4: EXPORT ACTION BOX (Sticky at Bottom) -->
-                        <div class="mt-auto bg-white border border-slate-200 rounded-2xl p-3.5 space-y-3 shadow-md">
+                        <!-- CARD 4: EXPORT ACTION BOX (PERMANENTLY PINNED AT BOTTOM - NEVER HIDDEN, ZERO SCROLL) -->
+                        <div class="shrink-0 pt-2.5 mt-2 border-t border-slate-200/90 bg-white space-y-2">
                             <!-- Progress Bar when Exporting -->
-                            <div x-show="exporting" class="p-3 bg-orange-50 border border-orange-200 rounded-xl space-y-2">
+                            <div x-show="exporting" class="p-2.5 bg-orange-50 border border-orange-200 rounded-xl space-y-1.5">
                                 <div class="flex items-center justify-between text-xs font-bold text-orange-950">
                                     <span class="flex items-center space-x-1.5">
                                         <span class="animate-spin text-sm">⚙️</span>
-                                        <span>กำลังประมวลผล: <span class="text-orange-600 font-mono" x-text="exportProgress.current + '/' + exportProgress.total"></span> รายการ</span>
+                                        <span>กำลังประมวลผล: <span class="text-orange-600 font-mono" x-text="exportProgress.current + '/' + exportProgress.total"></span></span>
                                     </span>
-                                    <span class="font-mono text-orange-600 font-extrabold" x-text="exportProgress.percent + '%'"></span>
+                                    <span class="font-mono text-orange-600 text-xs font-extrabold" x-text="exportProgress.percent + '%'"></span>
                                 </div>
                                 <div class="w-full bg-orange-100 h-2 rounded-full overflow-hidden">
                                     <div class="bg-gradient-to-r from-orange-500 to-amber-500 h-full rounded-full transition-all duration-300"
@@ -2928,7 +2943,7 @@
                             </div>
 
                             <!-- Success Download Box -->
-                            <div x-show="downloadUrl" class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+                            <div x-show="downloadUrl" class="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
                                 <div class="flex items-center space-x-1.5 text-emerald-800 text-xs font-bold">
                                     <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
                                     <span>สร้างไฟล์สำเร็จ!</span>
@@ -2940,19 +2955,22 @@
                                 </a>
                             </div>
 
-                            <!-- Primary Action Button -->
+                            <!-- Primary Action Button (Docked & Instantly Visible) -->
                             <button @click="exportToShopee()" :disabled="selectedItems.length === 0 || exporting"
-                                    class="w-full py-3 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white text-xs sm:text-sm font-extrabold shadow-md shadow-orange-500/20 disabled:opacity-50 flex items-center justify-center space-x-2 transition-all cursor-pointer">
-                                <span x-show="!exporting">🚀 สร้างไฟล์ Excel ยิง Shopee</span>
+                                    class="w-full py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white text-xs sm:text-sm font-extrabold shadow-md shadow-orange-500/25 disabled:opacity-50 flex items-center justify-center space-x-2 transition-all cursor-pointer">
+                                <span x-show="!exporting" class="flex items-center space-x-1.5">
+                                    <span>🚀</span>
+                                    <span>สร้างไฟล์ Excel ยิง Shopee</span>
+                                </span>
                                 <span x-show="exporting" class="animate-spin">⏳</span>
                                 <span x-show="exporting" x-text="'กำลังประมวลผล (' + exportProgress.current + '/' + exportProgress.total + ')...'"></span>
                             </button>
 
                             <!-- Clear Cart Link -->
-                            <div class="text-center">
+                            <div class="text-center pt-0.5">
                                 <button @click="clearQueue()" :disabled="selectedItems.length === 0 || exporting"
-                                        class="text-[11px] text-rose-500 hover:text-rose-600 hover:underline disabled:opacity-40 cursor-pointer">
-                                    🗑️ ล้างตะกร้าทั้งหมด
+                                        class="text-[11px] text-rose-500 hover:text-rose-600 hover:underline disabled:opacity-40 cursor-pointer inline-flex items-center space-x-1">
+                                    <span>🗑️ ล้างตะกร้าทั้งหมด</span>
                                 </button>
                             </div>
                         </div>
