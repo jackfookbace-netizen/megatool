@@ -2334,7 +2334,16 @@
                                         <span>🎨 รูปปก Shopee ใช้รูปแต่ง Auto-Spec</span>
                                     </span>
                                 </div>
-                                <div class="flex items-center space-x-2">
+                                <div class="flex items-center space-x-2 flex-wrap gap-1">
+                                    <!-- Direct Frame Toggle for Selected Angle (Default: MEGATOOL Frame ON) -->
+                                    <button type="button" @click="toggleImageFrame(selectedImageIndex)"
+                                            :class="isImageUnframed(activePreviewItem?.all_images?.[selectedImageIndex]) ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold' : 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'"
+                                            class="px-2.5 py-1.5 rounded-xl text-[11px] border shadow-2xs transition-all flex items-center space-x-1 cursor-pointer"
+                                            :title="isImageUnframed(activePreviewItem?.all_images?.[selectedImageIndex]) ? 'คลิกเพื่อใส่กรอบรูปแบรนด์ MEGATOOL ให้รูปนี้' : 'คลิกเพื่อเอากรอบรูปออก และใช้เป็นรูปต้นฉบับ'">
+                                        <i :data-lucide="isImageUnframed(activePreviewItem?.all_images?.[selectedImageIndex]) ? 'square' : 'check-square'" class="w-3.5 h-3.5"></i>
+                                        <span x-text="isImageUnframed(activePreviewItem?.all_images?.[selectedImageIndex]) ? '❌ รูปนี้ไม่ใส่กรอบ (คลิกเพื่อใส่กรอบ)' : '🖼️ ใส่กรอบ MEGATOOL (Default)'"></span>
+                                    </button>
+
                                     <button type="button" @click="makeAngleCover(selectedImageIndex, false)"
                                             :class="coverMode === 'original' ? 'bg-emerald-700 text-white shadow-xs font-bold' : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-semibold'"
                                             class="px-2.5 py-1.5 rounded-xl text-[11px] transition-all flex items-center space-x-1 cursor-pointer"
@@ -2780,7 +2789,7 @@
                                 <h3 class="text-base font-extrabold text-slate-800 tracking-tight">ตะกร้าสินค้าเตรียมลงขาย Shopee</h3>
                                 <span class="bg-orange-100 text-orange-700 text-xs px-2.5 py-0.5 rounded-full font-extrabold shadow-2xs" x-text="selectedItems.length + ' รายการ'"></span>
                             </div>
-                            <span class="text-[10px] text-slate-400 font-mono">build 2026.11.17-c (Persistent Image Order, Flexible Custom/Original Cover & Zero Contamination)</span>
+                            <span class="text-[10px] text-slate-400 font-mono">build 2026.11.17-d (MEGATOOL Frame by Default & 100% Online Sync Across Machines)</span>
                         </div>
                     </div>
                     
@@ -3635,7 +3644,19 @@
                         await this.fetchListed();
                         this.fetchDashboardStats();
                         this.search();
-                        await this.fetchCartForShop(this.activeShopId || 'shop_1');
+                        await Promise.all([
+                            this.fetchCartForShop(this.activeShopId || 'shop_1'),
+                            fetch('/api/image-orders').then(r => r.ok ? r.json() : null).then(data => {
+                                if (data && data.orders) {
+                                    localStorage.setItem('megatool_image_orders', JSON.stringify(data.orders));
+                                }
+                            }).catch(() => {}),
+                            fetch('/api/cover-customizations').then(r => r.ok ? r.json() : null).then(data => {
+                                if (data && data.customizations) {
+                                    localStorage.setItem('megatool_cover_customizations', JSON.stringify(data.customizations));
+                                }
+                            }).catch(() => {})
+                        ]);
                     }
                     this.$nextTick(() => lucide.createIcons());
                 },
@@ -5990,6 +6011,14 @@ toggleListedSort(field) {
                         localStorage.setItem('megatool_image_orders', JSON.stringify(orders));
                         localStorage.setItem('megatool_image_order_' + sku, JSON.stringify([...imgs]));
                     } catch (e) {}
+                    
+                    // 100% Online Sync: Send custom image order to server
+                    fetch('/api/image-orders', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sku: sku, images: imgs })
+                    }).catch(() => {});
+
                     const cartItem = (this.selectedItems || []).find(i => i.sku === sku);
                     if (cartItem) {
                         cartItem.custom_image_order = [...imgs];
@@ -6003,6 +6032,7 @@ toggleListedSort(field) {
                         }
                         this.saveCartToStorage();
                     }
+                    this.saveCurrentCoverCustomizations(sku);
                 },
 
                 getCustomImageOrder(sku) {
@@ -6028,6 +6058,40 @@ toggleListedSort(field) {
                     return null;
                 },
 
+                toggleImageFrame(idx) {
+                    if (!this.activePreviewItem?.all_images) return;
+                    const img = this.activePreviewItem.all_images[idx];
+                    if (!img) return;
+                    if (this.isImageUnframed(img)) {
+                        // Re-enable MEGATOOL frame for this image
+                        this.unframedUrls = this.unframedUrls.filter(u => u !== img);
+                        if (this.selectedImageIndex === idx) {
+                            this.customUseTemplate = true;
+                            this.generatePreviewCover();
+                        }
+                    } else {
+                        // Remove frame from this image
+                        if (!this.unframedUrls.includes(img)) {
+                            this.unframedUrls.push(img);
+                        }
+                        if (this.selectedImageIndex === idx) {
+                            this.customUseTemplate = false;
+                            this.renderedCoverUrl = img;
+                        }
+                    }
+                    const sku = this.activePreviewItem.sku || this.activePreviewItem.code;
+                    if (sku) {
+                        const cartItem = (this.selectedItems || []).find(i => i.sku === sku);
+                        if (cartItem) {
+                            cartItem.use_template = true;
+                            cartItem.unframed_images = [...this.unframedUrls];
+                            this.saveCartToStorage();
+                        }
+                        this.saveCurrentCoverCustomizations(sku);
+                    }
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
                 setCoverMode(mode) {
                     this.coverMode = mode;
                     const sku = this.activePreviewItem?.sku || this.activePreviewItem?.code;
@@ -6039,10 +6103,15 @@ toggleListedSort(field) {
                         this.userManuallyTurnedOffTemplate = true;
                         this.activeCustomCoverUrl = null;
                         this.renderedCoverUrl = curAngleImg;
+                        // Mark only the cover photo as unframed, so subsequent images keep their MEGATOOL frame by default
+                        if (curAngleImg && !this.unframedUrls.includes(curAngleImg)) {
+                            this.unframedUrls.push(curAngleImg);
+                        }
                         if (sku) {
                             const cartItem = (this.selectedItems || []).find(i => i.sku === sku);
                             if (cartItem) {
-                                cartItem.use_template = false;
+                                cartItem.use_template = true; // Every product has template enabled by default
+                                cartItem.unframed_images = [...this.unframedUrls];
                                 cartItem.cdn_url = null;
                                 cartItem.selected_image = curAngleImg;
                                 cartItem.image = curAngleImg;
@@ -6052,6 +6121,7 @@ toggleListedSort(field) {
                                 this.saveCartToStorage();
                             }
                         }
+                        this.saveCurrentCoverCustomizations(sku);
                     } else {
                         this.customUseTemplate = true;
                         this.userManuallyTurnedOffTemplate = false;
@@ -6104,12 +6174,15 @@ toggleListedSort(field) {
                         this.userManuallyTurnedOffTemplate = true;
                         this.renderedCoverUrl = targetImg;
                         this.activeCustomCoverUrl = null;
-                        
+                        if (targetImg && !this.unframedUrls.includes(targetImg)) {
+                            this.unframedUrls.push(targetImg);
+                        }
                         const sku = this.activePreviewItem.sku || this.activePreviewItem.code;
                         if (sku) {
                             const cartItem = (this.selectedItems || []).find(i => i.sku === sku);
                             if (cartItem) {
-                                cartItem.use_template = false;
+                                cartItem.use_template = true;
+                                cartItem.unframed_images = [...this.unframedUrls];
                                 cartItem.cdn_url = null;
                                 cartItem.selected_image = targetImg;
                                 cartItem.image = targetImg;
@@ -6118,6 +6191,7 @@ toggleListedSort(field) {
                                 cartItem.selected_images = [targetImg, ...finalImgs.filter(u => u !== targetImg)];
                                 this.saveCartToStorage();
                             }
+                            this.saveCurrentCoverCustomizations(sku);
                         }
                     }
                     this.$nextTick(() => lucide.createIcons());
@@ -6233,6 +6307,10 @@ toggleListedSort(field) {
                                     if (c.custom_trust_s1) this.customTrustS1 = c.custom_trust_s1;
                                     if (c.custom_trust_s2) this.customTrustS2 = c.custom_trust_s2;
                                     if (c.shopee_title) this.itemShopeeTitle = c.shopee_title;
+                                    if (Array.isArray(c.unframed_images)) this.unframedUrls = [...c.unframed_images];
+                                    if (c.cover_mode) this.coverMode = c.cover_mode;
+                                    if (c.template_type) this.coverTemplateType = c.template_type;
+                                    if (Array.isArray(c.excluded_indices)) this.excludedImageIndices = [...c.excluded_indices];
                                 }
                             })
                             .catch(() => {});
@@ -6691,6 +6769,12 @@ toggleListedSort(field) {
                         custom_trust_s1: this.customTrustS1,
                         custom_trust_s2: this.customTrustS2,
                         shopee_title: this.itemShopeeTitle,
+                        use_template: true, // Default: MEGATOOL frame is ON for all products
+                        unframed_images: [...(this.unframedUrls || [])],
+                        cover_mode: this.coverMode || 'custom',
+                        template_type: this.coverTemplateType || 'auto_spec',
+                        custom_image_order: [...(this.activePreviewItem?.all_images || [])],
+                        excluded_indices: [...(this.excludedImageIndices || [])],
                         updated_at: Date.now()
                     };
 

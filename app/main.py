@@ -387,21 +387,44 @@ def api_get_cart(shop_id: Optional[str] = Query("shop_1")):
             from app.ktw_service import get_product_detail, extract_product_images, prefetch_product_details
             cart_skus = [it.get("sku") for it in items if it.get("sku")]
             prefetch_product_details(cart_skus)
+            # Load online image orders database
+            orders_file = "app/data/image_orders.json"
+            image_orders_db = {}
+            if os.path.exists(orders_file):
+                try:
+                    with open(orders_file, "r", encoding="utf-8") as f:
+                        image_orders_db = json.load(f)
+                except Exception:
+                    pass
+
             for it in items:
                 sku = (it.get("sku") or "").strip()
-                # Ensure all_images and selected_images are always populated with all KTW angles!
+                # Ensure default template is always True (MEGATOOL frame by default)
+                if it.get("use_template") is None:
+                    it["use_template"] = True
+                if "unframed_images" not in it or it.get("unframed_images") is None:
+                    it["unframed_images"] = []
+                if not it.get("template_type"):
+                    it["template_type"] = "auto_spec"
+
+                # Ensure all_images and selected_images respect online custom image order
                 detail = get_product_detail(sku) or {}
                 raw_imgs = extract_product_images(detail)
+                saved_order = it.get("custom_image_order") or image_orders_db.get(sku)
+                if saved_order and isinstance(saved_order, list):
+                    it["custom_image_order"] = saved_order
+                    if raw_imgs:
+                        raw_imgs.sort(key=lambda u: saved_order.index(u) if u in saved_order else 999)
+
                 if raw_imgs:
                     it["all_images"] = raw_imgs
                     it["images"] = raw_imgs
                     top_img = it.get("selected_image") or it.get("cdn_url") or raw_imgs[0]
-                    # If selected_images is missing or only contains 1-2 images while KTW has more:
                     curr_sel = it.get("selected_images") or []
                     if len(curr_sel) <= 2 and len(raw_imgs) > 1:
-                        it["selected_images"] = [top_img] + raw_imgs[1:]
+                        it["selected_images"] = [top_img] + [u for u in raw_imgs if u != top_img]
                     elif not curr_sel:
-                        it["selected_images"] = [top_img] + (raw_imgs[1:] if len(raw_imgs) > 1 else [])
+                        it["selected_images"] = [top_img] + ([u for u in raw_imgs if u != top_img] if len(raw_imgs) > 1 else [])
                 raw_ktw = (it.get("ktw_name") or it.get("name") or sku).strip()
                 it["ktw_name"] = raw_ktw
                 rec_seo = build_shopee_seo_title(
@@ -447,6 +470,26 @@ def api_save_cart(req: SaveCartRequest):
         with open(cart_file, "w", encoding="utf-8") as f:
             json.dump(cdata, f, ensure_ascii=False, indent=2)
         # Also persist any customized shopee_title in cart items into shopee_custom_titles.json
+        # Online Image Orders Sync: persist any custom image orders from cart items
+        orders_file = "app/data/image_orders.json"
+        orders_db = {}
+        if os.path.exists(orders_file):
+            try:
+                with open(orders_file, "r", encoding="utf-8") as f:
+                    orders_db = json.load(f)
+            except Exception:
+                pass
+        for it in (req.items or []):
+            if isinstance(it, dict):
+                sku = (it.get("sku") or "").strip()
+                if sku and it.get("custom_image_order") and isinstance(it["custom_image_order"], list):
+                    orders_db[sku] = it["custom_image_order"]
+        try:
+            with open(orders_file, "w", encoding="utf-8") as f:
+                json.dump(orders_db, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
         for it in (req.items or []):
             if isinstance(it, dict):
                 sku = (it.get("sku") or "").strip()
@@ -542,6 +585,40 @@ def api_product(sku: str, request: Request, authorization: Optional[str] = Heade
         
     return detail
 
+class ImageOrderRequest(BaseModel):
+    sku: str
+    images: List[str]
+
+@app.get("/api/image-orders")
+def api_get_image_orders():
+    orders_file = "app/data/image_orders.json"
+    if os.path.exists(orders_file):
+        try:
+            with open(orders_file, "r", encoding="utf-8") as f:
+                return {"success": True, "orders": json.load(f)}
+        except Exception:
+            pass
+    return {"success": True, "orders": {}}
+
+@app.post("/api/image-orders")
+def api_save_image_orders(req: ImageOrderRequest):
+    orders_file = "app/data/image_orders.json"
+    os.makedirs(os.path.dirname(orders_file), exist_ok=True)
+    orders_db = {}
+    if os.path.exists(orders_file):
+        try:
+            with open(orders_file, "r", encoding="utf-8") as f:
+                orders_db = json.load(f)
+        except Exception:
+            pass
+    orders_db[req.sku] = req.images
+    try:
+        with open(orders_file, "w", encoding="utf-8") as f:
+            json.dump(orders_db, f, ensure_ascii=False, indent=2)
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/product-images/{sku}")
 def api_product_images(sku: str):
     detail = get_product_detail(sku)
@@ -551,7 +628,19 @@ def api_product_images(sku: str):
         c_fname = c_img.split('/')[-1].split('?')[0]
         if not any(c_fname in u for u in images):
             images.append(c_img)
-    return {"sku": sku, "images": images, "custom_images": custom_images}
+    # Online custom image order check
+    orders_file = "app/data/image_orders.json"
+    custom_order = None
+    if os.path.exists(orders_file):
+        try:
+            with open(orders_file, "r", encoding="utf-8") as f:
+                orders_db = json.load(f)
+                custom_order = orders_db.get(sku)
+        except Exception:
+            pass
+    if custom_order and isinstance(custom_order, list):
+        images.sort(key=lambda u: custom_order.index(u) if u in custom_order else 999)
+    return {"sku": sku, "images": images, "custom_images": custom_images, "custom_order": custom_order}
 
 class DeleteCustomImageRequest(BaseModel):
     sku: str
@@ -648,6 +737,23 @@ class CoverCustomizationRequest(BaseModel):
     custom_trust_s1: Optional[str] = None
     custom_trust_s2: Optional[str] = None
     shopee_title: Optional[str] = None
+    use_template: Optional[bool] = True
+    unframed_images: Optional[List[str]] = None
+    cover_mode: Optional[str] = "custom"
+    template_type: Optional[str] = "auto_spec"
+    custom_image_order: Optional[List[str]] = None
+    excluded_indices: Optional[List[int]] = None
+
+@app.get("/api/cover-customizations")
+def api_get_all_cover_customizations():
+    file_path = "app/data/cover_customizations.json"
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                return {"success": True, "customizations": json.load(f)}
+        except Exception:
+            pass
+    return {"success": True, "customizations": {}}
 
 @app.get("/api/cover-customizations/{sku}")
 def api_get_cover_customizations(sku: str):
@@ -682,16 +788,23 @@ def api_save_cover_customizations(req: CoverCustomizationRequest):
                 data = json.load(f)
         except Exception:
             data = {}
-    existing_t = (data.get(req.sku) or {}).get("shopee_title") if isinstance(data.get(req.sku), dict) else None
+    prev = data.get(req.sku) or {}
+    existing_t = prev.get("shopee_title") if isinstance(prev, dict) else None
     final_t = req.shopee_title if (req.shopee_title and req.shopee_title.strip()) else existing_t
     data[req.sku] = {
-        "custom_model": req.custom_model,
-        "custom_category": req.custom_category,
-        "custom_hero_pills": req.custom_hero_pills,
-        "custom_spec_cards": req.custom_spec_cards,
-        "custom_trust_s1": req.custom_trust_s1,
-        "custom_trust_s2": req.custom_trust_s2,
+        "custom_model": req.custom_model if req.custom_model is not None else prev.get("custom_model"),
+        "custom_category": req.custom_category if req.custom_category is not None else prev.get("custom_category"),
+        "custom_hero_pills": req.custom_hero_pills if req.custom_hero_pills is not None else prev.get("custom_hero_pills"),
+        "custom_spec_cards": req.custom_spec_cards if req.custom_spec_cards is not None else prev.get("custom_spec_cards"),
+        "custom_trust_s1": req.custom_trust_s1 if req.custom_trust_s1 is not None else prev.get("custom_trust_s1"),
+        "custom_trust_s2": req.custom_trust_s2 if req.custom_trust_s2 is not None else prev.get("custom_trust_s2"),
         "shopee_title": final_t,
+        "use_template": req.use_template if req.use_template is not None else prev.get("use_template", True),
+        "unframed_images": req.unframed_images if req.unframed_images is not None else prev.get("unframed_images", []),
+        "cover_mode": req.cover_mode or prev.get("cover_mode", "custom"),
+        "template_type": req.template_type or prev.get("template_type", "auto_spec"),
+        "custom_image_order": req.custom_image_order if req.custom_image_order is not None else prev.get("custom_image_order", []),
+        "excluded_indices": req.excluded_indices if req.excluded_indices is not None else prev.get("excluded_indices", []),
         "updated_at": int(time.time())
     }
     try:
@@ -700,6 +813,19 @@ def api_save_cover_customizations(req: CoverCustomizationRequest):
             json.dump(data, f, ensure_ascii=False, indent=2)
         if req.shopee_title and req.shopee_title.strip():
             save_custom_shopee_title(req.sku, req.shopee_title.strip(), source="cover_modal")
+        if req.custom_image_order and isinstance(req.custom_image_order, list):
+            orders_file = "app/data/image_orders.json"
+            os.makedirs(os.path.dirname(orders_file), exist_ok=True)
+            orders_db = {}
+            if os.path.exists(orders_file):
+                try:
+                    with open(orders_file, "r", encoding="utf-8") as f:
+                        orders_db = json.load(f)
+                except Exception:
+                    pass
+            orders_db[req.sku] = req.custom_image_order
+            with open(orders_file, "w", encoding="utf-8") as f:
+                json.dump(orders_db, f, ensure_ascii=False, indent=2)
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
