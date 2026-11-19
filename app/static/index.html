@@ -4827,18 +4827,26 @@ toggleListedSort(field) {
                         for (let i = 0; i < total; i += chunkSize) {
                             const chunkSkus = allSkus.slice(i, i + chunkSize);
                             this.batchAutoSpecProgress = `กำลังแต่งปก Ultra-HD (${Math.min(i + chunkSize, total)} / ${total})...`;
-                            const res = await fetch('/api/cart/batch-auto-spec', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    shop_id: shopId,
-                                    shop_name: shopName,
-                                    skus: chunkSkus,
-                                    items: i === 0 ? this.selectedItems : undefined,
-                                    force_regenerate: true
-                                })
-                            });
-                            if (res.ok) {
+                            let res = null;
+                            for (let attempt = 0; attempt < 2; attempt++) {
+                                try {
+                                    res = await fetch('/api/cart/batch-auto-spec', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            shop_id: shopId,
+                                            shop_name: shopName,
+                                            skus: chunkSkus,
+                                            items: i === 0 ? this.selectedItems : undefined,
+                                            force_regenerate: true
+                                        })
+                                    });
+                                    if (res && res.ok) break;
+                                } catch (netErr) {
+                                    console.warn('Batch chunk retry:', chunkSkus, netErr);
+                                }
+                            }
+                            if (res && res.ok) {
                                 const data = await res.json();
                                 processedTotal += Number(data.processed || 0);
                                 if (Array.isArray(data.items) && data.items.length > 0) {
@@ -5990,10 +5998,8 @@ toggleListedSort(field) {
                     if (!Array.isArray(entries)) return [];
                     const result = [];
                     const seenUrls = new Set();
-                    const seenAngleTmpl = new Set();
-                    // Preserve newest-first order so freshly generated covers always replace older versions
-                    const sorted = [...entries];
-                    for (const item of sorted) {
+                    // Preserve newest-first order and dedupe ONLY by exact cover URL so re-generating adds new covers at #1
+                    for (const item of entries) {
                         if (!item) continue;
                         if (typeof item !== 'object') {
                             const u = String(item).split('?')[0];
@@ -6005,18 +6011,8 @@ toggleListedSort(field) {
                         }
                         const cleanU = (item.url || '').split('?')[0];
                         const cdnU = (item.cdn_url || '').split('?')[0];
-                        const imgU = (item.image_url || '').trim();
-                        const tmpl = (item.template_type || 'auto_spec').trim();
-                        const shop = (item.shop_name || 'MEGATOOL').trim();
                         if (cleanU && seenUrls.has(cleanU)) continue;
                         if (cdnU && seenUrls.has(cdnU)) continue;
-                        if (imgU) {
-                            const angleKey = `${imgU}__${tmpl}__${shop}`;
-                            if (seenAngleTmpl.has(angleKey)) continue;
-                            seenAngleTmpl.add(angleKey);
-                        } else if (result.length > 0) {
-                            continue;
-                        }
                         if (cleanU) seenUrls.add(cleanU);
                         if (cdnU) seenUrls.add(cdnU);
                         result.push(item);
@@ -7014,14 +7010,7 @@ toggleListedSort(field) {
                     
                     this.savedCoverImages = (this.savedCoverImages || []).filter(c => {
                         const u = typeof c === 'object' ? (c.url || '') : String(c || '');
-                        if (u.split('?')[0] === cleanUrl) return false;
-                        if (typeof c === 'object' && effSourceUrl && c.image_url === effSourceUrl && (c.template_type || 'auto_spec') === effTmpl) {
-                            return false;
-                        }
-                        if (typeof c === 'object' && !c.image_url) {
-                            return false;
-                        }
-                        return true;
+                        return u.split('?')[0] !== cleanUrl;
                     });
                     this.savedCoverImages.unshift(newEntry);
                     this.savedCoverImages = this.deduplicateSavedCovers(this.savedCoverImages);

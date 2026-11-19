@@ -1,5 +1,6 @@
 import os
 import io
+import gc
 import json
 import time
 import re
@@ -15,7 +16,7 @@ _img_adapter = HTTPAdapter(pool_connections=25, pool_maxsize=25)
 _IMG_HTTP_SESSION.mount("https://", _img_adapter)
 _IMG_HTTP_SESSION.mount("http://", _img_adapter)
 
-@functools.lru_cache(maxsize=256)
+@functools.lru_cache(maxsize=64)
 def load_font(name: str, size: int):
     # 1. Project bundled fonts in app/fonts/
     bundled = os.path.join(os.path.dirname(__file__), "fonts", name)
@@ -640,7 +641,7 @@ def _get_prepared_hero_product(raw_img_path_or_url, hd_s):
 
     res_tuple = (resized_prod, shadow_img, pos_x, pos_y, sh_x, sh_y)
     _HERO_PRODUCT_CACHE[cache_key] = res_tuple
-    while len(_HERO_PRODUCT_CACHE) > 25:
+    while len(_HERO_PRODUCT_CACHE) > 3:
         _HERO_PRODUCT_CACHE.popitem(last=False)
     return res_tuple
 
@@ -919,6 +920,12 @@ def generate_auto_spec_cover(
     final_rgb = canvas.convert('RGB')
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     final_rgb.save(output_path, "JPEG", quality=98, subsampling=0, optimize=True)
+    try:
+        final_rgb.close()
+        canvas.close()
+    except Exception:
+        pass
+    gc.collect()
     return output_path
 
 
@@ -1302,7 +1309,7 @@ def fetch_image_safe(url_or_path):
                 if resp.status_code == 200 and len(resp.content) > 100:
                     im_rgba = Image.open(io.BytesIO(resp.content)).convert('RGBA')
                     _RAW_IMG_CACHE[cache_key] = im_rgba
-                    while len(_RAW_IMG_CACHE) > 40:
+                    while len(_RAW_IMG_CACHE) > 3:
                         _RAW_IMG_CACHE.popitem(last=False)
                     return im_rgba.copy()
             except Exception as e:

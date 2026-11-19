@@ -57,16 +57,8 @@ def _deduplicate_sku_covers(entries: list) -> list:
         return []
     result = []
     seen_urls = set()
-    seen_angle_tmpl = set()
-    # First pass: prefer entries that have both image_url and cdn_url
-    sorted_entries = sorted(
-        entries,
-        key=lambda x: (
-            0 if (isinstance(x, dict) and x.get("cdn_url") and x.get("image_url")) else
-            1 if (isinstance(x, dict) and (x.get("cdn_url") or x.get("image_url"))) else 2
-        )
-    )
-    for item in sorted_entries:
+    # Preserve newest-first order and deduplicate ONLY by exact cover URL so re-generating adds new covers cleanly at #1
+    for item in entries:
         if not isinstance(item, dict):
             u = str(item).split("?")[0]
             if u and u not in seen_urls:
@@ -75,20 +67,9 @@ def _deduplicate_sku_covers(entries: list) -> list:
             continue
         clean_u = (item.get("url") or "").split("?")[0]
         cdn_u = (item.get("cdn_url") or "").split("?")[0]
-        img_u = (item.get("image_url") or "").strip()
-        tmpl = (item.get("template_type") or "auto_spec").strip()
-        shop = (item.get("shop_name") or "MEGATOOL").strip()
         if clean_u and clean_u in seen_urls:
             continue
         if cdn_u and cdn_u in seen_urls:
-            continue
-        if img_u:
-            angle_key = f"{img_u}__{tmpl}__{shop}"
-            if angle_key in seen_angle_tmpl:
-                continue
-            seen_angle_tmpl.add(angle_key)
-        elif result:
-            # Entry without image_url when we already have a cover for this SKU: skip duplicate
             continue
         if clean_u:
             seen_urls.add(clean_u)
@@ -976,14 +957,7 @@ def api_preview_cover(req: PreviewRequest):
                 existing_entry = next(
                     (
                         c for c in db[req.sku]
-                        if isinstance(c, dict) and (
-                            c.get("url", "").split("?")[0] == clean_url or
-                            (
-                                c.get("image_url") == req.image_url and
-                                (c.get("template_type") or "auto_spec") == tmpl_type and
-                                (c.get("shop_name") or "MEGATOOL") == (req.shop_name or "MEGATOOL")
-                            )
-                        )
+                        if isinstance(c, dict) and c.get("url", "").split("?")[0] == clean_url
                     ),
                     None
                 )
@@ -1411,16 +1385,10 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
             with db_lock:
                 if sku not in saved_db:
                     saved_db[sku] = []
-                # Replace previous auto_spec entry for the same source image + shop so newest version is always #1
+                # Always ADD newly generated cover at #1 while keeping any previous saved covers intact (only dedupe exact URL)
                 saved_db[sku] = [
                     c for c in saved_db[sku]
-                    if isinstance(c, dict)
-                    and c.get("url", "").split("?")[0] != clean_url
-                    and not (
-                        c.get("image_url") == raw_img
-                        and (c.get("template_type") or "auto_spec") == "auto_spec"
-                        and (c.get("shop_name") or "MEGATOOL") == s_name
-                    )
+                    if not (isinstance(c, dict) and c.get("url", "").split("?")[0] == clean_url)
                 ]
                 saved_db[sku].insert(0, entry)
                 saved_db[sku] = saved_db[sku][:15]
@@ -1438,52 +1406,31 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
             item["custom_category"] = c_cat
             item["custom_hero_pills"] = c_pills
             item["custom_spec_cards"] = c_cards
+            try:
+                import gc
+                from app.image_service import _HERO_PRODUCT_CACHE, _RAW_IMG_CACHE
+                _HERO_PRODUCT_CACHE.clear()
+                _RAW_IMG_CACHE.clear()
+                gc.collect()
+            except Exception:
+                pass
             return True
         except Exception as e:
             print(f"Batch Auto-Spec failed for {sku}: {e}")
             return False
 
     processed_count = 0
-    with ThreadPoolExecutor(max_workers=3) as ex:
-        results = list(ex.map(_process_cart_item, items_list))
-        processed_count = sum(1 for r in results if r)
+    for it in items_list:
+        if _process_cart_item(it):
+            processed_count += 1
 
     _save_saved_covers_db(saved_db)
     with open(cart_file, "w", encoding="utf-8") as f:
         json.dump(cart_data, f, ensure_ascii=False, indent=2)
 
-    # Non-blocking background CDN upload so batch responds in ~2-4s (never hits Render 30s timeout)
+    # Single serialized background CDN queue worker (prevents spawning 18 parallel threads & RAM spikes on 512MB Render)
     if bg_upload_jobs:
-        def _bg_upload_batch(jobs, target_sid):
-            for fpath, target_sku, target_clean_url in jobs:
-                try:
-                    cdn_res = upload_to_cdn(fpath, max_retries=2, force=True)
-                    if cdn_res and cdn_res.startswith("http"):
-                        cur_db = _load_saved_covers_db()
-                        if target_sku in cur_db:
-                            for it in cur_db[target_sku]:
-                                if isinstance(it, dict) and it.get("url", "").split("?")[0] == target_clean_url:
-                                    it["cdn_url"] = cdn_res
-                                    break
-                            _save_saved_covers_db(cur_db)
-                        try:
-                            if os.path.exists(cart_file):
-                                with open(cart_file, "r", encoding="utf-8") as cf:
-                                    c_all = json.load(cf)
-                                changed = False
-                                for ci in c_all.get(target_sid, []):
-                                    if ci.get("sku") == target_sku and str(ci.get("selected_image", "")).split("?")[0] == target_clean_url:
-                                        ci["cdn_url"] = cdn_res
-                                        changed = True
-                                if changed:
-                                    with open(cart_file, "w", encoding="utf-8") as cf:
-                                        json.dump(c_all, cf, ensure_ascii=False, indent=2)
-                        except Exception:
-                            pass
-                except Exception as ue:
-                    print(f"Background batch CDN upload skipped for {target_sku}: {ue}")
-
-        threading.Thread(target=_bg_upload_batch, args=(list(bg_upload_jobs), sid), daemon=True).start()
+        _enqueue_batch_cdn_uploads(bg_upload_jobs, sid)
 
     return {
         "success": True,
@@ -1491,6 +1438,60 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
         "items": items_list,
         "saved_covers": saved_db
     }
+
+
+import queue as _stdlib_queue
+_BATCH_CDN_Q = _stdlib_queue.Queue()
+_BATCH_CDN_WORKER_STARTED = False
+_BATCH_CDN_LOCK = threading.Lock()
+
+
+def _enqueue_batch_cdn_uploads(jobs, target_sid):
+    global _BATCH_CDN_WORKER_STARTED
+    for fpath, target_sku, target_clean_url in jobs:
+        _BATCH_CDN_Q.put((fpath, target_sku, target_clean_url, target_sid))
+    with _BATCH_CDN_LOCK:
+        if not _BATCH_CDN_WORKER_STARTED:
+            _BATCH_CDN_WORKER_STARTED = True
+            threading.Thread(target=_batch_cdn_worker_loop, daemon=True).start()
+
+
+def _batch_cdn_worker_loop():
+    from app.image_service import upload_to_cdn
+    cart_file = "app/data/cart.json"
+    while True:
+        try:
+            fpath, target_sku, target_clean_url, target_sid = _BATCH_CDN_Q.get()
+            try:
+                cdn_res = upload_to_cdn(fpath, max_retries=2, force=True)
+                if cdn_res and cdn_res.startswith("http"):
+                    cur_db = _load_saved_covers_db()
+                    if target_sku in cur_db:
+                        for it in cur_db[target_sku]:
+                            if isinstance(it, dict) and it.get("url", "").split("?")[0] == target_clean_url:
+                                it["cdn_url"] = cdn_res
+                                break
+                        _save_saved_covers_db(cur_db)
+                    try:
+                        if os.path.exists(cart_file):
+                            with open(cart_file, "r", encoding="utf-8") as cf:
+                                c_all = json.load(cf)
+                            changed = False
+                            for ci in c_all.get(target_sid, []):
+                                if ci.get("sku") == target_sku and str(ci.get("selected_image", "")).split("?")[0] == target_clean_url:
+                                    ci["cdn_url"] = cdn_res
+                                    changed = True
+                            if changed:
+                                with open(cart_file, "w", encoding="utf-8") as cf:
+                                    json.dump(c_all, cf, ensure_ascii=False, indent=2)
+                    except Exception:
+                        pass
+            except Exception as ue:
+                print(f"Background batch CDN upload skipped for {target_sku}: {ue}")
+            finally:
+                _BATCH_CDN_Q.task_done()
+        except Exception:
+            time.sleep(1)
 
 @app.get("/api/stats")
 def api_stats():
