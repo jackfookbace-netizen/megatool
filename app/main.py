@@ -932,8 +932,10 @@ def api_preview_cover(req: PreviewRequest):
     brand = req.brand or detect_brand_from_sku(req.sku)
     shop_str = re.sub(r'[^a-zA-Z0-9]', '', (req.shop_name or 'MEGATOOL').lower())
     tmpl_type = req.template_type or "standard"
+    from app.image_service import AUTO_SPEC_TYPO_VER
+    typo_ver = f"_{AUTO_SPEC_TYPO_VER}" if tmpl_type == "auto_spec" else ""
     custom_str = f"{req.custom_category}_{req.custom_hero_pills}_{req.custom_spec_cards}_{req.custom_trust_s1}_{req.custom_trust_s2}"
-    url_hash = hashlib.md5(f"{req.image_url}_{shop_str}_{tmpl_type}_{req.badge_text}_{req.custom_model}_{custom_str}".encode('utf-8')).hexdigest()[:8]
+    url_hash = hashlib.md5(f"{req.image_url}_{shop_str}_{tmpl_type}{typo_ver}_{req.badge_text}_{req.custom_model}_{custom_str}".encode('utf-8')).hexdigest()[:8]
     output_filename = f"{req.sku}_{shop_str}_{tmpl_type}_{url_hash}_preview.jpg"
     output_path = f"app/static/covers/{output_filename}"
     
@@ -1359,9 +1361,10 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
         c_s2 = defaults.get("trust_s2")
         badge = item.get("badge") or "มีสต็อกพร้อมส่งทันที"
 
+        from app.image_service import AUTO_SPEC_TYPO_VER
         shop_str = re.sub(r'[^a-zA-Z0-9]', '', s_name).lower()[:12] or "megatool"
         extra_hash = f"{c_model}_{c_cat}_{c_pills}_{c_cards}_{c_s1}_{c_s2}"
-        url_hash = hashlib.md5(f"{raw_img}_{badge}_{s_name}_auto_spec_{extra_hash}".encode('utf-8')).hexdigest()[:8]
+        url_hash = hashlib.md5(f"{raw_img}_{badge}_{s_name}_auto_spec_{AUTO_SPEC_TYPO_VER}_{extra_hash}".encode('utf-8')).hexdigest()[:8]
         out_fn = f"{sku}_{shop_str}_auto_spec_{url_hash}_preview.jpg"
         out_path = f"app/static/covers/{out_fn}"
         clean_url = f"/static/covers/{out_fn}"

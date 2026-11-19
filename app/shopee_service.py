@@ -158,8 +158,10 @@ def _process_single_image(raw_img_url, img_idx, sku, brand, badge_text, shop_nam
     c_cards = info.get('custom_spec_cards')
     c_s1 = info.get('custom_trust_s1')
     c_s2 = info.get('custom_trust_s2')
+    from app.image_service import AUTO_SPEC_TYPO_VER
+    typo_ver = f"_{AUTO_SPEC_TYPO_VER}" if cur_tmpl_type == "auto_spec" else ""
     extra_hash = f"{c_model}_{c_cat}_{c_pills}_{c_cards}_{c_s1}_{c_s2}"
-    url_hash = hashlib.md5(f"{raw_img_url}_{brand}_{badge_text}_{shop_name}_{cur_tmpl_type}_{extra_hash}".encode('utf-8')).hexdigest()[:10]
+    url_hash = hashlib.md5(f"{raw_img_url}_{brand}_{badge_text}_{shop_name}_{cur_tmpl_type}{typo_ver}_{extra_hash}".encode('utf-8')).hexdigest()[:10]
     local_img_path = f"app/static/covers/{sku}_{url_hash}.jpg"
     filename = f"{sku}_{url_hash}.jpg"
     try:
