@@ -4819,7 +4819,9 @@ toggleListedSort(field) {
                     const shopName = (this.currentShop && this.currentShop.brand_display) || (shopId === 'shop_2' ? 'BigPower Tools' : 'MEGATOOL');
                     const allSkus = this.selectedItems.map(i => i.sku).filter(Boolean);
                     const total = allSkus.length;
-                    const chunkSize = 3;
+                    const chunkSize = 2;
+                    let processedTotal = 0;
+                    let failedChunks = 0;
 
                     try {
                         for (let i = 0; i < total; i += chunkSize) {
@@ -4833,23 +4835,26 @@ toggleListedSort(field) {
                                     shop_name: shopName,
                                     skus: chunkSkus,
                                     items: i === 0 ? this.selectedItems : undefined,
-                                    force_regenerate: false
+                                    force_regenerate: true
                                 })
                             });
                             if (res.ok) {
                                 const data = await res.json();
+                                processedTotal += Number(data.processed || 0);
                                 if (Array.isArray(data.items) && data.items.length > 0) {
                                     const updatedMap = {};
                                     for (const uIt of data.items) {
                                         if (uIt && uIt.sku) updatedMap[uIt.sku] = uIt;
                                     }
+                                    const chunkSet = new Set(chunkSkus);
                                     this.selectedItems = this.selectedItems.map(cur => {
+                                        if (!chunkSet.has(cur.sku)) return cur;
                                         const up = updatedMap[cur.sku];
                                         if (up && (up.cdn_url || up.selected_image)) {
                                             const cov = up.cdn_url || up.selected_image;
                                             return {
                                                 ...cur,
-                                                cdn_url: up.cdn_url || cur.cdn_url,
+                                                cdn_url: up.cdn_url || null,
                                                 selected_image: cov,
                                                 image: cov,
                                                 use_template: true,
@@ -4866,18 +4871,33 @@ toggleListedSort(field) {
                                 if (data.saved_covers && typeof data.saved_covers === 'object') {
                                     try {
                                         let allSaved = JSON.parse(localStorage.getItem('megatool_saved_covers') || '{}');
-                                        allSaved = { ...allSaved, ...data.saved_covers };
+                                        for (const [k, v] of Object.entries(data.saved_covers)) {
+                                            if (Array.isArray(v)) {
+                                                allSaved[k] = this.deduplicateSavedCovers(v);
+                                            }
+                                        }
                                         localStorage.setItem('megatool_saved_covers', JSON.stringify(allSaved));
                                     } catch (e) {}
                                 }
+                            } else {
+                                failedChunks += 1;
+                                console.error('Batch Auto-Spec chunk HTTP error:', res.status, chunkSkus);
                             }
                         }
                         this.saveCartToStorage();
-                        this.batchAutoSpecDoneMsg = `✅ แต่งปกและบันทึกครบ ${total} รายการแล้ว!`;
-                        setTimeout(() => { this.batchAutoSpecDoneMsg = ''; }, 5000);
+                        if (failedChunks === 0 && processedTotal > 0) {
+                            this.batchAutoSpecDoneMsg = `✅ แต่งปกและบันทึกครบ ${processedTotal} รายการแล้ว!`;
+                        } else if (processedTotal > 0) {
+                            this.batchAutoSpecDoneMsg = `⚠️ แต่งปกสำเร็จ ${processedTotal}/${total} รายการ (ลองกดซ้ำสำหรับรายการที่เหลือ)`;
+                        } else {
+                            this.batchAutoSpecDoneMsg = `❌ แต่งปกไม่สำเร็จ กรุณารีเฟรชหน้าเว็บแล้วลองใหม่`;
+                        }
+                        setTimeout(() => { this.batchAutoSpecDoneMsg = ''; }, 6000);
                         this.$nextTick(() => lucide.createIcons());
                     } catch (e) {
                         console.error('Batch Auto-Spec error:', e);
+                        this.batchAutoSpecDoneMsg = `❌ เชื่อมต่อเซิร์ฟเวอร์ขัดข้อง ลองกดใหม่อีกครั้ง`;
+                        setTimeout(() => { this.batchAutoSpecDoneMsg = ''; }, 6000);
                     } finally {
                         this.batchGeneratingAutoSpec = false;
                         this.batchAutoSpecProgress = '';
@@ -5971,16 +5991,8 @@ toggleListedSort(field) {
                     const result = [];
                     const seenUrls = new Set();
                     const seenAngleTmpl = new Set();
-                    const sorted = [...entries].sort((a, b) => {
-                        const score = (x) => {
-                            if (typeof x === 'object' && x) {
-                                if (x.cdn_url && x.image_url) return 0;
-                                if (x.cdn_url || x.image_url) return 1;
-                            }
-                            return 2;
-                        };
-                        return score(a) - score(b);
-                    });
+                    // Preserve newest-first order so freshly generated covers always replace older versions
+                    const sorted = [...entries];
                     for (const item of sorted) {
                         if (!item) continue;
                         if (typeof item !== 'object') {

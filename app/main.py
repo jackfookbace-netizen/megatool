@@ -1325,6 +1325,7 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
     target_skus = set(req.skus) if req.skus else {it.get("sku") for it in items_list if it.get("sku")}
     prefetch_product_details(list(target_skus))
     db_lock = threading.Lock()
+    bg_upload_jobs = []
 
     def _process_cart_item(item):
         sku = item.get("sku")
@@ -1335,107 +1336,154 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
         if item.get("use_template") is False and not req.force_regenerate:
             return False
 
-        detail = get_product_detail(sku) or {}
-        user_ordered_imgs = item.get("custom_image_order") or item.get("all_images")
-        if user_ordered_imgs and isinstance(user_ordered_imgs, list) and len(user_ordered_imgs) > 0:
-            raw_user_imgs = [u for u in user_ordered_imgs if u and "/static/covers/" not in str(u) and "iili.io" not in str(u)]
-            imgs = raw_user_imgs if raw_user_imgs else extract_product_images(detail)
-        else:
-            imgs = extract_product_images(detail)
+        try:
+            detail = get_product_detail(sku) or {}
+            user_ordered_imgs = item.get("custom_image_order") or item.get("all_images")
+            if user_ordered_imgs and isinstance(user_ordered_imgs, list) and len(user_ordered_imgs) > 0:
+                raw_user_imgs = [u for u in user_ordered_imgs if u and "/static/covers/" not in str(u) and "iili.io" not in str(u)]
+                imgs = raw_user_imgs if raw_user_imgs else extract_product_images(detail)
+            else:
+                imgs = extract_product_images(detail)
 
-        # Core Rule: ALWAYS use Image 1 (imgs[0]) as the primary raw source photo for cover creation
-        raw_img = imgs[0] if imgs else (item.get("image") or item.get("selected_image") or "")
-        if "iili.io" in str(raw_img) or "/static/covers/" in str(raw_img):
-            if imgs:
-                raw_img = imgs[0]
-        if not raw_img:
+            # Core Rule: ALWAYS use Image 1 (imgs[0]) as the primary raw source photo for cover creation
+            raw_img = imgs[0] if imgs else (item.get("image") or item.get("selected_image") or "")
+            if "iili.io" in str(raw_img) or "/static/covers/" in str(raw_img):
+                if imgs:
+                    raw_img = imgs[0]
+            if not raw_img:
+                return False
+
+            brand = item.get("brand") or clean_brand_name(detail.get("manufacturer"), sku)
+            cust_item = cust_db.get(sku) if isinstance(cust_db.get(sku), dict) else {}
+            defaults = get_auto_cover_defaults(sku, detail=detail, shop_name=s_name)
+            c_model = cust_item.get("custom_model") or item.get("custom_model") or defaults.get("model_name")
+            c_cat = cust_item.get("custom_category") or item.get("custom_category") or defaults.get("category_title")
+            c_pills = cust_item.get("custom_hero_pills") or item.get("custom_hero_pills") or defaults.get("hero_pills")
+            c_cards = cust_item.get("custom_spec_cards") or item.get("custom_spec_cards") or defaults.get("spec_cards")
+            c_s1 = cust_item.get("custom_trust_s1") or item.get("custom_trust_s1") or defaults.get("trust_s1")
+            c_s2 = cust_item.get("custom_trust_s2") or item.get("custom_trust_s2") or defaults.get("trust_s2")
+            badge = item.get("badge") or "มีสต็อกพร้อมส่งทันที"
+
+            from app.image_service import AUTO_SPEC_TYPO_VER
+            shop_str = re.sub(r'[^a-zA-Z0-9]', '', s_name).lower()[:12] or "megatool"
+            extra_hash = f"{c_model}_{c_cat}_{c_pills}_{c_cards}_{c_s1}_{c_s2}"
+            url_hash = hashlib.md5(f"{raw_img}_{badge}_{s_name}_auto_spec_{AUTO_SPEC_TYPO_VER}_{extra_hash}".encode('utf-8')).hexdigest()[:8]
+            out_fn = f"{sku}_{shop_str}_auto_spec_{url_hash}_preview.jpg"
+            out_path = f"app/static/covers/{out_fn}"
+            clean_url = f"/static/covers/{out_fn}"
+
+            generate_cover(
+                raw_img,
+                out_path,
+                brand=brand,
+                sku=sku,
+                badge_text=badge,
+                shop_name=s_name,
+                overwrite=True,
+                template_type="auto_spec",
+                custom_model=c_model,
+                custom_category=c_cat,
+                custom_hero_pills=c_pills,
+                custom_spec_cards=c_cards,
+                custom_trust_s1=c_s1,
+                custom_trust_s2=c_s2
+            )
+
+            entry = {
+                "url": clean_url,
+                "cdn_url": None,
+                "sku": sku,
+                "image_url": raw_img,
+                "brand": brand,
+                "badge_text": badge,
+                "shop_name": s_name,
+                "template_type": "auto_spec",
+                "specs": {
+                    "custom_category": c_cat,
+                    "custom_model": c_model,
+                    "custom_hero_pills": c_pills,
+                    "custom_spec_cards": c_cards,
+                    "custom_trust_s1": c_s1,
+                    "custom_trust_s2": c_s2
+                },
+                "created_at": datetime.now().isoformat()
+            }
+            with db_lock:
+                if sku not in saved_db:
+                    saved_db[sku] = []
+                # Replace previous auto_spec entry for the same source image + shop so newest version is always #1
+                saved_db[sku] = [
+                    c for c in saved_db[sku]
+                    if isinstance(c, dict)
+                    and c.get("url", "").split("?")[0] != clean_url
+                    and not (
+                        c.get("image_url") == raw_img
+                        and (c.get("template_type") or "auto_spec") == "auto_spec"
+                        and (c.get("shop_name") or "MEGATOOL") == s_name
+                    )
+                ]
+                saved_db[sku].insert(0, entry)
+                saved_db[sku] = saved_db[sku][:15]
+                bg_upload_jobs.append((out_path, sku, clean_url))
+
+            item["selected_image"] = clean_url
+            item["image"] = clean_url
+            item["cdn_url"] = None
+            item["use_template"] = True
+            item["template_type"] = "auto_spec"
+            item["all_images"] = imgs
+            item["images"] = imgs
+            item["selected_images"] = [clean_url] + (imgs[1:] if len(imgs) > 1 else [])
+            item["custom_model"] = c_model
+            item["custom_category"] = c_cat
+            item["custom_hero_pills"] = c_pills
+            item["custom_spec_cards"] = c_cards
+            return True
+        except Exception as e:
+            print(f"Batch Auto-Spec failed for {sku}: {e}")
             return False
 
-        brand = item.get("brand") or clean_brand_name(detail.get("manufacturer"), sku)
-        defaults = get_auto_cover_defaults(sku, detail=detail, shop_name=s_name)
-        c_model = defaults.get("model_name")
-        c_cat = defaults.get("category_title")
-        c_pills = defaults.get("hero_pills")
-        c_cards = defaults.get("spec_cards")
-        c_s1 = defaults.get("trust_s1")
-        c_s2 = defaults.get("trust_s2")
-        badge = item.get("badge") or "มีสต็อกพร้อมส่งทันที"
-
-        from app.image_service import AUTO_SPEC_TYPO_VER
-        shop_str = re.sub(r'[^a-zA-Z0-9]', '', s_name).lower()[:12] or "megatool"
-        extra_hash = f"{c_model}_{c_cat}_{c_pills}_{c_cards}_{c_s1}_{c_s2}"
-        url_hash = hashlib.md5(f"{raw_img}_{badge}_{s_name}_auto_spec_{AUTO_SPEC_TYPO_VER}_{extra_hash}".encode('utf-8')).hexdigest()[:8]
-        out_fn = f"{sku}_{shop_str}_auto_spec_{url_hash}_preview.jpg"
-        out_path = f"app/static/covers/{out_fn}"
-        clean_url = f"/static/covers/{out_fn}"
-
-        generate_cover(
-            raw_img,
-            out_path,
-            brand=brand,
-            sku=sku,
-            badge_text=badge,
-            shop_name=s_name,
-            overwrite=True,
-            template_type="auto_spec",
-            custom_model=c_model,
-            custom_category=c_cat,
-            custom_hero_pills=c_pills,
-            custom_spec_cards=c_cards,
-            custom_trust_s1=c_s1,
-            custom_trust_s2=c_s2
-        )
-        cdn_u = upload_to_cdn(out_path, max_retries=2)
-        final_u = cdn_u if (cdn_u and cdn_u.startswith("http")) else clean_url
-
-        entry = {
-            "url": clean_url,
-            "cdn_url": cdn_u,
-            "sku": sku,
-            "image_url": raw_img,
-            "brand": brand,
-            "badge_text": badge,
-            "shop_name": s_name,
-            "template_type": "auto_spec",
-            "specs": {
-                "custom_category": c_cat,
-                "custom_model": c_model,
-                "custom_hero_pills": c_pills,
-                "custom_spec_cards": c_cards,
-                "custom_trust_s1": c_s1,
-                "custom_trust_s2": c_s2
-            },
-            "created_at": datetime.now().isoformat()
-        }
-        with db_lock:
-            if sku not in saved_db:
-                saved_db[sku] = []
-            saved_db[sku] = [c for c in saved_db[sku] if isinstance(c, dict) and c.get("url", "").split("?")[0] != clean_url]
-            saved_db[sku].insert(0, entry)
-            saved_db[sku] = saved_db[sku][:15]
-
-        item["selected_image"] = final_u
-        item["image"] = final_u
-        item["cdn_url"] = cdn_u
-        item["use_template"] = True
-        item["template_type"] = "auto_spec"
-        item["all_images"] = imgs
-        item["images"] = imgs
-        item["selected_images"] = [final_u] + (imgs[1:] if len(imgs) > 1 else [])
-        item["custom_model"] = c_model
-        item["custom_category"] = c_cat
-        item["custom_hero_pills"] = c_pills
-        item["custom_spec_cards"] = c_cards
-        return True
-
     processed_count = 0
-    with ThreadPoolExecutor(max_workers=4) as ex:
+    with ThreadPoolExecutor(max_workers=3) as ex:
         results = list(ex.map(_process_cart_item, items_list))
         processed_count = sum(1 for r in results if r)
 
     _save_saved_covers_db(saved_db)
     with open(cart_file, "w", encoding="utf-8") as f:
         json.dump(cart_data, f, ensure_ascii=False, indent=2)
+
+    # Non-blocking background CDN upload so batch responds in ~2-4s (never hits Render 30s timeout)
+    if bg_upload_jobs:
+        def _bg_upload_batch(jobs, target_sid):
+            for fpath, target_sku, target_clean_url in jobs:
+                try:
+                    cdn_res = upload_to_cdn(fpath, max_retries=2, force=True)
+                    if cdn_res and cdn_res.startswith("http"):
+                        cur_db = _load_saved_covers_db()
+                        if target_sku in cur_db:
+                            for it in cur_db[target_sku]:
+                                if isinstance(it, dict) and it.get("url", "").split("?")[0] == target_clean_url:
+                                    it["cdn_url"] = cdn_res
+                                    break
+                            _save_saved_covers_db(cur_db)
+                        try:
+                            if os.path.exists(cart_file):
+                                with open(cart_file, "r", encoding="utf-8") as cf:
+                                    c_all = json.load(cf)
+                                changed = False
+                                for ci in c_all.get(target_sid, []):
+                                    if ci.get("sku") == target_sku and str(ci.get("selected_image", "")).split("?")[0] == target_clean_url:
+                                        ci["cdn_url"] = cdn_res
+                                        changed = True
+                                if changed:
+                                    with open(cart_file, "w", encoding="utf-8") as cf:
+                                        json.dump(c_all, cf, ensure_ascii=False, indent=2)
+                        except Exception:
+                            pass
+                except Exception as ue:
+                    print(f"Background batch CDN upload skipped for {target_sku}: {ue}")
+
+        threading.Thread(target=_bg_upload_batch, args=(list(bg_upload_jobs), sid), daemon=True).start()
 
     return {
         "success": True,
