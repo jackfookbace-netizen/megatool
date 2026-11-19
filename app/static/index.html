@@ -4819,7 +4819,7 @@ toggleListedSort(field) {
                     const shopName = (this.currentShop && this.currentShop.brand_display) || (shopId === 'shop_2' ? 'BigPower Tools' : 'MEGATOOL');
                     const allSkus = this.selectedItems.map(i => i.sku).filter(Boolean);
                     const total = allSkus.length;
-                    const chunkSize = 2;
+                    const chunkSize = 1;
                     let processedTotal = 0;
                     let failedChunks = 0;
 
