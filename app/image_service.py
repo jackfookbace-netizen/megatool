@@ -51,6 +51,12 @@ try:
 except Exception:
     HAS_GDI = False
 
+try:
+    from PIL import features as _pil_features
+    HAS_RAQM = bool(_pil_features.check("raqm"))
+except Exception:
+    HAS_RAQM = False
+
 _THAI_UPPER_VOWELS = set("\u0e31\u0e34\u0e35\u0e36\u0e37")   # ั ิ ี ึ ื
 _THAI_TOP_MARKS = set("\u0e48\u0e49\u0e4a\u0e4b\u0e4c")        # ่ ้ ๊ ๋ ์
 
@@ -74,7 +80,11 @@ def _thai_split_stacked(text):
 
 
 def _draw_thai_text(draw, xy, text, font, fill, anchor="ls", lift_ratio=0.2):
-    """draw.text() replacement that renders Thai stacked tone marks correctly without a shaping engine."""
+    """draw.text() replacement: uses native HarfBuzz (libraqm) GPOS Thai shaping when available (Linux/Render),
+    and falls back to manual stacked tone-mark raising only when libraqm is unavailable (Windows)."""
+    if HAS_RAQM:
+        draw.text(xy, text, font=font, fill=fill, anchor=anchor)
+        return
     stripped, marks = _thai_split_stacked(text)
     draw.text(xy, stripped, font=font, fill=fill, anchor=anchor)
     if marks:
@@ -84,7 +94,7 @@ def _draw_thai_text(draw, xy, text, font, fill, anchor="ls", lift_ratio=0.2):
             draw.text((xy[0] + pen, xy[1] - lift), mk, font=font, fill=fill, anchor=anchor)
 
 
-AUTO_SPEC_TYPO_VER = "v3hd"
+AUTO_SPEC_TYPO_VER = "v4hd"
 
 PROMPT_FILES = {
     "regular": "Prompt-Regular.ttf",
@@ -135,10 +145,10 @@ def draw_hq(canvas, text, x, baseline, weight="semibold", size=30, color=(0, 0, 
 
     S = 4
     f = load_font(AUTO_SPEC_FONTS.get(weight, "leelawdb.ttf"), real_size * S)
-    stripped_t, _mk = _thai_split_stacked(text)
+    stripped_t, _mk = (text, []) if HAS_RAQM else _thai_split_stacked(text)
     bb = f.getbbox(stripped_t, anchor="ls")
-    if _mk:
-        bb = (bb[0], min(bb[1], bb[1] - int(real_size * 0.42 * S)), bb[2], bb[3])
+    if _mk or HAS_RAQM:
+        bb = (bb[0], min(bb[1], bb[1] - int(real_size * 0.45 * S)), bb[2], bb[3])
     pad = 8
     ox = ((-bb[0]) // S + pad + 1) * S
     oy = ((-bb[1]) // S + pad + 1) * S
@@ -779,32 +789,32 @@ def generate_auto_spec_cover(
         except Exception as e:
             print(f"Error placing brand logo: {e}")
 
-    # Maximum-contrast razor-sharp typography applied universally to ALL shops (MEGATOOL, BigPower Tools, and any future shops)
+    # 100% Solid Pure Jet-Black razor-sharp typography applied universally to ALL shops (MEGATOOL, BigPower Tools, and any future shops)
     TEXT_INK = (0, 0, 0)
-    TEXT_LABEL = (28, 34, 46)
+    TEXT_LABEL = (0, 0, 0)
     trust_s1_color = theme_rgb if is_bigpower else (0, 0, 0)
     trust_s2_color = (0, 0, 0)
 
     DIVIDER_COLOR = (196, 202, 212, 255)
     WHITE = (255, 255, 255, 255)
-    COL_L = 42
-    COL_R = 378   # expanded left text column (product starts safely at x >= 388, zero overlap)
+    COL_L = 40
+    COL_R = 380   # expanded left text column (product starts safely at x >= 388, zero overlap)
     max_text_w = COL_R - COL_L
 
     # --- Title (category) ---
-    t_sz, _tw = fit_hq(category_title, "bold", 54, 34, max_text_w)
+    t_sz, _tw = fit_hq(category_title, "bold", 56, 36, max_text_w)
     draw_hq(canvas, category_title, COL_L, 178, "bold", t_sz, TEXT_INK)
 
     # --- Model pill ---
-    pill_top = 198
-    pill_h = 68
-    m_sz, m_w = fit_hq(model_name, "bold", 42, 22, max_text_w - 22)
-    pill_w = min(max_text_w, int(m_w) + 24)
+    pill_top = 196
+    pill_h = 70
+    m_sz, m_w = fit_hq(model_name, "bold", 44, 24, max_text_w - 20)
+    pill_w = min(max_text_w, int(m_w) + 22)
     draw_aa_rounded_rect(canvas, [COL_L, pill_top, COL_L + pill_w, pill_top + pill_h], radius=12, fill=theme_color)
     draw_hq(canvas, model_name, COL_L + (pill_w - m_w) / 2.0, pill_top + pill_h // 2 + int(m_sz * 0.35), "bold", m_sz, (255, 255, 255))
 
     # --- Highlight sub-pills (Max 2 compact badges, enlarged legible font, strictly <= max_text_w) ---
-    curr_y = pill_top + pill_h + 12
+    curr_y = pill_top + pill_h + 11
     sub_bg = (238, 244, 252, 255) if is_bigpower else (255, 238, 239, 255)
     sub_border = (170, 194, 224, 255) if is_bigpower else (250, 165, 168, 255)
 
@@ -818,19 +828,19 @@ def generate_auto_spec_cover(
         clean_pills.append(hp_clean)
 
     for hp in clean_pills:
-        hp_sz, hp_w = fit_hq(hp, "bold", 28, 20, max_text_w - 20)
-        ph = 46
-        bw_ = min(max_text_w, int(hp_w) + 22)
+        hp_sz, hp_w = fit_hq(hp, "bold", 30, 21, max_text_w - 18)
+        ph = 48
+        bw_ = min(max_text_w, int(hp_w) + 20)
         draw_aa_rounded_rect(canvas, [COL_L, curr_y, COL_L + bw_, curr_y + ph], radius=8, fill=sub_bg, outline=sub_border, width=2)
         draw_hq(canvas, hp, COL_L + (bw_ - hp_w) / 2.0, curr_y + ph // 2 + int(hp_sz * 0.35), "bold", hp_sz, TEXT_INK)
-        curr_y += ph + 7
+        curr_y += ph + 6
 
     # --- Spec rows (Ultra-Crisp Enlarged Typography & Tight Balanced Spacing) ---
-    spec_top = curr_y + 10
+    spec_top = curr_y + 8
     n_rows = max(1, len(spec_cards[:4]))
-    trust_card_h = 94
-    bottom_limit = COVER_SAFE_BOTTOM - 4
-    avail = bottom_limit - spec_top - trust_card_h - 14
+    trust_card_h = 96
+    bottom_limit = COVER_SAFE_BOTTOM - 2
+    avail = bottom_limit - spec_top - trust_card_h - 12
     spec_row_h = max(106, min(136, avail // n_rows))
 
     hex_radius = 24
@@ -839,10 +849,10 @@ def generate_auto_spec_cover(
     text_x = hex_center_x + hex_radius + 10
     val_max_w = COL_R - text_x
 
-    # Enlarged Ultra-Crisp font sizes (maximizes readability on both desktop & mobile without changing layout positions)
-    STD_LABEL_SZ = 27
-    STD_VAL_SZ = 39
-    STD_VAL_2LINE_SZ = 31
+    # Maximum-legibility bold font sizes (fills available row space cleanly without changing layout positions)
+    STD_LABEL_SZ = 29
+    STD_VAL_SZ = 44
+    STD_VAL_2LINE_SZ = 33
 
     for idx, sp in enumerate(spec_cards[:4]):
         r_y = spec_top + idx * spec_row_h
@@ -857,18 +867,18 @@ def generate_auto_spec_cover(
             if len(speeds) >= 2:
                 val = f"{speeds[0]} / {speeds[-1]}"
 
-        l_sz, _ = fit_hq(lbl, "semibold", STD_LABEL_SZ, 20, val_max_w)
+        l_sz, _ = fit_hq(lbl, "semibold", STD_LABEL_SZ, 21, val_max_w)
 
-        v_sz, v_w = fit_hq(val, "bold", STD_VAL_SZ, 29, val_max_w)
-        if v_w <= val_max_w and v_sz >= 29:
-            draw_hq(canvas, lbl, text_x, h_cy - 12, "semibold", l_sz, TEXT_LABEL)
-            draw_hq(canvas, val, text_x, h_cy + 34, "bold", v_sz, TEXT_INK)
+        v_sz, v_w = fit_hq(val, "bold", STD_VAL_SZ, 31, val_max_w)
+        if v_w <= val_max_w and v_sz >= 31:
+            draw_hq(canvas, lbl, text_x, h_cy - 14, "semibold", l_sz, TEXT_LABEL)
+            draw_hq(canvas, val, text_x, h_cy + 36, "bold", v_sz, TEXT_INK)
         else:
             ln1, ln2 = split_two_lines(val)
-            sz1, _ = fit_hq(ln1, "bold", STD_VAL_2LINE_SZ, 21, val_max_w)
-            sz2, _ = fit_hq(ln2, "bold", STD_VAL_2LINE_SZ, 21, val_max_w) if ln2 else (STD_VAL_2LINE_SZ, 0)
+            sz1, _ = fit_hq(ln1, "bold", STD_VAL_2LINE_SZ, 22, val_max_w)
+            sz2, _ = fit_hq(ln2, "bold", STD_VAL_2LINE_SZ, 22, val_max_w) if ln2 else (STD_VAL_2LINE_SZ, 0)
             v2_sz = min(sz1, sz2)
-            l_sz2 = min(l_sz, 25)
+            l_sz2 = min(l_sz, 26)
             line_step = int(round(v2_sz * 1.24))
             lbl_y = h_cy - 28
             ln1_y = h_cy + 10
@@ -881,8 +891,8 @@ def generate_auto_spec_cover(
         draw.line([(COL_L * HD_S, div_y * HD_S), (COL_R * HD_S, div_y * HD_S)], fill=DIVIDER_COLOR, width=2 * HD_S)
 
     # --- Trust card ---
-    trust_card_y = spec_top + n_rows * spec_row_h + 14
-    trust_card_w = COL_R + 10 - COL_L
+    trust_card_y = spec_top + n_rows * spec_row_h + 12
+    trust_card_w = COL_R + 8 - COL_L
     card_bg = (247, 250, 253, 255) if is_bigpower else (255, 246, 246, 255)
     card_outline = (206, 218, 234, 255) if is_bigpower else (250, 205, 207, 255)
     draw_aa_rounded_rect(canvas, [COL_L, trust_card_y, COL_L + trust_card_w, trust_card_y + trust_card_h], radius=12, fill=card_bg, outline=card_outline, width=2)
@@ -892,11 +902,11 @@ def generate_auto_spec_cover(
     draw_vector_shield(canvas, shield_cx, shield_cy, size=40, fill_color=theme_rgb)
 
     trust_txt_x = COL_L + 54
-    tr_max_w = COL_L + trust_card_w - 10 - trust_txt_x
-    s1_sz, _ = fit_hq(trust_s1, "bold", 27, 19, tr_max_w)
-    s2_sz, _ = fit_hq(trust_s2, "semibold", 23, 17, tr_max_w)
-    draw_hq(canvas, trust_s1, trust_txt_x, trust_card_y + 40, "bold", s1_sz, trust_s1_color)
-    draw_hq(canvas, trust_s2, trust_txt_x, trust_card_y + 74, "semibold", s2_sz, trust_s2_color)
+    tr_max_w = COL_L + trust_card_w - 8 - trust_txt_x
+    s1_sz, _ = fit_hq(trust_s1, "bold", 29, 20, tr_max_w)
+    s2_sz, _ = fit_hq(trust_s2, "semibold", 24, 18, tr_max_w)
+    draw_hq(canvas, trust_s1, trust_txt_x, trust_card_y + 41, "bold", s1_sz, trust_s1_color)
+    draw_hq(canvas, trust_s2, trust_txt_x, trust_card_y + 76, "semibold", s2_sz, trust_s2_color)
 
     final_rgb = canvas.convert('RGB')
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
