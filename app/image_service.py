@@ -94,7 +94,7 @@ def _draw_thai_text(draw, xy, text, font, fill, anchor="ls", lift_ratio=0.2):
             draw.text((xy[0] + pen, xy[1] - lift), mk, font=font, fill=fill, anchor=anchor)
 
 
-AUTO_SPEC_TYPO_VER = "v4hd"
+AUTO_SPEC_TYPO_VER = "v5hd"
 
 PROMPT_FILES = {
     "regular": "Prompt-Regular.ttf",
@@ -771,50 +771,61 @@ def generate_auto_spec_cover(
             bw, bh = b_img.size
             ratio = bw / max(bh, 1)
 
-            max_box_w = 275 * HD_S
-            max_box_h = (82 if ratio >= 1.6 else 88) * HD_S
-            target_area = (16500 if ratio >= 1.6 else 12500) * (HD_S * HD_S)
+            max_box_w = 264 * HD_S
+            max_box_h = (76 if ratio >= 1.6 else 82) * HD_S
+            target_area = (15500 if ratio >= 1.6 else 11800) * (HD_S * HD_S)
             scale_area = math.sqrt(target_area / (bw * bh))
             b_scale = min(scale_area, max_box_w / bw, max_box_h / bh)
 
-            if bh * b_scale < 55 * HD_S and bw * ((55 * HD_S) / bh) <= max_box_w:
-                b_scale = (55 * HD_S) / bh
+            if bh * b_scale < 52 * HD_S and bw * ((52 * HD_S) / bh) <= max_box_w:
+                b_scale = (52 * HD_S) / bh
 
             tgt_bw = max(1, int(bw * b_scale))
             tgt_bh = max(1, int(bh * b_scale))
             brand_logo = b_img.resize((tgt_bw, tgt_bh), Image.Resampling.LANCZOS)
 
-            logo_y = 38 * HD_S + (80 * HD_S - tgt_bh) // 2
-            canvas.paste(brand_logo, (42 * HD_S, logo_y), brand_logo)
+            logo_y = 32 * HD_S + (74 * HD_S - tgt_bh) // 2
+            canvas.paste(brand_logo, (44 * HD_S, logo_y), brand_logo)
         except Exception as e:
             print(f"Error placing brand logo: {e}")
 
-    # 100% Solid Pure Jet-Black razor-sharp typography applied universally to ALL shops (MEGATOOL, BigPower Tools, and any future shops)
-    TEXT_INK = (0, 0, 0)
+    # Approved Style 2B: Razor-sharp Pure Jet-Black headings > Deep Slate-Charcoal answers across ALL shops (MEGATOOL, BigPower Tools, future shops)
     TEXT_LABEL = (0, 0, 0)
+    TEXT_VAL = (55, 65, 81)
     trust_s1_color = theme_rgb if is_bigpower else (0, 0, 0)
-    trust_s2_color = (0, 0, 0)
+    trust_s2_color = TEXT_VAL
 
-    DIVIDER_COLOR = (196, 202, 212, 255)
+    DIVIDER_COLOR = (205, 210, 218, 255)
     WHITE = (255, 255, 255, 255)
-    COL_L = 40
-    COL_R = 380   # expanded left text column (product starts safely at x >= 388, zero overlap)
+    COL_L = 44
+    COL_R = 376   # clean balanced left column (product starts safely at x >= 388, zero overlap)
     max_text_w = COL_R - COL_L
 
-    # --- Title (category) ---
-    t_sz, _tw = fit_hq(category_title, "bold", 56, 36, max_text_w)
-    draw_hq(canvas, category_title, COL_L, 178, "bold", t_sz, TEXT_INK)
+    # --- Title (category): prominent 1-line or automatic 2-line when long so product type stands out clearly ---
+    title_w_limit = 384 - COL_L
+    t_sz, _tw = fit_hq(category_title, "bold", 54, 36, title_w_limit)
+    if t_sz < 44 and ' ' in category_title:
+        tl1, tl2 = split_two_lines(category_title)
+        s1, _ = fit_hq(tl1, "bold", 46, 36, title_w_limit)
+        s2, _ = fit_hq(tl2, "bold", 46, 36, title_w_limit)
+        tsz2 = min(s1, s2)
+        draw_hq(canvas, tl1, COL_L, 174, "bold", tsz2, TEXT_LABEL)
+        draw_hq(canvas, tl2, COL_L, 174 + int(round(tsz2 * 1.16)), "bold", tsz2, TEXT_LABEL)
+        pill_top = 174 + int(round(tsz2 * 1.16)) + 16
+    else:
+        t_sz1, _ = fit_hq(category_title, "bold", 54, 34, title_w_limit)
+        draw_hq(canvas, category_title, COL_L, 178, "bold", t_sz1, TEXT_LABEL)
+        pill_top = 200
 
-    # --- Model pill ---
-    pill_top = 196
-    pill_h = 70
-    m_sz, m_w = fit_hq(model_name, "bold", 44, 24, max_text_w - 20)
-    pill_w = min(max_text_w, int(m_w) + 22)
+    # --- Model pill (balanced Option 2 sizing) ---
+    pill_h = 64
+    m_sz, m_w = fit_hq(model_name, "bold", 36, 20, max_text_w - 26)
+    pill_w = min(max_text_w, int(m_w) + 28)
     draw_aa_rounded_rect(canvas, [COL_L, pill_top, COL_L + pill_w, pill_top + pill_h], radius=12, fill=theme_color)
     draw_hq(canvas, model_name, COL_L + (pill_w - m_w) / 2.0, pill_top + pill_h // 2 + int(m_sz * 0.35), "bold", m_sz, (255, 255, 255))
 
-    # --- Highlight sub-pills (Max 2 compact badges, enlarged legible font, strictly <= max_text_w) ---
-    curr_y = pill_top + pill_h + 11
+    # --- Highlight sub-pills (enlarged clear key feature badges under model pill) ---
+    curr_y = pill_top + pill_h + 13
     sub_bg = (238, 244, 252, 255) if is_bigpower else (255, 238, 239, 255)
     sub_border = (170, 194, 224, 255) if is_bigpower else (250, 165, 168, 255)
 
@@ -828,31 +839,31 @@ def generate_auto_spec_cover(
         clean_pills.append(hp_clean)
 
     for hp in clean_pills:
-        hp_sz, hp_w = fit_hq(hp, "bold", 30, 21, max_text_w - 18)
+        hp_sz, hp_w = fit_hq(hp, "bold", 29, 22, max_text_w - 18)
         ph = 48
-        bw_ = min(max_text_w, int(hp_w) + 20)
-        draw_aa_rounded_rect(canvas, [COL_L, curr_y, COL_L + bw_, curr_y + ph], radius=8, fill=sub_bg, outline=sub_border, width=2)
-        draw_hq(canvas, hp, COL_L + (bw_ - hp_w) / 2.0, curr_y + ph // 2 + int(hp_sz * 0.35), "bold", hp_sz, TEXT_INK)
-        curr_y += ph + 6
+        bw_ = min(max_text_w, int(hp_w) + 22)
+        draw_aa_rounded_rect(canvas, [COL_L, curr_y, COL_L + bw_, curr_y + ph], radius=9, fill=sub_bg, outline=sub_border, width=2)
+        draw_hq(canvas, hp, COL_L + (bw_ - hp_w) / 2.0, curr_y + ph // 2 + int(hp_sz * 0.35), "bold", hp_sz, TEXT_LABEL)
+        curr_y += ph + 8
 
-    # --- Spec rows (Ultra-Crisp Enlarged Typography & Tight Balanced Spacing) ---
-    spec_top = curr_y + 8
+    # --- Spec rows (Style 2B: Label 31 Pure Black > Value 25 Slate Charcoal, balanced airy spacing) ---
+    spec_top = curr_y + 12
     n_rows = max(1, len(spec_cards[:4]))
-    trust_card_h = 96
-    bottom_limit = COVER_SAFE_BOTTOM - 2
-    avail = bottom_limit - spec_top - trust_card_h - 12
-    spec_row_h = max(106, min(136, avail // n_rows))
+    trust_card_h = 86
+    bottom_limit = COVER_SAFE_BOTTOM - 4
+    avail = bottom_limit - spec_top - trust_card_h - 14
+    spec_row_h = max(100, min(132, avail // n_rows))
 
     hex_radius = 24
     hex_center_x = COL_L + hex_radius
     hex_fill = (18, 56, 88, 255) if is_bigpower else (215, 25, 33, 255)
-    text_x = hex_center_x + hex_radius + 10
+    text_x = hex_center_x + hex_radius + 13
     val_max_w = COL_R - text_x
 
-    # Maximum-legibility bold font sizes (fills available row space cleanly without changing layout positions)
-    STD_LABEL_SZ = 29
-    STD_VAL_SZ = 44
-    STD_VAL_2LINE_SZ = 33
+    # Clear typographic hierarchy: Heading (Label) is always larger & darker than Answer (Value)
+    STD_LABEL_SZ = 31
+    STD_VAL_SZ = 25
+    STD_VAL_2LINE_SZ = 23
 
     for idx, sp in enumerate(spec_cards[:4]):
         r_y = spec_top + idx * spec_row_h
@@ -867,46 +878,44 @@ def generate_auto_spec_cover(
             if len(speeds) >= 2:
                 val = f"{speeds[0]} / {speeds[-1]}"
 
-        l_sz, _ = fit_hq(lbl, "semibold", STD_LABEL_SZ, 21, val_max_w)
-
-        v_sz, v_w = fit_hq(val, "bold", STD_VAL_SZ, 31, val_max_w)
-        if v_w <= val_max_w and v_sz >= 31:
-            draw_hq(canvas, lbl, text_x, h_cy - 14, "semibold", l_sz, TEXT_LABEL)
-            draw_hq(canvas, val, text_x, h_cy + 36, "bold", v_sz, TEXT_INK)
+        l_sz, _ = fit_hq(lbl, "bold", STD_LABEL_SZ, 25, val_max_w)
+        val_cap_1 = min(STD_VAL_SZ, l_sz - 5)
+        v_sz, v_w = fit_hq(val, "bold", val_cap_1, 21, val_max_w)
+        if v_w <= val_max_w and v_sz >= 21:
+            draw_hq(canvas, lbl, text_x, h_cy - 6, "bold", l_sz, TEXT_LABEL)
+            draw_hq(canvas, val, text_x, h_cy + int(v_sz * 1.15) + 4, "bold", v_sz, TEXT_VAL)
         else:
             ln1, ln2 = split_two_lines(val)
-            sz1, _ = fit_hq(ln1, "bold", STD_VAL_2LINE_SZ, 22, val_max_w)
-            sz2, _ = fit_hq(ln2, "bold", STD_VAL_2LINE_SZ, 22, val_max_w) if ln2 else (STD_VAL_2LINE_SZ, 0)
+            val_cap_2 = min(STD_VAL_2LINE_SZ, l_sz - 5)
+            sz1, _ = fit_hq(ln1, "bold", val_cap_2, 18, val_max_w)
+            sz2, _ = fit_hq(ln2, "bold", val_cap_2, 18, val_max_w) if ln2 else (val_cap_2, 0)
             v2_sz = min(sz1, sz2)
-            l_sz2 = min(l_sz, 26)
-            line_step = int(round(v2_sz * 1.24))
-            lbl_y = h_cy - 28
-            ln1_y = h_cy + 10
-            draw_hq(canvas, lbl, text_x, lbl_y, "semibold", l_sz2, TEXT_LABEL)
-            draw_hq(canvas, ln1, text_x, ln1_y, "bold", v2_sz, TEXT_INK)
+            line_step = int(round(v2_sz * 1.26))
+            draw_hq(canvas, lbl, text_x, h_cy - 22, "bold", l_sz, TEXT_LABEL)
+            draw_hq(canvas, ln1, text_x, h_cy + 10, "bold", v2_sz, TEXT_VAL)
             if ln2:
-                draw_hq(canvas, ln2, text_x, ln1_y + line_step, "bold", v2_sz, TEXT_INK)
+                draw_hq(canvas, ln2, text_x, h_cy + 10 + line_step, "bold", v2_sz, TEXT_VAL)
 
         div_y = r_y + spec_row_h - 2
         draw.line([(COL_L * HD_S, div_y * HD_S), (COL_R * HD_S, div_y * HD_S)], fill=DIVIDER_COLOR, width=2 * HD_S)
 
     # --- Trust card ---
-    trust_card_y = spec_top + n_rows * spec_row_h + 12
+    trust_card_y = spec_top + n_rows * spec_row_h + 14
     trust_card_w = COL_R + 8 - COL_L
     card_bg = (247, 250, 253, 255) if is_bigpower else (255, 246, 246, 255)
     card_outline = (206, 218, 234, 255) if is_bigpower else (250, 205, 207, 255)
     draw_aa_rounded_rect(canvas, [COL_L, trust_card_y, COL_L + trust_card_w, trust_card_y + trust_card_h], radius=12, fill=card_bg, outline=card_outline, width=2)
 
-    shield_cx = COL_L + 26
+    shield_cx = COL_L + 28
     shield_cy = trust_card_y + trust_card_h // 2
-    draw_vector_shield(canvas, shield_cx, shield_cy, size=40, fill_color=theme_rgb)
+    draw_vector_shield(canvas, shield_cx, shield_cy, size=38, fill_color=theme_rgb)
 
-    trust_txt_x = COL_L + 54
-    tr_max_w = COL_L + trust_card_w - 8 - trust_txt_x
-    s1_sz, _ = fit_hq(trust_s1, "bold", 29, 20, tr_max_w)
-    s2_sz, _ = fit_hq(trust_s2, "semibold", 24, 18, tr_max_w)
-    draw_hq(canvas, trust_s1, trust_txt_x, trust_card_y + 41, "bold", s1_sz, trust_s1_color)
-    draw_hq(canvas, trust_s2, trust_txt_x, trust_card_y + 76, "semibold", s2_sz, trust_s2_color)
+    trust_txt_x = COL_L + 56
+    tr_max_w = COL_L + trust_card_w - 10 - trust_txt_x
+    s1_sz, _ = fit_hq(trust_s1, "bold", 24, 18, tr_max_w)
+    s2_sz, _ = fit_hq(trust_s2, "bold", 20, 16, tr_max_w)
+    draw_hq(canvas, trust_s1, trust_txt_x, trust_card_y + int(trust_card_h * 0.43), "bold", s1_sz, trust_s1_color)
+    draw_hq(canvas, trust_s2, trust_txt_x, trust_card_y + int(trust_card_h * 0.78), "bold", s2_sz, trust_s2_color)
 
     final_rgb = canvas.convert('RGB')
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
