@@ -2265,6 +2265,7 @@ def extract_key_specs(detail):
         
     # 1. From SAP Classifications (Makita & SAP items)
     classifs = detail.get('classifications', []) or []
+    dim_l, dim_w, dim_h = None, None, None
     for c in classifs:
         for f in c.get('features', []):
             name = f.get('name') or f.get('description') or ''
@@ -2280,6 +2281,8 @@ def extract_key_specs(detail):
                     pass  # Skip no-load voltage from replacing operating voltage
                 elif 'กำลังมอเตอร์' in name or 'motor_power' in code:
                     specs['กำลังมอเตอร์'] = val_str
+                elif 'แรงดันไฟในการเชื่อม' in name:
+                    specs['แรงดันไฟเชื่อม'] = val_str
                 elif 'voltage' in code or 'แรงดันไฟ' in name:
                     if 'แรงดันไฟฟ้า' not in specs or '220' in val_str:
                         specs['แรงดันไฟฟ้า'] = val_str
@@ -2309,6 +2312,25 @@ def extract_key_specs(detail):
                     specs['ความยาวรวม'] = val_str
                 elif 'torque' in code or 'แรงบิด' in name:
                     specs['แรงบิดสูงสุด'] = val_str
+                elif 'การป้องกัน' in name or 'ip code' in name.lower() or 'ip_code' in code.lower():
+                    specs['มาตรฐานป้องกัน (IP)'] = val_str
+                elif 'ประสิทธิภาพ' in name and '%' in val_str:
+                    specs['ประสิทธิภาพ'] = val_str
+                elif 'ฉนวน' in name:
+                    specs['ระดับฉนวน'] = f"Class {val_str}" if len(val_str.strip()) <= 2 else val_str
+                elif 'ความถี่' in name:
+                    specs['ความถี่ไฟฟ้า'] = val_str
+                elif 'ความยาว' in name and 'สาย' not in name and 'เพลา' not in name:
+                    m_num = re.search(r'([\d\.]+)', val_str)
+                    if m_num: dim_l = m_num.group(1)
+                elif 'ความกว้าง' in name:
+                    m_num = re.search(r'([\d\.]+)', val_str)
+                    if m_num: dim_w = m_num.group(1)
+                elif 'ความสูง' in name:
+                    m_num = re.search(r'([\d\.]+)', val_str)
+                    if m_num: dim_h = m_num.group(1)
+    if dim_l and dim_w and dim_h and 'ขนาดตัวเครื่อง' not in specs:
+        specs['ขนาดตัวเครื่อง'] = f"{dim_l} x {dim_w} x {dim_h} มม."
 
     # 2. From KTW Automated Summary & Title (covers products with empty description tabs)
     summary_text = f"{detail.get('summary', '') or ''} {detail.get('name', '') or ''}".strip()
@@ -2476,6 +2498,41 @@ def extract_key_specs(detail):
     if is_pressure_washer:
         specs['ระบบตัดการทำงาน'] = 'ระบบ Auto Stop'
 
+    # Welding machines: extract wire size, welding modes, and built-in functions from description
+    is_welder = any(k in full_text.lower() for k in ['เครื่องเชื่อม', 'ตู้เชื่อม', 'welding']) and 'คีม' not in full_text.lower()
+    if is_welder:
+        if 'ขนาดลวดเชื่อม' not in specs:
+            m_rod = re.search(r'ลวดเชื่อม[^\d\n]{0,35}(\d+(?:\.\d+)?\s*[-–]\s*\d+(?:\.\d+)?)\s*(?:มม\.?|มิลลิเมตร|mm\b)', full_text, re.IGNORECASE)
+            if m_rod:
+                specs['ขนาดลวดเชื่อม'] = f"{re.sub(r'\s+', ' ', m_rod.group(1).strip())} มม."
+        if 'ระบบการเชื่อม' not in specs:
+            modes = []
+            if re.search(r'\bMMA\b', full_text, re.I): modes.append('MMA')
+            if re.search(r'Lift\s*TIG', full_text, re.I): modes.append('Lift TIG')
+            elif re.search(r'\bTIG\b', full_text, re.I): modes.append('TIG')
+            if re.search(r'\bMIG\b', full_text, re.I): modes.append('MIG')
+            if re.search(r'\bVRD\b', full_text, re.I): modes.append('VRD')
+            if modes:
+                if len(modes) == 1:
+                    extra_f = []
+                    if re.search(r'Hot\s*Start', full_text, re.I): extra_f.append('Hot Start')
+                    if re.search(r'Arc\s*Force', full_text, re.I): extra_f.append('Arc Force')
+                    if re.search(r'Digital|ดิจิตอล', full_text, re.I): extra_f.append('จอดิจิตอล')
+                    specs['ระบบการเชื่อม'] = ' / '.join(modes + extra_f[:2]) if extra_f else modes[0]
+                else:
+                    specs['ระบบการเชื่อม'] = ' / '.join(modes[:3])
+        if 'ฟังก์ชันเสริม' not in specs:
+            funcs = []
+            if re.search(r'Hot\s*Start', full_text, re.I): funcs.append('Hot Start')
+            if re.search(r'Arc\s*Force', full_text, re.I): funcs.append('Arc Force')
+            if re.search(r'Anti[\s-]*Stick', full_text, re.I): funcs.append('Anti-Stick')
+            if re.search(r'Digital|ดิจิตอล', full_text, re.I): funcs.append('จอดิจิตอล')
+            if funcs:
+                specs['ฟังก์ชันเสริม'] = ', '.join(funcs[:3])
+        m_war = re.search(r'รับประกัน(?:ศูนย์)?\s*(\d+\s*(?:ปี|เดือน))', f"{summary_text} {clean_desc}")
+        if m_war and 'การรับประกัน' not in specs:
+            specs['การรับประกัน'] = f"ประกันศูนย์ {m_war.group(1).strip()}"
+
     # Hand tools (คีม, คีมล็อค, ประแจ, ลูกบล็อก)
     if any(k in full_text for k in ['คีม', 'คีมล็อค', 'ประแจ', 'ลูกบล็อก']):
         m_inch = re.search(r'(\d+[\d.]*)\s*(?:นิ้ว|")', full_text)
@@ -2492,6 +2549,16 @@ def extract_key_specs(detail):
             specs['ลักษณะปากจับ'] = 'ปากโค้ง ล็อคแน่น'
         elif 'ปากแหลม' in full_text and 'ลักษณะปากจับ' not in specs:
             specs['ลักษณะปากจับ'] = 'ปากแหลม เข้าที่แคบง่าย'
+        if 'คีมล็อค' in full_text and 'ระบบล็อค' not in specs:
+            specs['ระบบล็อค'] = 'ล็อคแรงบีบสูง ปรับขนาดได้'
+        if 'เหมาะสำหรับงาน' not in specs:
+            uses = []
+            if 'โลหะ' in full_text: uses.append('งานโลหะ')
+            if 'น๊อต' in full_text or 'น็อต' in full_text: uses.append('จับหัวน็อต')
+            if 'เชื่อม' in full_text: uses.append('งานเชื่อม')
+            if 'ท่อ' in full_text: uses.append('จับท่อ')
+            if uses:
+                specs['เหมาะสำหรับงาน'] = ' / '.join(uses[:3])
 
     # Tape and Consumable specifications
     is_tape_or_consumable = any(k in full_text for k in ['เทป', 'TEMFLEX', 'temflex', 'scotch', 'กาว', 'สายรัด', 'น้ำยา', 'ซิลิโคน'])
@@ -2578,6 +2645,29 @@ def extract_key_specs(detail):
     return specs
 
 
+def enrich_spec_cards(saved_cards, default_cards, target_count=4):
+    """Preserve user's existing spec cards and automatically backfill any empty slots up to 4 from KTW defaults."""
+    base = [c for c in (saved_cards or []) if isinstance(c, dict) and str(c.get("label", "")).strip() and str(c.get("val", "")).strip()]
+    if len(base) >= target_count:
+        return base[:target_count]
+    seen_labels = {str(c.get("label", "")).strip().lower() for c in base}
+    seen_vals = {re.sub(r'\s+', '', str(c.get("val", ""))).lower() for c in base}
+    out = list(base)
+    for dc in (default_cards or []):
+        if len(out) >= target_count:
+            break
+        if not isinstance(dc, dict) or not dc.get("label") or not dc.get("val"):
+            continue
+        lk = str(dc["label"]).strip().lower()
+        vk = re.sub(r'\s+', '', str(dc["val"])).lower()
+        if lk in seen_labels or vk in seen_vals:
+            continue
+        out.append(dc)
+        seen_labels.add(lk)
+        seen_vals.add(vk)
+    return out
+
+
 def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
     from app.ktw_service import get_product_detail, detect_brand_from_sku
     if not detail and sku:
@@ -2625,19 +2715,21 @@ def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
 
     # 3. Spec cards with deduplication
     icon_map = {
-        'แรงดันไฟฟ้า': '⚡', 'กำลัง': '⚡', 'มอเตอร์': '⚡', 'วัตต์': '⚡', 'โวลต์': '⚡',
-        'กระแส': '⚡', 'แอมป์': '⚡', 'KVA': '⚡', 'เชื่อม': '⚡',
+        'ขนาด': '📏', 'แกน': '📏', 'ใบ': '📏', 'สาย': '📏', 'กว้าง': '📏', 'ยาว': '📏', 'ลวด': '📏',
+        'ระบบการเชื่อม': '⚙️', 'ฟังก์ชัน': '⚙️', 'ล็อค': '⚙️', 'แรงบิด': '⚙️', 'ทอร์ค': '⚙️',
+        'เหมาะสำหรับ': '✅',
+        'มาตรฐาน': '🛡️', 'กันน้ำ': '🛡️', 'ประกัน': '🛡️', 'ฉนวน': '🛡️',
+        'คุณสมบัติ': '🛡️', 'ไม่ลามไฟ': '🛡️', 'วัสดุ': '🛡️', 'เกรด': '🛡️',
         'ความเร็ว': '⏱', 'รอบ': '⏱',
         'สวิตช์': '🔘', 'ตำแหน่ง': '🔘',
-        'ขนาด': '📏', 'แกน': '📏', 'ใบ': '📏', 'สาย': '📏', 'กว้าง': '📏', 'ยาว': '📏', 'ลวด': '📏',
         'หนา': '📐',
-        'แรงบิด': '⚙️', 'ทอร์ค': '⚙️',
         'อุณหภูมิ': '🌡️', 'ความร้อน': '🌡️',
-        'แรงดัน': '🌊', 'บาร์': '🌊',
+        'แรงดันสูงสุด': '🌊', 'บาร์': '🌊',
         'น้ำหนัก': '⚖️',
         'น้ำ': '💧', 'ไหล': '💧',
+        'แรงดันไฟฟ้า': '⚡', 'กำลัง': '⚡', 'มอเตอร์': '⚡', 'วัตต์': '⚡', 'โวลต์': '⚡',
+        'กระแส': '⚡', 'แอมป์': '⚡', 'KVA': '⚡', 'ประสิทธิภาพ': '⚡', 'เชื่อม': '⚡',
         'ระบบ': '🔌', 'Auto': '🔌', 'IGBT': '🔌', 'Inverter': '🔌',
-        'คุณสมบัติ': '🛡️', 'ไม่ลามไฟ': '🛡️', 'วัสดุ': '🛡️', 'เกรด': '🛡️',
         'จำนวน': '📦', 'บรรจุ': '📦', 'แพ็ค': '📦'
     }
     def _spec_priority(item):
@@ -2647,14 +2739,18 @@ def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
         if 'แรงบิด' in k or 'นิวตัน' in str(v): return 1
         if 'มอเตอร์' in k or 'วัตต์' in str(v) or 'W' in str(v) or 'KVA' in str(v): return 2
         if 'แรงดันสูงสุด' in k or 'บาร์' in str(v): return 3
+        if 'ขนาดลวด' in k: return 3
+        if 'ขนาดตัวเครื่อง' in k: return 13
         if 'ขนาด' in k or 'ลวด' in k or 'หัว' in k or 'ใบ' in k: return 4
         if 'ความเร็ว' in k or 'รอบ' in str(v): return 5
         if 'ความยาว' in k or 'เมตร' in str(v): return 6
-        if 'อัตรา' in k or 'น้ำ' in k: return 7
+        if 'ระบบการเชื่อม' in k or 'ฟังก์ชัน' in k: return 6
+        if 'อัตรา' in k or ('น้ำ' in k and 'น้ำหนัก' not in k and 'กันน้ำ' not in k): return 7
         if 'สวิตช์' in k or 'ระบบ' in k: return 8
-        if 'เกรด' in k or 'วัสดุ' in k: return 9
-        if 'แรงดันไฟฟ้า' in k or '220' in str(v): return 10
-        if 'น้ำหนัก' in k: return 11
+        if 'เกรด' in k or 'วัสดุ' in k or 'เหมาะสำหรับ' in k: return 9
+        if 'มาตรฐาน' in k or 'ประกัน' in k or 'ประสิทธิภาพ' in k: return 10
+        if 'แรงดันไฟฟ้า' in k or '220' in str(v): return 12
+        if 'น้ำหนัก' in k: return 14
         return 15
 
     # 3. Extract Weight Pill (Pill 2: น้ำหนักสินค้า)
@@ -2841,8 +2937,13 @@ def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
         if '1 ชิ้น' in val_clean and len(sorted_specs) > 4:
             continue
 
-        # 5.5 Skip 220V power supply card if other major power specs exist
-        if ('220' in str(v) or 'โวลต์' in str(v)) and any(t in seen_types for t in ['power', 'current']) and len(sorted_specs) > 3:
+        # 5.5 Skip 220V power supply card ONLY if we already have >= 4 other usable non-weight specs
+        usable_non_220 = sum(
+            1 for sk, sv in sorted_specs
+            if not (weight_pill and ('น้ำหนัก' in sk.lower() or 'weight' in sk.lower()))
+            and not ('220' in str(sv) or 'แรงดันไฟฟ้า' in sk)
+        )
+        if ('220' in str(v) or 'แรงดันไฟฟ้า' in k) and any(t in seen_types for t in ['power', 'current']) and usable_non_220 >= 4:
             continue
 
         # Determine icon
@@ -2895,6 +2996,12 @@ def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
                 custom_saved = cdata.get(sku)
         except Exception:
             pass
+
+    if isinstance(custom_saved, dict):
+        saved_cards = [c for c in (custom_saved.get("custom_spec_cards") or []) if isinstance(c, dict) and c.get("label") and c.get("val")]
+        if len(saved_cards) < 4 and len(spec_cards) > len(saved_cards):
+            custom_saved = dict(custom_saved)
+            custom_saved["custom_spec_cards"] = enrich_spec_cards(saved_cards, spec_cards)
 
     return {
         "category_title": category_title,

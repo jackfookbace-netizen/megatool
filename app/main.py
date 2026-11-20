@@ -762,6 +762,18 @@ def api_get_cover_customizations(sku: str):
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 cust = data.get(sku) or {}
+                if isinstance(cust, dict) and cust.get("custom_spec_cards"):
+                    valid_saved = [c for c in cust["custom_spec_cards"] if isinstance(c, dict) and c.get("label") and c.get("val")]
+                    if len(valid_saved) < 4:
+                        try:
+                            from app.image_service import get_auto_cover_defaults, enrich_spec_cards
+                            d_auto = get_auto_cover_defaults(sku)
+                            enriched = enrich_spec_cards(valid_saved, d_auto.get("spec_cards") or [])
+                            if len(enriched) > len(valid_saved):
+                                cust = dict(cust)
+                                cust["custom_spec_cards"] = enriched
+                        except Exception:
+                            pass
                 saved_t = get_custom_shopee_title(sku)
                 if saved_t and isinstance(cust, dict):
                     cust["shopee_title"] = saved_t
@@ -1332,13 +1344,14 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
             defaults = get_auto_cover_defaults(sku, detail=detail, shop_name=s_name)
             c_model = cust_item.get("custom_model") or item.get("custom_model") or defaults.get("model_name")
             c_cat = cust_item.get("custom_category") or item.get("custom_category") or defaults.get("category_title")
+            from app.image_service import AUTO_SPEC_TYPO_VER, enrich_spec_cards
             c_pills = cust_item.get("custom_hero_pills") or item.get("custom_hero_pills") or defaults.get("hero_pills")
-            c_cards = cust_item.get("custom_spec_cards") or item.get("custom_spec_cards") or defaults.get("spec_cards")
+            saved_cards = cust_item.get("custom_spec_cards") or item.get("custom_spec_cards")
+            c_cards = enrich_spec_cards(saved_cards, defaults.get("spec_cards")) if saved_cards else defaults.get("spec_cards")
             c_s1 = cust_item.get("custom_trust_s1") or item.get("custom_trust_s1") or defaults.get("trust_s1")
             c_s2 = cust_item.get("custom_trust_s2") or item.get("custom_trust_s2") or defaults.get("trust_s2")
             badge = item.get("badge") or "มีสต็อกพร้อมส่งทันที"
 
-            from app.image_service import AUTO_SPEC_TYPO_VER
             shop_str = re.sub(r'[^a-zA-Z0-9]', '', s_name).lower()[:12] or "megatool"
             extra_hash = f"{c_model}_{c_cat}_{c_pills}_{c_cards}_{c_s1}_{c_s2}"
             url_hash = hashlib.md5(f"{raw_img}_{badge}_{s_name}_auto_spec_{AUTO_SPEC_TYPO_VER}_{extra_hash}".encode('utf-8')).hexdigest()[:8]
