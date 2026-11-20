@@ -95,7 +95,7 @@ def _draw_thai_text(draw, xy, text, font, fill, anchor="ls", lift_ratio=0.2):
             draw.text((xy[0] + pen, xy[1] - lift), mk, font=font, fill=fill, anchor=anchor)
 
 
-AUTO_SPEC_TYPO_VER = "v5hd"
+AUTO_SPEC_TYPO_VER = "v6hd"
 
 PROMPT_FILES = {
     "regular": "Prompt-Regular.ttf",
@@ -801,13 +801,36 @@ def generate_auto_spec_cover(
     COL_R = 376   # clean balanced left column (product starts safely at x >= 388, zero overlap)
     max_text_w = COL_R - COL_L
 
-    # --- Title (category): prominent 1-line or automatic 2-line when long so product type stands out clearly ---
-    title_w_limit = 384 - COL_L
+    # --- Title (category): smart pixel-scan of pure white canvas space in the title band ---
+    # ONLY the product category title may extend into guaranteed white space to the right (never touching product pixels, shop logo, or spec cards)
+    def _find_title_white_right_limit(cv, hd_s, y0_1200=120, y1_1200=198, min_r=384, max_r=860):
+        try:
+            x0 = int(min_r * hd_s)
+            x1 = int(max_r * hd_s)
+            y0 = int(y0_1200 * hd_s)
+            y1 = int(y1_1200 * hd_s)
+            strip = cv.crop((x0, y0, x1, y1)).convert('RGB')
+            r_c, g_c, b_c = strip.split()
+            min_rgb = ImageChops.darker(ImageChops.darker(r_c, g_c), b_c)
+            nonwhite = min_rgb.point(lambda v: 255 if v < 242 else 0, mode='L')
+            bb = nonwhite.getbbox()
+            if not bb:
+                return max_r
+            first_obs_1200 = min_r + (bb[0] / float(hd_s))
+            return max(min_r, min(max_r, int(first_obs_1200) - 24))
+        except Exception:
+            return min_r
+
+    title_right_r = _find_title_white_right_limit(canvas, HD_S, y0_1200=120, y1_1200=198, min_r=384, max_r=860)
+    title_w_limit = title_right_r - COL_L
     t_sz, _tw = fit_hq(category_title, "bold", 54, 36, title_w_limit)
-    if t_sz < 44 and ' ' in category_title:
+    if t_sz < 42 and ' ' in category_title:
+        # Even if wrapping to 2 lines, scan white space across the 2-line band (y=120..238)
+        title_2l_r = _find_title_white_right_limit(canvas, HD_S, y0_1200=120, y1_1200=238, min_r=384, max_r=660)
+        title_2l_w = title_2l_r - COL_L
         tl1, tl2 = split_two_lines(category_title)
-        s1, _ = fit_hq(tl1, "bold", 46, 36, title_w_limit)
-        s2, _ = fit_hq(tl2, "bold", 46, 36, title_w_limit)
+        s1, _ = fit_hq(tl1, "bold", 46, 36, title_2l_w)
+        s2, _ = fit_hq(tl2, "bold", 46, 36, title_2l_w)
         tsz2 = min(s1, s2)
         draw_hq(canvas, tl1, COL_L, 174, "bold", tsz2, TEXT_LABEL)
         draw_hq(canvas, tl2, COL_L, 174 + int(round(tsz2 * 1.16)), "bold", tsz2, TEXT_LABEL)
@@ -832,14 +855,14 @@ def generate_auto_spec_cover(
     clean_pills = []
     for hp in hero_pills[:2]:
         hp_clean = hp.strip()
-        if ',' in hp_clean and len(hp_clean) > 24:
+        if ',' in hp_clean and len(hp_clean) > 28:
             hp_clean = hp_clean.split(',')[0].strip()
-        if len(hp_clean) > 26:
-            hp_clean = hp_clean[:25].rstrip(' ,-/')
+        if len(hp_clean) > 36:
+            hp_clean = hp_clean[:35].rstrip(' ,-/')
         clean_pills.append(hp_clean)
 
     for hp in clean_pills:
-        hp_sz, hp_w = fit_hq(hp, "bold", 29, 22, max_text_w - 18)
+        hp_sz, hp_w = fit_hq(hp, "bold", 29, 20, max_text_w - 18)
         ph = 48
         bw_ = min(max_text_w, int(hp_w) + 22)
         draw_aa_rounded_rect(canvas, [COL_L, curr_y, COL_L + bw_, curr_y + ph], radius=9, fill=sub_bg, outline=sub_border, width=2)
@@ -2258,82 +2281,170 @@ def clean_warranty(w):
         return w
     return "ของแท้ 100% ประกันศูนย์"
 
+def _clean_spec_label(raw_name):
+    """Normalize SAP / KTW feature label into concise, natural Thai for spec cards."""
+    s = str(raw_name or "").strip()
+    s = re.sub(r'^[\d\.\)\-\•\*▪▫\s]+', '', s).strip()
+    # Strip trailing parenthetical units like (ตัน), (ฟุต), (มม.), (เมตร), (กก.), (ลิตร/นาที), (โวลต์)
+    s = re.sub(r'\s*\([^)]*(?:มม|ซม|เมตร|นิ้ว|ฟุต|ตัน|กก|กรัม|ลิตร|มล|โวลต์|วัตต์|กิโลวัตต์|แอมป์|รอบ|บาร์|เฟส|องศา|แรงม้า|mm|cm|kg|kw|kv|v|w|a|l|bar|rpm|hp|ton|ล่าง|บน)[^)]*\)', '', s, flags=re.I)
+    # Strip trailing single engineering dimension code letters like " H", " B2", " L1" after Thai text
+    s = re.sub(r'(?<=[\u0E00-\u0E7F])\s+[A-Z]\d?$', '', s).strip()
+    s = s.replace('สูงสูด', 'สูงสุด').replace('เส้นผ่าศูนย์กลาง', 'เส้นผ่านศูนย์กลาง')
+    s = re.sub(r'\s+', ' ', s).strip(' :-–—')
+    return s
+
+
+def _clean_spec_value(raw_val):
+    """Normalize common unit abbreviations and trim whitespace in spec card values."""
+    v = str(raw_val or "").strip()
+    # If KTW concatenated two "label: value" pairs on one line, keep only the first clean value
+    if ':' in v or '：' in v:
+        m_two = re.search(r'\s+[\u0E00-\u0E7F]{2,}\s*[:：]', v)
+        if m_two:
+            v = v[:m_two.start()].strip()
+    v = re.sub(r'\s+', ' ', v)
+    v = re.sub(r'\bMM\b\.?', 'มม.', v)
+    v = re.sub(r'\bCM\b\.?', 'ซม.', v, flags=re.I)
+    v = re.sub(r'\bML\b\.?', 'มล.', v, flags=re.I)
+    v = re.sub(r'\bKPA\b', 'kPa', v)
+    v = re.sub(r'\bTON\b', 'ตัน', v, flags=re.I)
+    v = re.sub(r'\.{2,}', '.', v)
+    v = re.sub(r'(\d)\s*x\s*(\d)', r'\1 x \2', v, flags=re.I)
+    if v == 'ไม่รวมแบตเตอรี่และแท่นชาร์จ':
+        v = 'ไม่รวมแบตและแท่นชาร์จ'
+    return v.strip(' ,;-')
+
+
+_SPEC_NOISE_KEYS = (
+    'สารบัญ', 'หมวดหมู่', 'ยี่ห้อ', 'แบรนด์', 'brand', 'manufacturer',
+    'รุ่น', 'model', 'รหัส', 'sku', 'บาร์โค้ด', 'barcode', 'สี', 'color',
+    'ประเทศ', 'origin', 'บรรจุภัณฑ์', 'packaging', 'อุปกรณ์มาตรฐาน', 'อุปกรณ์เสริม',
+    'สัมประสิทธิ', 'ไร้ภาระ', 'no-load', 'กล่อง', 'หมายเลข', 'เงื่อนไข',
+    'หมายเหตุ', 'น้ำหนักรวม', 'ประกัน', 'แถม', 'บริการ', 'คำเตือน', 'ข้อควรระวัง',
+    'ขนาดกล่อง', 'กว้าง x ยาว x สูง'
+)
+
+
+def _is_noise_spec_key(label):
+    lk = str(label or "").strip().lower()
+    if not lk or len(lk) < 2 or len(lk) > 32:
+        return True
+    return any(nk in lk for nk in _SPEC_NOISE_KEYS)
+
+
 def extract_key_specs(detail):
     specs = {}
     if not detail:
         return specs
-        
-    # 1. From SAP Classifications (Makita & SAP items)
+
+    # 1. Layer 1: Universal SAP Classifications Harvester (canonical mapping + generic catch-all for ALL KTW categories)
     classifs = detail.get('classifications', []) or []
     dim_l, dim_w, dim_h = None, None, None
     for c in classifs:
         for f in c.get('features', []):
-            name = f.get('name') or f.get('description') or ''
-            code = f.get('code', '')
-            vals = f.get('featureValues', [])
-            val_str = ', '.join([v.get('value', '') for v in vals if v.get('value')])
-            if name and val_str and val_str != '-':
-                if 'current_range' in code or 'กระแสไฟเชื่อม' in name:
-                    specs['กระแสไฟเชื่อม'] = val_str
-                elif 'wire_size' in code or 'ขนาดลวด' in name:
-                    specs['ขนาดลวดเชื่อม'] = val_str
-                elif 'no-load' in code or 'ไร้ภาระ' in name:
-                    pass  # Skip no-load voltage from replacing operating voltage
-                elif 'กำลังมอเตอร์' in name or 'motor_power' in code:
-                    specs['กำลังมอเตอร์'] = val_str
-                elif 'แรงดันไฟในการเชื่อม' in name:
-                    specs['แรงดันไฟเชื่อม'] = val_str
-                elif 'voltage' in code or 'แรงดันไฟ' in name:
-                    if 'แรงดันไฟฟ้า' not in specs or '220' in val_str:
-                        specs['แรงดันไฟฟ้า'] = val_str
-                elif 'กำลังไฟ' in name or 'power_phase' in code or 'continuous_rating' in code:
+            name = (f.get('name') or f.get('description') or '').strip()
+            code = f.get('code', '') or ''
+            vals = f.get('featureValues', []) or []
+            val_str = _clean_spec_value(', '.join([str(v.get('value', '')).strip() for v in vals if v.get('value')]))
+            if not name or not val_str or val_str in ('-', 'N/A', 'n/a', 'None'):
+                continue
+            if 'current_range' in code or 'กระแสไฟเชื่อม' in name:
+                specs['กระแสไฟเชื่อม'] = val_str
+            elif 'wire_size' in code or 'ขนาดลวด' in name:
+                specs['ขนาดลวดเชื่อม'] = val_str
+            elif 'no-load' in code or 'ไร้ภาระ' in name:
+                pass  # Skip no-load voltage from replacing operating voltage
+            elif 'กำลังมอเตอร์' in name or 'motor_power' in code:
+                specs['กำลังมอเตอร์'] = val_str
+            elif 'แรงดันไฟในการเชื่อม' in name:
+                specs['แรงดันไฟเชื่อม'] = val_str
+            elif 'voltage' in code or 'แรงดันไฟ' in name:
+                if 'แรงดันไฟฟ้า' not in specs or '220' in val_str:
+                    specs['แรงดันไฟฟ้า'] = val_str
+            elif 'กำลังไฟ' in name or 'power_phase' in code or 'continuous_rating' in code:
+                if 'เฟส' not in name:
                     specs['กำลังไฟฟ้า'] = val_str
-                elif 'ความเร็วรอบ' in name or 'no_load_speed' in code:
-                    specs['ความเร็วรอบ'] = val_str
-                elif 'เส้นผ่านศูนย์กลาง' in name or 'grinding_diameter' in code:
-                    specs['ขนาดใบตัด/เจียร์'] = val_str
-                elif 'น้ำหนัก' in name or 'weight' in code:
+            elif 'ความเร็วรอบ' in name or 'no_load_speed' in code:
+                specs['ความเร็วรอบ'] = val_str
+            elif 'เส้นผ่านศูนย์กลาง' in name or 'grinding_diameter' in code:
+                specs['ขนาดใบตัด/เจียร์'] = val_str
+            elif 'น้ำหนัก' in name or 'weight' in code:
+                if 'กล่อง' not in name and 'รวม' not in name:
                     specs['น้ำหนักตัวเครื่อง'] = val_str
-                elif 'ขนาดแกน' in name or 'spindle' in code:
-                    specs['ขนาดแกนเกลียว'] = val_str
-                elif 'สายไฟ' in name or 'cord' in code:
-                    specs['ความยาวสายไฟ'] = val_str
-                elif ('แรงดัน' in name or 'pressure' in code) and 'ไฟ' not in name and 'สาย' not in name:
-                    specs['แรงดันสูงสุด'] = val_str
-                elif 'อัตราการไหล' in name or 'ปริมาณน้ำ' in name or 'flow_rate' in code:
-                    specs['อัตราการไหลของน้ำ'] = val_str
-                elif 'step_drill' in code or 'เจาะคว้าน' in name or 'ความสามารถในการเจาะ' in name:
+            elif 'ขนาดแกน' in name or 'spindle' in code:
+                specs['ขนาดแกนเกลียว'] = val_str
+            elif 'สายไฟ' in name or 'cord' in code:
+                specs['ความยาวสายไฟ'] = val_str
+            elif ('แรงดัน' in name or 'pressure' in code) and 'ไฟ' not in name and 'สาย' not in name:
+                specs['แรงดันสูงสุด'] = val_str
+            elif 'อัตราการไหล' in name or 'ปริมาณน้ำ' in name or 'flow_rate' in code:
+                specs['อัตราการไหลของน้ำ'] = val_str
+            elif 'ความสามารถในการเจาะ' in name:
+                if 'คอนกรีต' in name:
+                    specs['เจาะคอนกรีตสูงสุด'] = val_str
+                elif 'เหล็ก' in name:
+                    specs['เจาะเหล็กสูงสุด'] = val_str
+                elif 'ไม้' in name:
+                    specs['เจาะไม้สูงสุด'] = val_str
+                elif 'อิฐ' in name or 'ปูน' in name:
+                    specs['เจาะอิฐสูงสุด'] = val_str
+                else:
                     specs['ขนาดการเจาะ'] = val_str
-                elif 'grade' in code or 'เกรด' in name:
-                    specs['เกรดวัสดุ'] = val_str
-                elif 'applications_drill' in code or 'วัสดุที่เจาะ' in name:
-                    specs['วัสดุที่เจาะได้'] = val_str
-                elif 'overall_length' in code or 'ความยาวรวม' in name:
-                    specs['ความยาวรวม'] = val_str
-                elif 'torque' in code or 'แรงบิด' in name:
-                    specs['แรงบิดสูงสุด'] = val_str
-                elif 'การป้องกัน' in name or 'ip code' in name.lower() or 'ip_code' in code.lower():
-                    specs['มาตรฐานป้องกัน (IP)'] = val_str
-                elif 'ประสิทธิภาพ' in name and '%' in val_str:
-                    specs['ประสิทธิภาพ'] = val_str
-                elif 'ฉนวน' in name:
-                    specs['ระดับฉนวน'] = f"Class {val_str}" if len(val_str.strip()) <= 2 else val_str
-                elif 'ความถี่' in name:
-                    specs['ความถี่ไฟฟ้า'] = val_str
-                elif 'ความยาว' in name and 'สาย' not in name and 'เพลา' not in name:
-                    m_num = re.search(r'([\d\.]+)', val_str)
-                    if m_num: dim_l = m_num.group(1)
-                elif 'ความกว้าง' in name:
-                    m_num = re.search(r'([\d\.]+)', val_str)
-                    if m_num: dim_w = m_num.group(1)
-                elif 'ความสูง' in name:
-                    m_num = re.search(r'([\d\.]+)', val_str)
-                    if m_num: dim_h = m_num.group(1)
+            elif 'step_drill' in code or 'เจาะคว้าน' in name:
+                specs['ขนาดการเจาะ'] = val_str
+            elif 'grade' in code or 'เกรด' in name:
+                specs['เกรดวัสดุ'] = val_str
+            elif 'applications_drill' in code or 'วัสดุที่เจาะ' in name:
+                specs['วัสดุที่เจาะได้'] = val_str
+            elif 'overall_length' in code or 'ความยาวรวม' in name:
+                specs['ความยาวรวม'] = val_str
+            elif 'torque' in code or 'แรงบิด' in name:
+                specs['แรงบิดสูงสุด'] = val_str
+            elif 'การป้องกัน' in name or 'ip code' in name.lower() or 'ip_code' in code.lower():
+                specs['มาตรฐานป้องกัน (IP)'] = val_str
+            elif 'ประสิทธิภาพ' in name and '%' in val_str:
+                specs['ประสิทธิภาพ'] = val_str
+            elif 'ฉนวน' in name:
+                specs['ระดับฉนวน'] = f"Class {val_str}" if len(val_str.strip()) <= 2 else val_str
+            elif 'ความถี่' in name:
+                specs['ความถี่ไฟฟ้า'] = val_str
+            elif 'ความยาว' in name and not any(w in name for w in ['สาย', 'เพลา', 'บาร์', 'รวม', 'บันได']):
+                m_num = re.search(r'([\d\.]+)', val_str)
+                if m_num: dim_l = m_num.group(1)
+            elif 'ความกว้าง' in name and 'บันได' not in name and 'หน้า' not in name:
+                m_num = re.search(r'([\d\.]+)', val_str)
+                if m_num: dim_w = m_num.group(1)
+            elif 'ความสูง' in name and not any(w in name for w in ['บันได', 'ต่ำสุด', 'มากสุด', 'สูงสุด', 'ยก']):
+                m_num = re.search(r'([\d\.]+)', val_str)
+                if m_num: dim_h = m_num.group(1)
+            else:
+                # Universal catch-all: harvest ANY real category-specific SAP spec (ladders, jacks, pumps, compressors, saws, etc.)
+                clean_lbl = _clean_spec_label(name)
+                if (
+                    clean_lbl
+                    and not _is_noise_spec_key(clean_lbl)
+                    and clean_lbl not in specs
+                    and len(val_str) <= 46
+                    and not re.match(r'^1\s*(?:ชิ้น|อัน|เครื่อง|ชุด)$', val_str)
+                ):
+                    specs[clean_lbl] = val_str
     if dim_l and dim_w and dim_h and 'ขนาดตัวเครื่อง' not in specs:
         specs['ขนาดตัวเครื่อง'] = f"{dim_l} x {dim_w} x {dim_h} มม."
 
-    # 2. From KTW Automated Summary & Title (covers products with empty description tabs)
+    # 2. Layer 2: KTW Summary & Title Extraction (universal technical units across all tool families)
     summary_text = f"{detail.get('summary', '') or ''} {detail.get('name', '') or ''}".strip()
+    desc = detail.get('description', '') or ''
+    clean_desc = re.sub(r'<br\s*/?>', '\n', desc, flags=re.IGNORECASE)
+    clean_desc = re.sub(r'</p>', '\n', clean_desc, flags=re.IGNORECASE)
+    clean_desc = re.sub(r'<[^>]+>', '', clean_desc)
+    prod_full_name = detail.get('name', '') or ''
+    full_text = (prod_full_name + ' ' + summary_text + ' ' + clean_desc).replace('สวิทซ์', 'สวิทช์').replace('สวิตซ์', 'สวิทช์').replace('สวิตช์', 'สวิทช์')
+    full_lower = full_text.lower()
+
+    is_tape_or_consumable = any(k in full_lower for k in ['เทป', 'temflex', 'scotch', 'กาว', 'สายรัด', 'น้ำยา', 'ซิลิโคน', 'ถุงมือ', 'หน้ากาก', 'แว่นตา', 'ใบมีด'])
+    is_cordless = any(k in full_lower for k in ['ไร้สาย', 'แบตเตอรี่', 'ไม่แบต', 'ไม่รวมแบต', 'vmax', 'cordless']) or bool(re.search(r'\b(?:12|14\.4|18|20|36|40|80)\s*v(?:max)?\b', prod_full_name + ' ' + summary_text, re.I))
+    is_engine = any(k in full_lower for k in ['จังหวะ', 'เบนซิน', 'ดีเซล', 'เครื่องยนต์', 'แรงม้า', 'ตัดหญ้า', 'เลื่อยโซ่ยนต์', 'เครื่องปั่นไฟ'])
+
     if summary_text:
         if 'กระแสไฟเชื่อม' not in specs:
             m_cur = re.search(r'(?:กระแสไฟเชื่อม|กระแสเชื่อม|กระแสไฟ)\s*[:：]?\s*([0-9\-\.\s]+(?:\s*แอมป์|A\b))', summary_text, re.IGNORECASE)
@@ -2355,23 +2466,31 @@ def extract_key_specs(detail):
             m_wat = re.search(r'([0-9,]+(?:\.\d+)?)\s*(?:วัตต์|W\b)', summary_text)
             if m_wat:
                 specs['กำลังมอเตอร์'] = f"{m_wat.group(1)} วัตต์"
-        if 'แรงดันไฟฟ้า' not in specs:
+            else:
+                m_kw = re.search(r'([0-9,]+(?:\.\d+)?)\s*(?:กิโลวัตต์|KW\b|kW\b)', summary_text)
+                if m_kw:
+                    specs['กำลังไฟฟ้า'] = f"{m_kw.group(1)} กิโลวัตต์"
+        if 'แรงดันไฟฟ้า' not in specs and 'แรงดันแบตเตอรี่' not in specs:
             m_vol = re.search(r'แรงดันไฟ(?:ฟ้า)?\s*[:：]?\s*([0-9\-\.\s]+(?:\s*โวลต์|V\b))', summary_text, re.IGNORECASE)
             if m_vol:
-                specs['แรงดันไฟฟ้า'] = m_vol.group(1).strip()
+                specs['แรงดันแบตเตอรี่' if is_cordless else 'แรงดันไฟฟ้า'] = m_vol.group(1).strip()
+            elif is_cordless:
+                m_bv = re.search(r'(\d+(?:\.\d+)?)\s*(?:โวลต์|V(?:MAX|max)?\b)', summary_text)
+                if m_bv:
+                    specs['แรงดันแบตเตอรี่'] = f"{m_bv.group(1)} โวลต์"
         if 'อัตราการไหลของน้ำ' not in specs:
             m_flw = re.search(r'(?:ปริมาณน้ำ|อัตราการไหล(?:ของน้ำ)?)\s*[:：]?\s*([0-9\-\.\s]+(?:\s*ลิตร\/นาที|L\/min))', summary_text, re.IGNORECASE)
             if m_flw:
                 specs['อัตราการไหลของน้ำ'] = m_flw.group(1).strip()
         if 'ระยะส่งสูงสุด' not in specs:
-            m_hd = re.search(r'(?:ส่งสูง|ระยะส่งสูงสุด)\s*[:：]?\s*([0-9\-\.\s]+(?:\s*ม\.|เมตร))', summary_text, re.IGNORECASE)
+            m_hd = re.search(r'(?:ส่งสูง(?:สุด)?|ระยะส่งสูงสุด)\s*[:：]?\s*([0-9\-\.\s]+(?:\s*ม\.|เมตร))', summary_text, re.IGNORECASE)
             if m_hd:
                 specs['ระยะส่งสูงสุด'] = m_hd.group(1).strip()
-        if 'ขนาดท่อส่ง' not in specs:
-            m_pip = re.search(r'ขนาดท่อ(?:ที่ใช้ได้)?\s*[:：]?\s*([^,\(\)\n]+?(?:นิ้ว|หุน|มม\.))', summary_text, re.IGNORECASE)
+        if 'ขนาดท่อส่ง' not in specs and 'ขนาดท่อออก' not in specs:
+            m_pip = re.search(r'ขนาดท่อ(?:ที่ใช้ได้|ส่งออก|ออก)?\s*[:：]?\s*([^,\(\)\n]+?(?:นิ้ว|หุน|มม\.))', summary_text, re.IGNORECASE)
             if m_pip:
                 specs['ขนาดท่อส่ง'] = m_pip.group(1).strip()
-        if 'ขนาดการเจาะ' not in specs:
+        if 'ขนาดการเจาะ' not in specs and not any(k.startswith('เจาะ') for k in specs):
             m_drl = re.search(r'ขนาด\s*([0-9\-\.\s]+\s*มม\.)', summary_text)
             if m_drl:
                 specs['ขนาดการเจาะ'] = m_drl.group(1).strip()
@@ -2384,30 +2503,53 @@ def extract_key_specs(detail):
             if m_tor:
                 specs['แรงบิดสูงสุด'] = m_tor.group(1).strip()
         if 'ความเร็วรอบ' not in specs:
-            m_rpm = re.search(r'ความเร็วรอบ\s*[:：]?\s*([0-9,]+(?:\s*-\s*[0-9,]+)?\s*(?:รอบ\/นาที|รอบต่อนาที|RPM|rpm\b))', summary_text, re.IGNORECASE)
+            m_rpm = re.search(r'ความเร็วรอบ(?:ตัวเปล่า)?\s*[:：]?\s*([0-9,]+(?:\s*-\s*[0-9,]+)?\s*(?:รอบ\/นาที|รอบต่อนาที|RPM|rpm\b))', summary_text, re.IGNORECASE)
             if m_rpm:
                 specs['ความเร็วรอบ'] = m_rpm.group(1).strip()
+        if 'แรงดันลมสูงสุด' not in specs:
+            m_airp = re.search(r'แรงดันลม(?:สูงสุด)?\s*[:：]?\s*([0-9\-\.\s]+(?:kPa|KPA|บาร์|PSI|bar))', summary_text, re.IGNORECASE)
+            if m_airp:
+                specs['แรงดันลมสูงสุด'] = _clean_spec_value(m_airp.group(1).strip())
+        if 'กำลังเครื่องยนต์' not in specs and 'ประสิทธิภาพเครื่องยนต์' not in specs:
+            m_hp = re.search(r'(\d+(?:\.\d+)?)\s*(?:แรงม้า|HP\b)', summary_text, re.IGNORECASE)
+            if m_hp:
+                specs['กำลังเครื่องยนต์'] = f"{m_hp.group(1)} แรงม้า"
+        if 'ความจุถัง' not in specs and not any('ถัง' in k for k in specs):
+            m_tank = re.search(r'(?:ถัง(?:จุ|บรรจุ|ลม|น้ำมัน|เชื้อเพลิง|เก็บฝุ่น)?|น้ำ-แห้ง[^\d]{0,16})\s*(\d+(?:\.\d+)?)\s*(?:ลิตร|L\b)', summary_text)
+            if m_tank:
+                specs['ความจุถัง'] = f"{m_tank.group(1)} ลิตร"
+        if 'มุมการตัด' not in specs:
+            m_ang = re.search(r'มุม(?:การ)?ตัด\s*[:：]?\s*([0-9\-\–\s]+(?:องศา|°))', summary_text)
+            if m_ang:
+                specs['มุมการตัด'] = m_ang.group(1).strip()
 
-    # 2. From Description bullet points (POLO, DongCheng, consumables, etc.)
-    desc = detail.get('description', '') or ''
-    clean_desc = re.sub(r'<br\s*/?>', '\n', desc, flags=re.IGNORECASE)
-    clean_desc = re.sub(r'</p>', '\n', clean_desc, flags=re.IGNORECASE)
-    clean_desc = re.sub(r'<[^>]+>', '', clean_desc)
-    prod_full_name = detail.get('name', '') or ''
-    full_text = (prod_full_name + ' ' + clean_desc).replace('สวิทซ์', 'สวิทช์').replace('สวิตซ์', 'สวิทช์').replace('สวิตช์', 'สวิทช์')
-    is_tape_or_consumable = any(k in full_text.lower() for k in ['เทป', 'temflex', 'scotch', 'กาว', 'สายรัด', 'น้ำยา', 'ซิลิโคน', 'ถุงมือ', 'หน้ากาก', 'แว่นตา', 'ใบมีด'])
+    # 3. Layer 2B: Description Structured Bullet Parser (Colon `k : v` + Colon-less `• Label NumberUnit` + Warning-Stop Guard)
+    _STOP_SECTIONS = ('คำเตือน', 'ข้อควรระวัง', 'การบำรุงรักษา', 'การเก็บรักษา', 'เงื่อนไขการรับประกัน', 'อุปกรณ์มาตรฐาน', 'อุปกรณ์ในกล่อง', 'สินค้าในกล่อง')
+    _COLONLESS_UNIT_RE = re.compile(
+        r'^([\u0E00-\u0E7FA-Za-z][\u0E00-\u0E7FA-Za-z\s/\-]{1,24}?)\s+'
+        r'([±~]?\d[\d,\.\-\/xX×\s]*\s*(?:วัตต์|กิโลวัตต์|แรงม้า|แอมป์|โวลต์|บาร์|ลิตร\/นาที|ลิตร\/ชม\.|ลิตร|มล\.|มม\.|ซม\.|เมตร|ม\.|นิ้ว|ฟุต|ตัน|กก\.|กรัม|รอบ\/นาที|จังหวะ|ทาง|องศา|ขั้น|ระบบ|โหมด|กิโลปาสคาล|kPa|KPA|kW|KW|kVA|KVA|HP|CC|cc|ml|ML|cm\.?|mm\.?|RPM|rpm|V\b|W\b|A\b|L\b|Bar|PSI))',
+        re.IGNORECASE
+    )
+    _COLONLESS_BAD_PREFIX = ('ใช้', 'สามารถ', 'เหมาะ', 'ควร', 'ห้าม', 'มี', 'ให้', 'รับประกัน', 'สินค้า', 'รุ่น', 'ยี่ห้อ', 'เครื่อง', 'ผลิตจาก', 'ช่วย', 'ไม่', 'พร้อม', 'น้ำหนัก', 'และ', 'หรือ', 'เพื่อ', 'สำหรับ', 'ตัวเครื่อง')
 
-    for line in clean_desc.split('\n'):
-        line = line.strip().lstrip('•').lstrip('-').lstrip('*').strip()
+    in_warning_section = False
+    for raw_line in clean_desc.split('\n'):
+        line = raw_line.strip().lstrip('•').lstrip('-').lstrip('*').lstrip('▪').strip()
         if not line:
             continue
+        if any(line.startswith(sh) and len(line) <= 32 for sh in _STOP_SECTIONS):
+            in_warning_section = True
+            continue
+        if in_warning_section:
+            continue
+
         if ':' in line or '：' in line:
             parts = re.split(r'[:：]', line, maxsplit=1)
-            k = parts[0].strip()
-            v = parts[1].strip()
+            k = _clean_spec_label(parts[0])
+            v = _clean_spec_value(parts[1])
             if k and v and len(k) < 30 and len(v) < 50:
-                # Capture generic catalog bullet points from source
-                if k not in specs and not any(q in k.lower() for q in ['ประกัน', 'เงื่อนไข', 'แถม', 'บริการ']):
+                # Capture generic catalog bullet points from source (excluding noise metadata)
+                if k not in specs and not _is_noise_spec_key(k) and not re.match(r'^1\s*(?:ชิ้น|อัน|เครื่อง|ชุด)$', v):
                     specs[k] = v
                 # Hose length (pressure washers only, NOT power cords)
                 if ('สายฉีด' in k or 'สายอัดฉีด' in k or 'hose' in k.lower()) and 'ความยาวสายฉีด' not in specs:
@@ -2429,17 +2571,35 @@ def extract_key_specs(detail):
                     specs['กำลังมอเตอร์'] = v
                 elif ('ประเภทมอเตอร์' in k or 'ชนิดมอเตอร์' in k) and 'ประเภทมอเตอร์' not in specs:
                     specs['ประเภทมอเตอร์'] = v
-                elif 'กำลังไฟ' in k and 'กำลังไฟฟ้า' not in specs:
+                elif 'กำลังไฟ' in k and 'กำลังไฟฟ้า' not in specs and 'กำลังไฟสูงสุด' not in specs:
                     specs['กำลังไฟฟ้า'] = v
-                elif ('แรงดัน' in k or 'pressure' in k.lower()) and 'สาย' not in k and 'ไฟ' not in k and 'แรงดันสูงสุด' not in specs:
+                elif ('แรงดัน' in k or 'pressure' in k.lower()) and 'สาย' not in k and 'ไฟ' not in k and 'ลม' not in k and 'แรงดันสูงสุด' not in specs:
                     specs['แรงดันสูงสุด'] = v
                 elif ('ปริมาณน้ำ' in k or 'อัตราการไหล' in k or 'อัตราการฉีด' in k) and 'อัตราการไหลของน้ำ' not in specs:
                     specs['อัตราการไหลของน้ำ'] = v
-                elif 'น้ำหนัก' in k and 'น้ำหนักตัวเครื่อง' not in specs:
+                elif 'น้ำหนัก' in k and 'น้ำหนักตัวเครื่อง' not in specs and 'กล่อง' not in k:
                     specs['น้ำหนักตัวเครื่อง'] = v
                 elif 'ความเร็วรอบ' in k and 'ความเร็วรอบ' not in specs:
                     specs['ความเร็วรอบ'] = v
-        
+        elif len(line) <= 58:
+            # Universal colon-less technical bullet parser (e.g. "• แรงลม 9 ลิตร/นาที", "• ทางลมออก 4 ทาง", "• กำลังไฟสูงสุด 6.5 กิโลวัตต์")
+            m_cl = _COLONLESS_UNIT_RE.match(line)
+            if m_cl:
+                ck = _clean_spec_label(m_cl.group(1))
+                cv = _clean_spec_value(m_cl.group(2))
+                if (
+                    ck and cv
+                    and not _is_noise_spec_key(ck)
+                    and not any(ck.startswith(bp) for bp in _COLONLESS_BAD_PREFIX)
+                    and len(ck) <= 24 and len(cv) <= 36
+                    and ck not in specs
+                ):
+                    specs[ck] = cv
+            elif re.search(r'สูบเดี่ยว\s*[24]\s*จังหวะ', line) and 'ระบบเครื่องยนต์' not in specs:
+                m_eng = re.search(r'(สูบเดี่ยว\s*[24]\s*จังหวะ)', line)
+                if m_eng:
+                    specs['ระบบเครื่องยนต์'] = m_eng.group(1)
+
         # Free-text checks in line
         if 'Auto Stop' in line and 'ระบบตัดการทำงาน' not in specs:
             specs['ระบบตัดการทำงาน'] = 'ระบบ Auto Stop'
@@ -2447,15 +2607,39 @@ def extract_key_specs(detail):
             specs['ประเภทมอเตอร์'] = 'มอเตอร์เหนี่ยวนำ'
         elif ('แปรงถ่าน' in line or 'Universal' in line) and 'ประเภทมอเตอร์' not in specs:
             specs['ประเภทมอเตอร์'] = 'มอเตอร์แปรงถ่าน'
-            
+        if 'ระบายความร้อนด้วยอากาศ' in line and 'ระบบระบายความร้อน' not in specs:
+            specs['ระบบระบายความร้อน'] = 'ระบายความร้อนด้วยอากาศ'
+        elif 'ระบายความร้อนด้วยน้ำ' in line and 'ระบบระบายความร้อน' not in specs:
+            specs['ระบบระบายความร้อน'] = 'ระบายความร้อนด้วยน้ำ'
+
         # Free-text hose check if still missing
         if 'ความยาวสายฉีด' not in specs and ('สายอัดฉีด' in line or ('สายฉีด' in line and 'สายไฟ' not in line)):
             m_line = re.search(r'ยาว(?:ถึง)?\s*(\d+(?:\.\d+)?)\s*(?:ม\.|เมตร|m\b)', line, re.IGNORECASE)
             if m_line:
                 specs['ความยาวสายฉีด'] = f"{m_line.group(1)} เมตร"
 
+    # Universal Engine / Cordless / Saw extras when still missing
+    if is_engine:
+        if 'ระบบสตาร์ท' not in specs:
+            if 'สตาร์ทไฟฟ้า' in full_text or 'กุญแจสตาร์ท' in full_text:
+                specs['ระบบสตาร์ท'] = 'สตาร์ทไฟฟ้า'
+            elif 'สตาร์ทมือดึง' in full_text or 'ลานดึง' in full_text:
+                specs['ระบบสตาร์ท'] = 'สตาร์ทมือดึง (ลานดึง)'
+        if 'ระบบเครื่องยนต์' not in specs and 'ประเภทเครื่องยนต์' not in specs:
+            m_st = re.search(r'([24]\s*จังหวะ)', full_text)
+            if m_st:
+                specs['ระบบเครื่องยนต์'] = f"เครื่องยนต์ {m_st.group(1)}"
+        if 'ความจุกระบอกสูบ' not in specs:
+            m_cc = re.search(r'(\d+(?:\.\d+)?)\s*(?:ซีซี|CC\b|cc\b)', full_text)
+            if m_cc:
+                specs['ความจุกระบอกสูบ'] = f"{m_cc.group(1)} ซีซี"
+
+    if is_cordless and 'ชุดอุปกรณ์' not in specs and 'แบตเตอรี่และแท่นชาร์จ' not in specs:
+        if any(k in full_text for k in ['ไม่รวมแบต', 'ไม่แบต', 'ตัวเปล่า']):
+            specs['ชุดอุปกรณ์'] = 'ตัวเครื่องเปล่า (ไม่รวมแบต)'
+
     # Fallback: if 'กำลังมอเตอร์' is in specs but 'กำลังไฟฟ้า' missing and vice-versa
-    if 'กำลังมอเตอร์' not in specs and 'กำลังไฟฟ้า' in specs and 'วัตต์' in specs['กำลังไฟฟ้า']:
+    if 'กำลังมอเตอร์' not in specs and 'กำลังไฟฟ้า' in specs and 'วัตต์' in specs['กำลังไฟฟ้า'] and 'กิโลวัตต์' not in specs['กำลังไฟฟ้า']:
         specs['กำลังมอเตอร์'] = specs['กำลังไฟฟ้า']
         del specs['กำลังไฟฟ้า']
 
@@ -2533,8 +2717,8 @@ def extract_key_specs(detail):
         if m_war and 'การรับประกัน' not in specs:
             specs['การรับประกัน'] = f"ประกันศูนย์ {m_war.group(1).strip()}"
 
-    # Hand tools (คีม, คีมล็อค, ประแจ, ลูกบล็อก)
-    if any(k in full_text for k in ['คีม', 'คีมล็อค', 'ประแจ', 'ลูกบล็อก']):
+    # Hand tools (คีม, คีมล็อค, ประแจ, ลูกบล็อก) — match product name ONLY (not included hex-wrench accessories!)
+    if any(k in prod_full_name for k in ['คีม', 'คีมล็อค', 'ประแจ', 'ลูกบล็อก']):
         m_inch = re.search(r'(\d+[\d.]*)\s*(?:นิ้ว|")', full_text)
         if m_inch and 'ขนาดความยาว' not in specs and 'ขนาด' not in specs:
             try:
@@ -2584,9 +2768,9 @@ def extract_key_specs(detail):
             pack_cnt = re.search(r'(\d+)\s*(?:ม้วน|ชิ้น|แพ็ค)', detail.get('name') or '')
             specs['จำนวนบรรจุ'] = f"แพ็ค {pack_cnt.group(1)} ม้วน" if pack_cnt else "แพ็ค 10 ม้วน"
 
-    # User requirement: fill 220V power supply ONLY for corded power tools / pressure washers
-    if not is_tape_or_consumable:
-        if 'กำลังไฟฟ้า' not in specs and ('วัตต์' in clean_desc or 'กำลังมอเตอร์' in specs or is_pressure_washer):
+    # User requirement: fill 220V power supply ONLY for corded AC power tools / pressure washers (NEVER cordless battery or engine tools!)
+    if not is_tape_or_consumable and not is_cordless and not is_engine:
+        if 'กำลังไฟฟ้า' not in specs and 'แรงดันไฟฟ้า' not in specs and ('วัตต์' in clean_desc or 'กำลังมอเตอร์' in specs or is_pressure_washer):
             specs['กำลังไฟฟ้า'] = '220 โวลต์ / 1 เฟส'
 
     # User requirement: 90 bar / compact pressure washer models use carbon brush motor (แปรงถ่าน)
@@ -2605,13 +2789,19 @@ def extract_key_specs(detail):
     if 'ความเร็วรอบ' in specs and 'ความเร็วหมุนเปล่า' in specs:
         del specs['ความเร็วหมุนเปล่า']
 
-    # Power deduplication: keep only one single watt power key
-    power_keys = [k for k in list(specs.keys()) if any(w in k for w in ['กำลังมอเตอร์', 'กำลังไฟฟ้าที่ใช้', 'กำลังไฟฟ้า', 'กำลังวัตต์', 'กำลังไฟ']) and any(u in str(specs[k]) for u in ['วัตต์', 'W', 'w'])]
+    # Power deduplication: keep only one single watt/kW power key
+    power_keys = [
+        k for k in list(specs.keys())
+        if any(w in k for w in ['กำลังมอเตอร์', 'กำลังไฟฟ้าที่ใช้', 'กำลังไฟฟ้า', 'กำลังไฟสูงสุด', 'กำลังวัตต์', 'กำลังไฟ'])
+        and 'เข้า' not in k
+        and (any(u in str(specs[k]) for u in ['วัตต์', 'กิโลวัตต์', 'kW', 'KW']) or bool(re.search(r'\d+\s*w\b', str(specs[k]), re.I)))
+    ]
     if len(power_keys) > 1:
-        best_p_val = specs.get('กำลังมอเตอร์') or specs[power_keys[0]]
+        best_p_key = 'กำลังมอเตอร์' if 'กำลังมอเตอร์' in power_keys else ('กำลังไฟสูงสุด' if 'กำลังไฟสูงสุด' in power_keys else power_keys[0])
+        best_p_val = specs[best_p_key]
         for pk in power_keys:
             del specs[pk]
-        specs['กำลังมอเตอร์'] = best_p_val
+        specs[best_p_key] = best_p_val
 
     # Pressure deduplication: keep only 'แรงดันสูงสุด' with Bar + PSI
     if 'แรงดันสูงสุด' in specs and 'แรงดัน' in specs:
@@ -2633,16 +2823,192 @@ def extract_key_specs(detail):
             if ck != 'ความยาวสายไฟ' and 'สายไฟ' in ck:
                 del specs[ck]
 
-    # Grinding disc size deduplication
+    # Grinding / saw disc size deduplication
     if 'ขนาดใบตัด/เจียร์' in specs:
-        for dk in ['เส้นผ่านศูนย์กลางแผ่นเจีย', 'เส้นผ่าศูนย์กลางแผ่นเจีย', 'เส้นผ่านศูนย์กลางใบ', 'ขนาดแผ่นเจียร', 'ขนาดใบตัด']:
+        for dk in ['เส้นผ่านศูนย์กลางแผ่นเจีย', 'เส้นผ่าศูนย์กลางแผ่นเจีย', 'เส้นผ่านศูนย์กลางใบ', 'เส้นผ่านศูนย์กลางใบตัด', 'ขนาดแผ่นเจียร', 'ขนาดใบตัด']:
             if dk in specs and dk != 'ขนาดใบตัด/เจียร์':
                 del specs[dk]
+    if 'ขนาดท่อออก' in specs and 'ขนาดท่อส่ง' in specs:
+        del specs['ขนาดท่อส่ง']
+    if 'ขนาดท่อออก' in specs and 'ขนาดท่อส่งออก' in specs:
+        del specs['ขนาดท่อส่งออก']
+    if 'ระยะส่งสูงสุด' in specs and 'ส่งสูงสุด' in specs:
+        del specs['ส่งสูงสุด']
+    if 'ความสามารถในการยก' in specs and 'ยกได้' in specs:
+        del specs['ยกได้']
+    if 'ความสูงมากสุด' in specs and 'ความสูงเมื่อยกสูงสุด' in specs:
+        del specs['ความสูงเมื่อยกสูงสุด']
+    if 'ระบบไฟฟ้า' in specs and ('แรงดันไฟฟ้า' in specs or 'กำลังไฟฟ้า' in specs):
+        del specs['ระบบไฟฟ้า']
+    if 'ความจุถัง' in specs and any(k != 'ความจุถัง' and 'ความจุถัง' in k for k in specs):
+        del specs['ความจุถัง']
 
-    if 'กำลังมอเตอร์' in specs and 'กำลังไฟฟ้า' in specs and 'วัตต์' in str(specs['กำลังไฟฟ้า']):
+    if 'กำลังมอเตอร์' in specs and 'กำลังไฟฟ้า' in specs and 'วัตต์' in str(specs['กำลังไฟฟ้า']) and 'กิโลวัตต์' not in str(specs['กำลังไฟฟ้า']):
         del specs['กำลังไฟฟ้า']
 
     return specs
+
+
+def is_stale_truncated_category(saved_cat, model_code=""):
+    """Detect broken auto-generated titles saved by legacy code (e.g. 'PL-411C ตัดหญ้าสะพายข้าง 2', '10R คีมล็อคปากตรง ขนาด') without touching clean manual edits."""
+    s = str(saved_cat or "").strip()
+    if not s:
+        return True
+    # 1. Ends with a dangling bare digit cut off from its unit word (e.g. 'ตัดหญ้าสะพายข้าง 2')
+    if re.search(r'\s\d+$', s):
+        return True
+    # 2. Ends with a dangling incomplete Thai connector/preposition (e.g. 'คีมล็อคปากตรง ขนาด')
+    if re.search(r'(?:^|\s)(?:ขนาด|รุ่น|แบบ|ระบบ|สี|พร้อม|สำหรับ|และ|หรือ|/|[-–+])$', s):
+        return True
+    # 3. Duplicates the model code at the start (e.g. 'PL-411C ...', 'SHT-30 ...', 'M5801B ...', '10R ...')
+    mc = re.sub(r'^รุ่น\s*', '', str(model_code or "").strip()).strip()
+    if len(mc) >= 2:
+        mc_norm = re.sub(r'[\-\s_]+', '', mc).lower()
+        first_tok = s.split()[0] if s.split() else ""
+        first_norm = re.sub(r'[\-\s_]+', '', first_tok).lower()
+        if first_norm and mc_norm and (first_norm == mc_norm or (len(mc_norm) >= 3 and first_norm.startswith(mc_norm))):
+            return True
+    return False
+
+
+def _build_clean_category_title(prod_name, model_code, summary="", desc=""):
+    """Generate a complete, clean, model-free Thai product category title across all 96,280 KTW SKUs."""
+    raw_name = (prod_name or "").replace('”', '"').replace('“', '"').replace('อุตฯ', 'อุตสาหกรรม').strip()
+    ctx = f"{raw_name} {summary or ''}"
+
+    # 1. Curated high-clarity Thai category templates for major hardware families
+    if 'ดอกสว่าน' in raw_name or 'เจดีย์' in raw_name:
+        return "ชุดดอกสว่านเจดีย์" if ('ชุด' in raw_name or 'SET' in raw_name.upper() or '3 ดอก' in raw_name) else "ดอกสว่านเจดีย์"
+    if 'ใบตัด' in raw_name or 'ใบเจียร์' in raw_name:
+        return "ใบตัด / ใบเจียร์คุณภาพ"
+    if 'เครื่องเจียร์' in raw_name or 'ลูกหมู' in raw_name:
+        m_sz = re.search(r'(\d+(?:\.\d+)?)\s*(?:นิ้ว|")', raw_name)
+        return f"เครื่องเจียร์ไฟฟ้า {m_sz.group(1)} นิ้ว" if m_sz else "เครื่องเจียร์ไฟฟ้า 4 นิ้ว"
+    if 'เครื่องฉีดน้ำ' in raw_name:
+        return "เครื่องฉีดน้ำแรงดันสูง"
+    if 'ตัดหญ้า' in raw_name:
+        m_st = re.search(r'([24])\s*จังหวะ', ctx)
+        st_txt = f" {m_st.group(1)} จังหวะ" if m_st else ""
+        if 'สะพาย' in ctx:
+            return f"เครื่องตัดหญ้าสะพายข้าง{st_txt}"
+        return f"เครื่องตัดหญ้า{st_txt}"
+    if 'เลื่อยวงเดือน' in raw_name or 'วงเดือน' in raw_name:
+        m_sz = re.search(r'(\d+(?:\.\d+)?)\s*(?:นิ้ว|")', ctx)
+        is_saw_cordless = (
+            any(k in ctx.lower() for k in ['ไร้สาย', 'แบต', 'ไม่รวมแบต', 'ไม่แบต', '20v', '18v', '40v', 'cordless'])
+            or bool(re.search(r'(?<!รอบ)ตัวเปล่า', raw_name))
+        )
+        cordless_txt = "ไร้สาย" if is_saw_cordless else ""
+        sz_txt = f" {m_sz.group(1)} นิ้ว" if m_sz else ""
+        return f"เครื่องเลื่อยวงเดือน{cordless_txt}{sz_txt}"
+    if 'เลื่อยโซ่' in raw_name:
+        m_sz = re.search(r'(\d+(?:\.\d+)?)\s*(?:นิ้ว|")', ctx)
+        sz_txt = f" {m_sz.group(1)} นิ้ว" if m_sz else ""
+        if any(k in ctx for k in ['จังหวะ', 'ยนต์', 'เบนซิน']):
+            return f"เครื่องเลื่อยโซ่ยนต์{sz_txt}"
+        return f"เครื่องเลื่อยโซ่ไฟฟ้า{sz_txt}"
+    if 'พัดลม' in raw_name or 'ดูดเป่า' in raw_name:
+        m_sz = re.search(r'(\d+)\s*(?:นิ้ว|")', ctx)
+        sz_txt = f" {m_sz.group(1)} นิ้ว" if m_sz else ""
+        if 'ดูดเป่า' in ctx:
+            return f"พัดลมอุตสาหกรรมดูดเป่า{sz_txt}"
+        return f"พัดลมอุตสาหกรรม{sz_txt}"
+    if 'คีมล็อค' in raw_name:
+        jaw = "ปากตรง" if 'ปากตรง' in ctx else ("ปากโค้ง" if 'ปากโค้ง' in ctx else ("ปากแหลม" if 'ปากแหลม' in ctx else ""))
+        m_sz = re.search(r'(\d+(?:\.\d+)?)\s*(?:นิ้ว|")', ctx)
+        sz_txt = f" {m_sz.group(1)} นิ้ว" if m_sz else ""
+        return f"คีมล็อค{jaw}{sz_txt}"
+    if 'เครื่องปั่นไฟ' in raw_name:
+        m_kw = re.search(r'(\d+(?:\.\d+)?)\s*(?:KW|kW|กิโลวัตต์)', ctx)
+        if m_kw:
+            return f"เครื่องปั่นไฟเบนซิน {m_kw.group(1)} KW" if 'เบนซิน' in ctx else f"เครื่องปั่นไฟ {m_kw.group(1)} KW"
+        return "เครื่องปั่นไฟเบนซิน" if 'เบนซิน' in ctx else "เครื่องปั่นไฟ"
+    if 'ปั๊มลม' in raw_name:
+        m_way = re.search(r'(\d+)\s*ทาง', ctx)
+        m_lt = re.search(r'(\d+)\s*(?:ลิตร|L\b)', ctx)
+        if m_way:
+            return f"ปั๊มลม {m_way.group(1)} ทาง"
+        if m_lt:
+            return f"ปั๊มลม {m_lt.group(1)} ลิตร"
+        return "ปั๊มลมไฟฟ้า"
+    if 'ปั๊มแช่' in raw_name:
+        m_sz = re.search(r'(\d+(?:\.\d+)?)\s*(?:นิ้ว|")', ctx)
+        return f"ปั๊มแช่ไฟฟ้า {m_sz.group(1)} นิ้ว" if m_sz else "ปั๊มแช่ไฟฟ้า"
+    if 'ปั๊มจุ่ม' in raw_name:
+        return "ปั๊มน้ำมาตรฐาน"
+    if 'ดูดฝุ่น' in raw_name:
+        dry_wet = " น้ำ-แห้ง" if ('น้ำ-แห้ง' in ctx or 'เปียกและแห้ง' in ctx) else ""
+        m_lt = re.search(r'(\d+)\s*(?:ลิตร|L\b)', ctx)
+        lt_txt = f" {m_lt.group(1)} ลิตร" if m_lt else ""
+        return f"เครื่องดูดฝุ่น{dry_wet}{lt_txt}"
+    if 'แม่แรง' in raw_name:
+        m_ton = re.search(r'(\d+(?:\.\d+)?)\s*(?:ตัน|TON)', ctx, re.I)
+        ton_txt = f" {m_ton.group(1)} ตัน" if m_ton else ""
+        return f"แม่แรงตะเข้{ton_txt}" if 'ตะเข้' in ctx else f"แม่แรงยก{ton_txt}"
+    if 'บันได' in raw_name:
+        m_ft = re.search(r'(\d+)\s*(?:ฟุต|ขั้น)', ctx)
+        ft_txt = f" {m_ft.group(0)}" if m_ft else ""
+        if 'กางปรับพาด' in ctx or 'ปรับพาด' in ctx:
+            return f"บันไดกางปรับพาด{ft_txt}"
+        return f"บันไดอลูมิเนียม{ft_txt}" if 'อลูมิเนียม' in ctx else f"บันไดช่าง{ft_txt}"
+    if 'วัดระยะ' in raw_name and 'เลเซอร์' in ctx:
+        m_m = re.search(r'(\d+)\s*(?:เมตร|ม\.)', ctx)
+        return f"เครื่องวัดระยะเลเซอร์ {m_m.group(1)} เมตร" if m_m else "เครื่องวัดระยะเลเซอร์"
+    if 'สว่านโรตารี่' in raw_name:
+        return "สว่านโรตารี่"
+    if 'สว่าน' in raw_name:
+        if any(k in ctx.lower() for k in ['ไร้สาย', 'แบต', '12v', '18v', '20v', '40v']):
+            m_sys = re.search(r'(\d+)\s*(?:ระบบ|โหมด)', ctx)
+            return f"สว่านไร้สาย {m_sys.group(1)} ระบบ" if m_sys else "สว่านไร้สาย"
+        return "สว่านไฟฟ้า"
+    if 'เครื่องจี้ปูน' in raw_name:
+        return "เครื่องจี้ปูนไฟฟ้า"
+    if 'ตู้เชื่อม' in raw_name or 'เครื่องเชื่อม' in raw_name:
+        return "เครื่องเชื่อมไฟฟ้า"
+    if 'ปั๊ม' in raw_name:
+        return "ปั๊มน้ำมาตรฐาน"
+    if 'เทป' in raw_name or 'TEMFLEX' in raw_name.upper():
+        return "เทปพันสายไฟไวนิล"
+
+    # 2. Universal smart fallback for ANY unseen KTW product: strip model_code, colors & tags; NEVER split a number from its unit!
+    clean_p = re.sub(r'^\s*[\(\[]\s*(?:แพ็ค|กล่อง|ชุด|แถม).*?[\)\]]\s*', '', raw_name).strip()
+    clean_p = re.sub(r'\[.*?\]', '', clean_p)
+    clean_p = re.sub(r'\([^\)]*(?:ใหม่|ลิมิเต็ด|ตัวเปล่า|ไม่รวมแบต|ไม่แบต|[A-Z0-9]{4,})[^\)]*\)', '', clean_p, flags=re.I)
+    clean_p = re.sub(r'(\d+(?:\.\d+)?)\s*"', r'\1 นิ้ว', clean_p)
+    # Strip model_code tokens so category never duplicates the red/navy model pill
+    mc_clean = re.sub(r'^รุ่น\s*', '', str(model_code or "")).strip()
+    if len(mc_clean) >= 2:
+        mc_esc = re.escape(mc_clean)
+        mc_nodash = re.escape(re.sub(r'[\-\s_]+', '', mc_clean))
+        clean_p = re.sub(rf'(?:^|\s)(?:{mc_esc}|{mc_nodash})(?=\s|$)', ' ', clean_p, flags=re.I)
+    # Strip trailing color words (สีแดง, สีดำ, etc.)
+    clean_p = re.sub(r'\s+สี(?:แดง|ดำ|ขาว|น้ำเงิน|เขียว|เหลือง|ส้ม|เทา|ฟ้า|ม่วง|ชมพู|ทอง|เงิน)\b.*$', '', clean_p)
+    clean_p = re.sub(r'\s+', ' ', clean_p).strip(' /-–+')
+
+    words = clean_p.split()
+    if not words:
+        return "เครื่องมือช่างคุณภาพ"
+
+    # Keep natural phrase up to 4 tokens (~34 chars), ALWAYS attaching unit word if last token is numeric or 'ขนาด'
+    kept = []
+    for w in words:
+        if len(kept) >= 4 or (len(' '.join(kept + [w])) > 34 and len(kept) >= 2):
+            break
+        kept.append(w)
+    idx = len(kept)
+    while idx < len(words):
+        last = kept[-1]
+        if re.match(r'^\d+(?:\.\d+)?$', last):
+            kept.append(words[idx])
+            idx += 1
+        elif last in ('ขนาด', 'ระบบ', 'แบบ', 'รุ่น', 'ชุด') and idx + 1 < len(words) and re.match(r'^\d', words[idx]):
+            kept.extend(words[idx:idx + 2])
+            idx += 2
+        else:
+            break
+    while len(kept) > 1 and kept[-1] in ('ขนาด', 'ระบบ', 'แบบ', 'รุ่น', 'สี', 'พร้อม', 'สำหรับ', '/', '-', '+'):
+        kept.pop()
+    return ' '.join(kept) if kept else "เครื่องมือช่างคุณภาพ"
 
 
 def enrich_spec_cards(saved_cards, default_cards, target_count=4):
@@ -2681,77 +3047,54 @@ def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
     detected_brand = (detail.get('brand') if detail else None) or detect_brand_from_sku(sku) or "MAKITA"
     specs_dict = extract_key_specs(detail)
 
-    # 1. Category title
-    if 'ดอกสว่าน' in prod_name or 'เจดีย์' in prod_name:
-        category_title = "ชุดดอกสว่านเจดีย์" if ('ชุด' in prod_name or 'SET' in prod_name.upper() or '3 ดอก' in prod_name) else "ดอกสว่านเจดีย์"
-    elif 'ใบตัด' in prod_name or 'ใบเจียร์' in prod_name:
-        category_title = "ใบตัด / ใบเจียร์คุณภาพ"
-    elif 'เครื่องเจียร์' in prod_name or 'ลูกหมู' in prod_name:
-        m_sz = re.search(r'(\d+)\s*(?:นิ้ว|")', prod_name)
-        category_title = f"เครื่องเจียร์ไฟฟ้า {m_sz.group(1)} นิ้ว" if m_sz else "เครื่องเจียร์ไฟฟ้า 4 นิ้ว"
-    elif 'เครื่องฉีดน้ำ' in prod_name:
-        category_title = "เครื่องฉีดน้ำแรงดันสูง"
-    elif 'สว่านโรตารี่' in prod_name:
-        category_title = "สว่านโรตารี่"
-    elif 'สว่าน' in prod_name:
-        category_title = "สว่านไฟฟ้า"
-    elif 'เครื่องจี้ปูน' in prod_name:
-        category_title = "เครื่องจี้ปูนไฟฟ้า"
-    elif 'ตู้เชื่อม' in prod_name or 'เครื่องเชื่อม' in prod_name:
-        category_title = "เครื่องเชื่อมไฟฟ้า"
-    elif 'ปั๊ม' in prod_name:
-        category_title = "ปั๊มน้ำมาตรฐาน"
-    elif 'เทป' in prod_name or 'TEMFLEX' in prod_name.upper():
-        category_title = "เทปพันสายไฟไวนิล"
-    else:
-        clean_p = re.sub(r'^\s*[\(\[]\s*(?:แพ็ค|กล่อง|ชุด|แถม).*?[\)\]]\s*', '', prod_name).strip()
-        clean_p = re.sub(r'\[.*?\]', '', clean_p).strip()
-        words = clean_p.split()
-        category_title = ' '.join(words[:3]) if words else "เครื่องมือช่างคุณภาพ"
-
-    # 2. Model Name
+    # 1. Model Name FIRST (so category_title never duplicates model_code)
     model_code, _ = extract_model_label(prod_name, sku, detail=detail)
     model_name = f"รุ่น {model_code}" if not model_code.startswith("รุ่น") else model_code
 
-    # 3. Spec cards with deduplication
+    # 2. Complete Smart Category Title
+    category_title = _build_clean_category_title(
+        prod_name, model_code, summary=detail.get('summary', '') or '', desc=detail.get('description', '') or ''
+    )
+
+    # 3. Spec cards with universal vector-supported icons and smart priority
     icon_map = {
-        'ขนาด': '📏', 'แกน': '📏', 'ใบ': '📏', 'สาย': '📏', 'กว้าง': '📏', 'ยาว': '📏', 'ลวด': '📏',
-        'ระบบการเชื่อม': '⚙️', 'ฟังก์ชัน': '⚙️', 'ล็อค': '⚙️', 'แรงบิด': '⚙️', 'ทอร์ค': '⚙️',
-        'เหมาะสำหรับ': '✅',
+        'ขนาด': '📏', 'แกน': '📏', 'ใบ': '📏', 'สาย': '📏', 'กว้าง': '📏', 'ยาว': '📏', 'สูง': '📏',
+        'ลวด': '📏', 'ท่อ': '📏', 'บาร์': '📏', 'ระยะ': '📏', 'หนา': '📐', 'มุม': '📐', 'แม่นยำ': '📐',
+        'ระบบ': '⚙️', 'ฟังก์ชัน': '⚙️', 'ล็อค': '⚙️', 'แรงบิด': '⚙️', 'ทอร์ค': '⚙️', 'โหมด': '⚙️',
+        'สตาร์ท': '⚙️', 'เครื่องยนต์': '⚙️', 'จังหวะ': '⚙️', 'ชุดอุปกรณ์': '⚙️', 'รูปแบบ': '⚙️', 'ทางลม': '⚙️',
+        'เหมาะสำหรับ': '✅', 'จุดเด่น': '✅', 'การใช้งาน': '✅',
         'มาตรฐาน': '🛡️', 'กันน้ำ': '🛡️', 'ประกัน': '🛡️', 'ฉนวน': '🛡️',
-        'คุณสมบัติ': '🛡️', 'ไม่ลามไฟ': '🛡️', 'วัสดุ': '🛡️', 'เกรด': '🛡️',
-        'ความเร็ว': '⏱', 'รอบ': '⏱',
+        'คุณสมบัติ': '🛡️', 'ไม่ลามไฟ': '🛡️', 'วัสดุ': '🛡️', 'เกรด': '🛡️', 'ระดับ': '🛡️', 'ยก': '🛡️',
+        'ความเร็ว': '⏱', 'รอบ': '⏱', 'เวลา': '⏱', 'อัตรา': '⏱',
         'สวิตช์': '🔘', 'ตำแหน่ง': '🔘',
-        'หนา': '📐',
-        'อุณหภูมิ': '🌡️', 'ความร้อน': '🌡️',
-        'แรงดันสูงสุด': '🌊', 'บาร์': '🌊',
-        'น้ำหนัก': '⚖️',
-        'น้ำ': '💧', 'ไหล': '💧',
-        'แรงดันไฟฟ้า': '⚡', 'กำลัง': '⚡', 'มอเตอร์': '⚡', 'วัตต์': '⚡', 'โวลต์': '⚡',
-        'กระแส': '⚡', 'แอมป์': '⚡', 'KVA': '⚡', 'ประสิทธิภาพ': '⚡', 'เชื่อม': '⚡',
-        'ระบบ': '🔌', 'Auto': '🔌', 'IGBT': '🔌', 'Inverter': '🔌',
-        'จำนวน': '📦', 'บรรจุ': '📦', 'แพ็ค': '📦'
+        'แรงดันไฟฟ้า': '⚡', 'แรงดันแบต': '⚡', 'กำลัง': '⚡', 'มอเตอร์': '⚡', 'วัตต์': '⚡', 'โวลต์': '⚡',
+        'กระแส': '⚡', 'แอมป์': '⚡', 'KVA': '⚡', 'ประสิทธิภาพ': '⚡', 'เชื่อม': '⚡', 'แรงดัน': '⚡',
+        'ถัง': '⚙️', 'ความจุ': '⚙️', 'ลม': '⚡', 'น้ำ': '⚡', 'เลเซอร์': '⚡',
     }
     def _spec_priority(item):
         k, v = item
-        if 'กระแส' in k or 'แอมป์' in str(v): return 1
+        vs = str(v)
+        if 'กระแส' in k or 'แอมป์' in vs: return 1
+        if 'ความสามารถในการยก' in k or 'ระยะการวัด' in k: return 1
         if 'เจาะ' in k or 'ขนาดการเจาะ' in k: return 1
-        if 'แรงบิด' in k or 'นิวตัน' in str(v): return 1
-        if 'มอเตอร์' in k or 'วัตต์' in str(v) or 'W' in str(v) or 'KVA' in str(v): return 2
-        if 'แรงดันสูงสุด' in k or 'บาร์' in str(v): return 3
-        if 'ขนาดลวด' in k: return 3
-        if 'ขนาดตัวเครื่อง' in k: return 13
-        if 'ขนาด' in k or 'ลวด' in k or 'หัว' in k or 'ใบ' in k: return 4
-        if 'ความเร็ว' in k or 'รอบ' in str(v): return 5
-        if 'ความยาว' in k or 'เมตร' in str(v): return 6
-        if 'ระบบการเชื่อม' in k or 'ฟังก์ชัน' in k: return 6
+        if 'แรงบิด' in k or 'นิวตัน' in vs: return 1
+        if 'มอเตอร์' in k or 'กำลังเครื่องยนต์' in k or 'ประสิทธิภาพเครื่องยนต์' in k or 'กำลังไฟสูงสุด' in k or 'วัตต์' in vs or 'กิโลวัตต์' in vs or 'KVA' in vs or bool(re.search(r'\d+\s*w\b', vs, re.I)): return 2
+        if 'แรงดันสูงสุด' in k or 'แรงดันลม' in k or 'บาร์' in vs or 'kPa' in vs: return 3
+        if 'ขนาดลวด' in k or 'ขนาดบาร์' in k or 'แรงดันแบตเตอรี่' in k: return 3
+        if 'ความสูง' in k or 'ความแม่นยำ' in k or 'ความจุถัง' in k or 'ระยะส่ง' in k: return 3
+        if 'ขนาดตัวเครื่อง' in k or k == 'ขนาด': return 13
+        if 'ขนาด' in k or 'ลวด' in k or 'หัว' in k or 'ใบ' in k or 'ท่อ' in k or 'ความกว้าง' in k: return 4
+        if 'ความเร็ว' in k or 'รอบ' in vs or 'แรงลม' in k: return 5
+        if 'ความยาว' in k or 'เมตร' in vs or 'มุม' in k or 'ทางลม' in k: return 6
+        if 'ระบบการเชื่อม' in k or 'ฟังก์ชัน' in k or 'ระบบสตาร์ท' in k or 'ระบบเครื่องยนต์' in k or 'ประเภทเครื่องยนต์' in k: return 6
         if 'อัตรา' in k or ('น้ำ' in k and 'น้ำหนัก' not in k and 'กันน้ำ' not in k): return 7
-        if 'สวิตช์' in k or 'ระบบ' in k: return 8
+        if 'สวิตช์' in k or 'ระบบ' in k or 'ประเภท' in k or 'ระดับ' in k: return 8
         if 'เกรด' in k or 'วัสดุ' in k or 'เหมาะสำหรับ' in k: return 9
         if 'มาตรฐาน' in k or 'ประกัน' in k or 'ประสิทธิภาพ' in k: return 10
-        if 'แรงดันไฟฟ้า' in k or '220' in str(v): return 12
+        if 'ชุดอุปกรณ์' in k or 'แบตเตอรี่และแท่นชาร์จ' in k: return 11
+        if 'แรงดันไฟฟ้า' in k or '220' in vs: return 12
         if 'น้ำหนัก' in k: return 14
-        return 15
+        return 11
 
     # 3. Extract Weight Pill (Pill 2: น้ำหนักสินค้า)
     weight_pill = None
@@ -2828,9 +3171,9 @@ def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
         feat_pill = "ดูดน้ำจากถังได้อัตโนมัติ"
     elif 'พัดลม' in name_lower or 'ดูดเป่า' in name_lower or 'blower' in name_lower:
         if 'อลูมิเนียม' in desc_lower or 'ใบพัด' in desc_lower:
-            feat_pill = "ใบพัดอลูมิเนียม ลมแรงทรงพลัง"
+            feat_pill = "ใบพัดอลูมิเนียม ลมแรงสูง"
         else:
-            feat_pill = "ระบายอากาศเยี่ยม ลมแรงต่อเนื่อง"
+            feat_pill = "ระบายอากาศเยี่ยม ลมแรงดี"
     elif 'ตัดหญ้า' in name_lower or 'เครื่องยนต์' in name_lower:
         feat_pill = "สตาร์ทติดง่าย ลุยงานหนัก"
     elif 'ดอกสว่าน' in name_lower or 'step drill' in name_lower or 'ดอกเจาะ' in name_lower:
@@ -2844,11 +3187,11 @@ def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
         else:
             feat_pill = "เหล็กเกรดพรีเมียม ปากจับแน่น"
     elif any(k in name_lower for k in ['เครื่องเจียร์', 'สว่าน', 'เลื่อย', 'ขัดกระดาษทราย', 'เป่าลม', 'ทริมเมอร์', 'เร้าเตอร์']):
-        if 'ไร้แปรงถ่าน' in desc_lower or 'brushless' in desc_lower or 'brushless' in name_lower:
+        if 'ไร้แปรงถ่าน' in desc_lower or 'brushless' in desc_lower or 'brushless' in name_lower or '-bl' in name_lower:
             feat_pill = "มอเตอร์ Brushless ทนทาน"
         else:
             feat_pill = "มอเตอร์ทองแดงแท้ 100%"
-    elif 'ปั๊มน้ำ' in name_lower or 'ปั๊มจุ่ม' in name_lower:
+    elif 'ปั๊มน้ำ' in name_lower or 'ปั๊มจุ่ม' in name_lower or 'ปั๊มแช่' in name_lower:
         feat_pill = "ระบบป้องกันมอเตอร์ไหม้"
     elif 'บันได' in name_lower:
         feat_pill = "อลูมิเนียมหนา รับน้ำหนักสูง"
@@ -2917,18 +3260,20 @@ def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
 
         # 5.3 Metric Type Deduplication (Never allow two pressure, power, speed, or flow cards)
         m_type = None
-        if any(u in val_norm for u in ['บาร์', 'bar', 'psi']):
+        if 'บาร์' in val_norm or 'psi' in val_norm or bool(re.search(r'\d\s*bar\b', val_clean, re.I)):
             m_type = 'pressure'
-        elif any(u in val_norm for u in ['ลิตร', 'flow', 'l/min']):
+        elif any(u in val_norm for u in ['ลิตร/นาที', 'ลิตร/ชม', 'flow', 'l/min', 'l/hr']):
             m_type = 'flow'
-        elif any(u in val_norm for u in ['วัตต์', 'w', 'kva', 'kw']):
+        elif any(u in val_norm for u in ['วัตต์', 'กิโลวัตต์', 'kva', 'kw']) or bool(re.search(r'\d\s*w\b', val_clean, re.I)):
             m_type = 'power'
-        elif any(u in val_norm for u in ['รอบ', 'rpm']):
+        elif any(u in val_norm for u in ['รอบ/นาที', 'รอบต่อนาที', 'rpm']):
             m_type = 'speed'
-        elif any(u in val_norm for u in ['แอมป์', 'amp']):
+        elif 'แอมป์' in val_norm or bool(re.search(r'\d\s*amp\b', val_clean, re.I)):
             m_type = 'current'
-        elif 'สายฉีด' in k or 'สายไฟ' in k:
+        elif 'สายฉีด' in k:
             m_type = 'hose'
+        elif 'สายไฟ' in k:
+            m_type = 'cord'
 
         if m_type and m_type in seen_types:
             continue
@@ -2946,15 +3291,12 @@ def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
         if ('220' in str(v) or 'แรงดันไฟฟ้า' in k) and any(t in seen_types for t in ['power', 'current']) and usable_non_220 >= 4:
             continue
 
-        # Determine icon
+        # Determine icon (always vector-supported)
         matched_icon = '⚡'
-        if 'น้ำหนัก' in k:
-            matched_icon = '⚖️'
-        else:
-            for ik, iv in icon_map.items():
-                if ik in k:
-                    matched_icon = iv
-                    break
+        for ik, iv in icon_map.items():
+            if ik in k:
+                matched_icon = iv
+                break
 
         spec_cards.append({"icon": matched_icon, "label": k, "val": val_clean})
         seen_values.add(val_norm)
@@ -2964,13 +3306,78 @@ def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
         if m_w:
             seen_values.add(m_w.group(1))
 
-    is_bigpower = bool(shop_name and ('bigpower' in shop_name.lower() or 'big power' in shop_name.lower() or 'shop2' in shop_name.lower() or 'shop_2' in shop_name.lower()))
-    official_shop_name = "BIGPOWER TOOLS" if is_bigpower else "MEGATOOL"
-
-    # Clean description for display
+    # Clean description for display & Layer 4 backfill
     clean_desc = re.sub(r'<br\s*/?>', '\n', detail.get('description', '') or '', flags=re.IGNORECASE)
     clean_desc = re.sub(r'</p>', '\n', clean_desc, flags=re.IGNORECASE)
     clean_desc = re.sub(r'<[^>]+>', '', clean_desc).strip()
+
+    # Layer 4: Universal KTW Feature/Attribute Backfill (ONLY when < 4 cards from SAP + numeric extraction)
+    if len(spec_cards) < 4:
+        existing_blob = ' '.join([f"{c['label']} {c['val']}" for c in spec_cards] + hero_pills).lower()
+        ctx_all = f"{prod_name} {detail.get('summary', '') or ''} {clean_desc}"
+        backfill_candidates = []
+        # 4a. Structured universal attributes detected directly from KTW text
+        if ('น้ำ-แห้ง' in ctx_all or 'เปียกและแห้ง' in ctx_all) and 'น้ำ' not in existing_blob:
+            backfill_candidates.append(('⚙️', 'รูปแบบการใช้งาน', 'ดูดได้ทั้งน้ำและแห้ง'))
+        if ('กางปรับพาด' in ctx_all or 'ปรับพาด' in ctx_all) and 'กาง' not in existing_blob:
+            backfill_candidates.append(('⚙️', 'รูปแบบบันได', 'กางใช้งาน / ปรับพาดได้'))
+        m_modes = re.search(r'(\d+)\s*(?:ระบบ|โหมด)', ctx_all)
+        if m_modes and 'โหมด' not in existing_blob and 'ระบบการทำงาน' not in existing_blob:
+            backfill_candidates.append(('⚙️', 'โหมดการทำงาน', f"ปรับได้ {m_modes.group(1)} ระบบ"))
+        if 'ซ้าย-ขวา' in ctx_all and 'ซ้าย-ขวา' not in existing_blob:
+            backfill_candidates.append(('⚙️', 'ฟังก์ชันเสริม', 'ปรับหมุนซ้าย-ขวาได้'))
+        if ('ใบพัดอลูมิเนียม' in ctx_all or 'อลูมิเนียม' in ctx_all) and 'อลูมิเนียม' not in existing_blob:
+            backfill_candidates.append(('🛡️', 'วัสดุตัวเครื่อง', 'อลูมิเนียมคุณภาพสูง'))
+        elif ('สแตนเลส' in ctx_all or 'สเตนเลส' in ctx_all) and 'สแตนเลส' not in existing_blob and 'สเตนเลส' not in existing_blob:
+            backfill_candidates.append(('🛡️', 'วัสดุตัวเครื่อง', 'สแตนเลสแท้ ทนสนิม'))
+        elif ('เหล็กกล้า' in ctx_all or 'เหล็กคุณภาพดี' in ctx_all or 'เหล็กชุบแข็ง' in ctx_all) and 'เหล็ก' not in existing_blob:
+            backfill_candidates.append(('🛡️', 'วัสดุผลิต', 'เหล็กกล้าคุณภาพสูง ทนทาน'))
+        if 'ระบบกรอง' in ctx_all or 'HEPA' in ctx_all.upper():
+            if 'hepa' in ctx_all.lower() and 'hepa' not in existing_blob:
+                backfill_candidates.append(('🛡️', 'ระบบกรองฝุ่น', 'ฟิลเตอร์กรองฝุ่น HEPA'))
+        if 'ปรับความเร็ว' in ctx_all and 'ปรับความเร็ว' not in existing_blob:
+            backfill_candidates.append(('⚙️', 'การควบคุม', 'ปรับระดับความเร็วได้'))
+        if 'ตัดแต่งกิ่งไม้' in ctx_all and 'กิ่งไม้' not in existing_blob:
+            backfill_candidates.append(('✅', 'เหมาะสำหรับงาน', 'ตัดไม้ / ตัดแต่งกิ่งไม้'))
+
+        # 4b. Short, factual non-warning KTW bullet lines from description (never hallucinated!)
+        _WARN_HDRS = ('คำเตือน', 'ข้อควรระวัง', 'การบำรุงรักษา', 'เงื่อนไข', 'หมายเหตุ', 'อุปกรณ์มาตรฐาน', 'อุปกรณ์ในกล่อง')
+        _SKIP_BULLET = ('ห้าม', 'โปรด', 'รับประกัน', 'ติดต่อ', 'ราคา', 'ส่งฟรี', 'รุ่น ', 'ไม่รวมแบต', 'รายละเอียดสินค้า', 'ลักษณะพิเศษ', 'คุณสมบัติ', 'ข้อมูลจำเพาะ')
+        stop_b = False
+        bullet_lbls = ['คุณสมบัติเด่น', 'จุดเด่นสินค้า', 'การใช้งาน']
+        b_idx = 0
+        for raw_ln in clean_desc.split('\n'):
+            ln = raw_ln.strip().lstrip('•').lstrip('-').lstrip('*').lstrip('▪').strip()
+            if not ln:
+                continue
+            if any(ln.startswith(wh) and len(ln) <= 32 for wh in _WARN_HDRS):
+                stop_b = True
+                continue
+            if stop_b or ':' in ln or '：' in ln:
+                continue
+            if 10 <= len(ln) <= 36 and not any(sb in ln for sb in _SKIP_BULLET):
+                ln_low = ln.lower()
+                # Skip if already represented in title, pills, or existing cards
+                if ln_low not in existing_blob and prod_name.lower()[:12] not in ln_low:
+                    lbl_pick = bullet_lbls[min(b_idx, len(bullet_lbls) - 1)]
+                    backfill_candidates.append(('✅', lbl_pick, ln))
+                    b_idx += 1
+                    if b_idx >= 2:
+                        break
+
+        seen_bf_lbls = {c['label'].strip().lower() for c in spec_cards}
+        seen_bf_vals = {re.sub(r'\s+', '', c['val']).lower() for c in spec_cards}
+        for ic, bl, bv in backfill_candidates:
+            if len(spec_cards) >= 4:
+                break
+            if bl.lower() in seen_bf_lbls or re.sub(r'\s+', '', bv).lower() in seen_bf_vals:
+                continue
+            spec_cards.append({"icon": ic, "label": bl, "val": bv})
+            seen_bf_lbls.add(bl.lower())
+            seen_bf_vals.add(re.sub(r'\s+', '', bv).lower())
+
+    is_bigpower = bool(shop_name and ('bigpower' in shop_name.lower() or 'big power' in shop_name.lower() or 'shop2' in shop_name.lower() or 'shop_2' in shop_name.lower()))
+    official_shop_name = "BIGPOWER TOOLS" if is_bigpower else "MEGATOOL"
 
     # Formatted classifications for display
     raw_classifs = []
@@ -2998,10 +3405,17 @@ def get_auto_cover_defaults(sku, detail=None, shop_name="MEGATOOL"):
             pass
 
     if isinstance(custom_saved, dict):
+        changed_saved = False
+        custom_saved = dict(custom_saved)
         saved_cards = [c for c in (custom_saved.get("custom_spec_cards") or []) if isinstance(c, dict) and c.get("label") and c.get("val")]
         if len(saved_cards) < 4 and len(spec_cards) > len(saved_cards):
-            custom_saved = dict(custom_saved)
             custom_saved["custom_spec_cards"] = enrich_spec_cards(saved_cards, spec_cards)
+            changed_saved = True
+        saved_cat = custom_saved.get("custom_category")
+        if saved_cat and is_stale_truncated_category(saved_cat, custom_saved.get("custom_model") or model_code):
+            custom_saved["custom_category"] = category_title
+            changed_saved = True
+        _ = changed_saved
 
     return {
         "category_title": category_title,

@@ -748,7 +748,18 @@ def api_get_all_cover_customizations():
     if os.path.exists(file_path):
         try:
             with open(file_path, "r", encoding="utf-8") as f:
-                return {"success": True, "customizations": json.load(f)}
+                raw_all = json.load(f)
+            from app.image_service import is_stale_truncated_category
+            cleaned = {}
+            for k, v in (raw_all or {}).items():
+                if isinstance(v, dict):
+                    nv = dict(v)
+                    if nv.get("custom_category") and is_stale_truncated_category(nv.get("custom_category"), nv.get("custom_model") or ""):
+                        nv.pop("custom_category", None)
+                    cleaned[k] = nv
+                else:
+                    cleaned[k] = v
+            return {"success": True, "customizations": cleaned}
         except Exception:
             pass
     return {"success": True, "customizations": {}}
@@ -762,16 +773,21 @@ def api_get_cover_customizations(sku: str):
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 cust = data.get(sku) or {}
-                if isinstance(cust, dict) and cust.get("custom_spec_cards"):
-                    valid_saved = [c for c in cust["custom_spec_cards"] if isinstance(c, dict) and c.get("label") and c.get("val")]
-                    if len(valid_saved) < 4:
+                if isinstance(cust, dict) and (cust.get("custom_spec_cards") or cust.get("custom_category")):
+                    valid_saved = [c for c in (cust.get("custom_spec_cards") or []) if isinstance(c, dict) and c.get("label") and c.get("val")]
+                    from app.image_service import get_auto_cover_defaults, enrich_spec_cards, is_stale_truncated_category
+                    need_cards = bool(cust.get("custom_spec_cards")) and len(valid_saved) < 4
+                    need_cat = bool(cust.get("custom_category")) and is_stale_truncated_category(cust.get("custom_category"), cust.get("custom_model") or "")
+                    if need_cards or need_cat:
                         try:
-                            from app.image_service import get_auto_cover_defaults, enrich_spec_cards
                             d_auto = get_auto_cover_defaults(sku)
-                            enriched = enrich_spec_cards(valid_saved, d_auto.get("spec_cards") or [])
-                            if len(enriched) > len(valid_saved):
-                                cust = dict(cust)
-                                cust["custom_spec_cards"] = enriched
+                            cust = dict(cust)
+                            if need_cards:
+                                enriched = enrich_spec_cards(valid_saved, d_auto.get("spec_cards") or [])
+                                if len(enriched) > len(valid_saved):
+                                    cust["custom_spec_cards"] = enriched
+                            if need_cat and d_auto.get("category_title"):
+                                cust["custom_category"] = d_auto["category_title"]
                         except Exception:
                             pass
                 saved_t = get_custom_shopee_title(sku)
@@ -1342,9 +1358,13 @@ def api_batch_auto_spec_cart(req: BatchAutoSpecRequest):
             brand = item.get("brand") or clean_brand_name(detail.get("manufacturer"), sku)
             cust_item = cust_db.get(sku) if isinstance(cust_db.get(sku), dict) else {}
             defaults = get_auto_cover_defaults(sku, detail=detail, shop_name=s_name)
+            from app.image_service import AUTO_SPEC_TYPO_VER, enrich_spec_cards, is_stale_truncated_category
             c_model = cust_item.get("custom_model") or item.get("custom_model") or defaults.get("model_name")
-            c_cat = cust_item.get("custom_category") or item.get("custom_category") or defaults.get("category_title")
-            from app.image_service import AUTO_SPEC_TYPO_VER, enrich_spec_cards
+            raw_saved_cat = cust_item.get("custom_category") or item.get("custom_category")
+            if raw_saved_cat and not is_stale_truncated_category(raw_saved_cat, c_model or ""):
+                c_cat = raw_saved_cat
+            else:
+                c_cat = defaults.get("category_title")
             c_pills = cust_item.get("custom_hero_pills") or item.get("custom_hero_pills") or defaults.get("hero_pills")
             saved_cards = cust_item.get("custom_spec_cards") or item.get("custom_spec_cards")
             c_cards = enrich_spec_cards(saved_cards, defaults.get("spec_cards")) if saved_cards else defaults.get("spec_cards")
